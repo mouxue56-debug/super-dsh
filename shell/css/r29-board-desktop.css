@@ -1,0 +1,169 @@
+/* 宽屏看板。1024 以下不显示，手机仍用原来的五列。 */
+.r29-desk { display: none; }
+
+.r29-board-phone-card {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border: var(--line-w, 1px) solid var(--line);
+  border-radius: 16px;
+  background: var(--elev);
+}
+.r29-board-phone { padding: 8px 16px 24px; }
+.r29-board-phone .r29-desk-who { margin-bottom: 4px; }
+.r29-board-phone h3 { margin: 0; font-size: 15px; line-height: 20px; }
+.r29-board-phone time { color: var(--ink-2); font-size: 12px; }
+
+@media (min-width: 1024px) {
+  #hub-view:has(> .r29-desk) {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  #hub-view:has(> .r29-desk) > .boardview { display: none; }
+  .r29-desk {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    padding: 92px 12px 12px;
+  }
+  .r29-desk-bar {
+    display: flex;
+    flex: none;
+    gap: 8px;
+    align-items: flex-end;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+  .r29-desk-filter {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    width: 64px;
+    min-height: 44px;
+    padding: 2px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--ink);
+  }
+  .r29-desk-filter.is-on { background: var(--bot-soft, var(--fill)); }
+  .r29-desk-filter-name {
+    max-width: 64px;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 14px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .r29-desk-empty { margin: 12px 4px; color: var(--ink-2); font-size: 15px; }
+  .r29-desk-body {
+    display: flex;
+    flex: 1 1 auto;
+    gap: 10px;
+    min-width: 0;
+    min-height: 0;
+  }
+  .r29-desk-cols {
+    display: flex;
+    flex: 1 1 auto;
+    gap: 8px;
+    min-width: 0;
+    overflow-x: auto;
+  }
+  .r29-desk-col {
+    display: flex;
+    flex: 1 1 150px;
+    flex-direction: column;
+    min-width: 150px;
+    min-height: 0;
+    border: var(--line-w, 1px) solid var(--line);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--bg) 78%, var(--elev));
+  }
+  .r29-desk-col > header {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: space-between;
+    height: 36px;
+    padding: 0 10px;
+  }
+  .r29-desk-col h2 { margin: 0; font-size: 14px; }
+  .r29-desk-col em { color: var(--ink-2); font-style: normal; font-size: 12px; }
+  .r29-desk-col-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0 8px 8px; }
+  .r29-desk-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    width: 100%;
+    margin: 0 0 8px;
+    padding: 8px;
+    border: var(--line-w, 1px) solid var(--line);
+    border-radius: 14px;
+    background: var(--elev);
+    color: var(--ink);
+    text-align: left;
+  }
+  .r29-desk-card.is-on { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .r29-desk-who {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+  }
+  .r29-desk-line { font-size: 13px; line-height: 18px; }
+  .r29-desk-title {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 18px;
+    overflow-wrap: anywhere;
+  }
+  .r29-desk-time { color: var(--ink-2); font-size: 11px; line-height: 14px; }
+  .r29-desk-side {
+    display: flex;
+    flex: 0 0 220px;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    overflow: auto;
+    padding: 10px;
+    border: var(--line-w, 1px) solid var(--line);
+    border-radius: 16px;
+    background: var(--elev);
+  }
+  .r29-desk-side.is-shut { flex-basis: 64px; overflow: hidden; }
+  .r29-desk-side.is-shut .r29-desk-detail { display: none; }
+  .r29-desk-toggle {
+    flex: none;
+    min-height: 36px;
+    border: var(--line-w, 1px) solid var(--line);
+    border-radius: 999px;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  .r29-desk-detail h2 { margin: 0; font-size: 16px; line-height: 22px; overflow-wrap: anywhere; }
+  .r29-desk-detail h3 { margin: 10px 0 4px; font-size: 12px; }
+  .r29-desk-detail p { margin: 0; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+  .r29-desk-letter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--r29-desk-size, 28px);
+    height: var(--r29-desk-size, 28px);
+    min-width: var(--r29-desk-size, 28px);
+    border-radius: 50%;
+    background: var(--ink-2);
+    color: var(--elev);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+  }
+}

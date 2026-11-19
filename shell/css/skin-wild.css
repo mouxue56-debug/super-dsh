@@ -1,0 +1,271 @@
+/* Wild skin · R15 (2026-11-16). Thin rules, small corners, serif titles.
+   Shell and late-injected module styles are overridden only in this skin. */
+:root[data-skin=wild] {
+  --line-w: 1px;
+  --r-card: 18px;
+  --r-pill: 999px;
+  --serif: "Songti SC","Hiragino Mincho ProN","Noto Serif SC",serif;
+  --round: var(--font);
+  --shadow-hard: var(--shadow-card);
+  --shadow-glass: inset 0 1px 0 var(--shine),var(--shadow-card);
+  --grain: rgba(41,56,47,.045);
+  --glass: rgba(251,248,232,.9);
+  --wild-tour-halo: color-mix(in srgb,var(--bot) 32%,transparent);
+}
+:root[data-skin=wild][data-theme=dark] {
+  --shadow-hard: var(--shadow-card);
+  --shadow-glass: inset 0 1px 0 var(--shine),var(--shadow-card);
+  --grain: rgba(155,232,241,.05);
+  --glass: rgba(24,44,54,.9);
+  --elev: #1f3742;
+  --elev-2: #28444f;
+  --wild-tour-halo: color-mix(in srgb,var(--line) 36%,transparent);
+}
+:root[data-skin=wild] :is(body,.sidebar,.mainpane,.chatview) {
+  background-image: repeating-linear-gradient(45deg,var(--grain) 0 1px,transparent 1px 14px),repeating-linear-gradient(-45deg,var(--grain) 0 1px,transparent 1px 14px);
+}
+
+/* Controls, including unclassed profile buttons and every module's inputs.
+   Avatar buttons, permission stickers and switches retain their silhouettes. */
+:root[data-skin=wild] button:not(:where(.shell-level-sticker,.userava,.switch,[data-bot-expand])) {
+  border-radius: var(--r-pill);
+}
+:root[data-skin=wild] :is(input,select,textarea,.pop-input) {
+  border-radius: var(--r-pill);
+}
+:root[data-skin=wild] :is(.titlepill,.searchdock,.searchfield,.inputpill,.scope,.task-tabs,.hub-tabs,.shell-activity-tabs,.navmodes,.tabbar,.sys,.emotions,.stagecontrols,.segmented,.projectpicker,.attachchip,.voice-strip,.task-meta span,.dateblock,.m-memory-path,.m-persona-segments,.m-automation-segments,.m-governance-segment,.m-governance-mix-choices,.m-cards-a-modes,.m-cards-b-chart-modes) {
+  border-radius: var(--r-pill);
+}
+:root[data-skin=wild] .composer-area .inputpill {
+  border-radius: var(--r-pill);
+}
+:root[data-skin=wild] :is(.pill,.tag,.flag,.lv,.badge) {
+  border-radius: var(--r-pill);
+}
+:root[data-skin=wild] .ghostbtn {
+  background: transparent;
+  border: 1px solid var(--line);
+}
+:root[data-skin=wild] button {
+  letter-spacing: .04em;
+}
+
+/* Large surfaces and card-like buttons. No change to geometry or hit areas. */
+:root[data-skin=wild] :is(.bubble,.user-bubble,.jp,.pop-card,.surface,.mcard,.kcard,.ghost,.kcol,.pin,.conversation,.decision-shortcut,.stage-frame,.toggle-list,.queuebar,.atmenu,.portrait-card,.schedule-card,.waitbox,.tool,.screenshot-art,.task-evidence,.particle-wrap,.subtitle,.livecard,.model-choice,.balance-grid>div,.health-grid>div,.preview-paper,.terminal,.canvas,.new-entry,.toast,.shell-floating-call,.m-persona-template,.m-persona-avatar-choice) {
+  border-radius: var(--r-card);
+}
+:root[data-skin=wild] :is(.bubble,.user-bubble) {
+  border: 1px solid var(--line);
+}
+:root[data-skin=wild] .msg.msg-user {
+  border: 0;
+  border-radius: 0;
+}
+/* The attachment preview's 12px radius is inline in the shell. */
+:root[data-skin=wild] .drawer .surface>img[style] {
+  border-radius: var(--r-card) !important;
+}
+
+/* Restore the round exceptions that otherwise inherit the control token. */
+:root[data-skin=wild] :is(.switch,.m-interact-bottom-count) {
+  border-radius: 999px;
+}
+:root[data-skin=wild] .m-cards-a-switch[class~="switch"]:before {
+  border-radius: 999px;
+}
+:root[data-skin=wild] :is(.bot-unread,.dot,.col-dot,.m-governance-dot,.m-automation-dot,.m-cards-a-dot,.m-cards-b-window-dot) {
+  border-radius: 50%;
+}
+:root[data-skin=wild] :is(.m-cards-a-step,.m-cards-b-event,.m-automation-card-head):before {
+  border-radius: 50%;
+}
+:root[data-skin=wild] .shell-sub-avatars button {
+  border-radius: 50%;
+}
+:root[data-skin=wild] input[type=radio] {
+  border-radius: 50%;
+}
+
+/* Programmatic drawer focus must not draw a second frame. */
+:root[data-skin=wild] aside.drawer,
+:root[data-skin=wild] aside.drawer:focus,
+:root[data-skin=wild] aside.drawer:focus-visible {
+  border: 1px solid var(--line);
+  border-radius: var(--r-card) var(--r-card) 0 0;
+  outline: none;
+  box-shadow: var(--shadow-glass);
+}
+:root[data-skin=wild] .userava {
+  border-width: 1px;
+}
+:root[data-skin=wild] .launcher-tile>.icon {
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow-hard);
+}
+:root[data-skin=wild] .shell-level-sticker {
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-hard);
+}
+/* L2 still has two circles, each drawn with a single thin line. */
+:root[data-skin=wild] .shell-level-sticker[data-level-sticker="L2"] {
+  outline: 1px solid var(--line);
+  outline-offset: -6px;
+}
+
+/* Selected, pending and drag states keep their fills; boundaries use --line. */
+:root[data-skin=wild] .kcard.pending {
+  border: 1px dashed var(--line);
+  border-top: 5px solid var(--bot);
+  box-shadow: var(--shadow-hard);
+}
+:root[data-skin=wild] .kcol.over {
+  outline: 1px dashed var(--line);
+  outline-offset: 2px;
+  box-shadow: var(--shadow-hard);
+}
+:root[data-skin=wild] .model-choice.on {
+  box-shadow: inset 0 0 0 1px var(--line),var(--shadow-hard);
+}
+:root[data-skin=wild] .stage-outfits button[data-outfit-selected="true"],
+:root[data-skin=wild] .m-persona-outfits [class~="ghostbtn"][data-outfit-selected=true],
+:root[data-skin=wild] :is(.m-persona-template,.m-persona-avatar-choice,.m-persona-swatch,.m-cards-a-swatch,.m-automation-cell)[aria-pressed=true],
+:root[data-skin=wild] :is(.m-automation-today,.m-interact-selected,.m-interact-highlight) {
+  outline: 1px solid var(--line);
+  outline-offset: 2px;
+  box-shadow: var(--shadow-hard);
+}
+:root[data-skin=wild] .m-interact-image-grid .m-interact-image-tile {
+  border: 1px solid var(--line);
+}
+:root[data-skin=wild] .m-interact-image-grid .m-interact-image-tile[aria-pressed="true"] {
+  border-color: var(--line);
+  box-shadow: inset 0 0 0 1px var(--line),var(--shadow-hard);
+}
+:root[data-skin=wild] .file-drag .mainpane:after {
+  border: 1px dashed var(--line);
+  border-radius: var(--r-card);
+}
+:root[data-skin=wild][data-theme=dark] input[type=checkbox]:not(:checked) {
+  border: 1px solid var(--line);
+}
+:root[data-skin=wild] .m-cards-b-screen[data-state=takeover] {
+  border: 1px dashed var(--line);
+}
+:root[data-skin=wild] .m-cards-b-diff-line,
+:root[data-skin=wild] .m-cards-b-checkup-item[data-warning=true] {
+  border-left-width: 1px;
+}
+:root[data-skin=wild] .m-cards-b-th[aria-sort=ascending],
+:root[data-skin=wild] .m-cards-b-th[aria-sort=descending] {
+  box-shadow: inset 0 -1px var(--line);
+}
+:root[data-skin=wild] .m-cards-b-shot[aria-pressed=true] {
+  box-shadow: inset 0 -1px var(--line),var(--shadow-hard);
+}
+:root[data-skin=wild] .m-cards-b-inlineformula,
+:root[data-skin=wild] .bubble strong,
+:root[data-skin=wild] .m-automation-row[style]>.m-automation-grow>strong {
+  border-bottom: 1px solid var(--line);
+}
+
+/* Existing 5px bot accents are untouched. Other wide color bars become 5px;
+   only their width changes, so all approved bot/accent colors remain intact. */
+:root[data-skin=wild] :is(.m-cards-b-preview,.m-cards-b-hero,.m-cards-b-tile,.m-cards-b-option,.m-interact-call),
+:root[data-skin=wild] .m-persona-metrics>div {
+  border-top-width: 5px;
+}
+:root[data-skin=wild] .m-cards-a-hour:nth-child(n+2) {
+  border-top-width: 1px;
+}
+:root[data-skin=wild] :is(.m-cards-b-alert,.m-interact-quote,.m-interact-thread) {
+  border-left-width: 5px;
+}
+:root[data-skin=wild] :is(.m-automation-round,.m-automation-route-result) {
+  border-inline-start-width: 5px;
+}
+/* This preview accent is inline; keep its chosen color and use the 5px bar. */
+:root[data-skin=wild] .m-persona-bubble[style] {
+  border-inline-start-width: 5px !important;
+}
+
+/* Tour: a thin square outline plus a separate translucent 2px halo. */
+:root[data-skin=wild] .shell-tour-bubble {
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-hard);
+}
+:root[data-skin=wild] .shell-tour-target {
+  border-radius: var(--r-card);
+  outline: 1px solid var(--line);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px var(--elev),0 0 0 6px var(--wild-tour-halo),var(--shadow-hard);
+}
+:root[data-skin=wild] .shell-tour-pointer {
+  height: 1px;
+  background: var(--line);
+  box-shadow: var(--shadow-hard);
+}
+:root[data-skin=wild] .shell-tour-pointer:after {
+  top: -3px;
+  width: 7px;
+  height: 7px;
+  background: var(--line);
+}
+
+/* Serif typography is restricted to titles; body and controls stay sans. */
+:root[data-skin=wild] :is(h1,h2,h3,h4,.page-title,.titlepill strong,.pop-card-head strong,.pop-card-head h2,.pop-card-head h3,.m-cards-a-title,.m-cards-b-title,.m-memory-title,.m-plugins-heading,.m-plugins-title,.m-governance-title,.m-persona-card-title,.m-automation-brief>strong,.m-interact-heading>strong,.m-interact-call>strong,.m-interact-callfull>strong) {
+  font-family: var(--serif);
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+
+/* Keyboard focus, including module-specific focus rules loaded after skins.
+   L2 uses the outer ring while focused, returning to its double circle after. */
+:root[data-skin=wild] :focus-visible,
+:root[data-skin=wild] :is(button,input,textarea,select,summary,a,[tabindex]):focus-visible,
+:root[data-skin=wild] .shell-level-sticker:focus-visible,
+:root[data-skin=wild] .m-persona-outfits [data-outfit-selected=true]:focus-visible,
+:root[data-skin=wild] .m-automation-input:focus {
+  outline: 1px solid var(--line);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 1px var(--elev),var(--shadow-hard);
+}
+
+/* Every ordinary night boundary uses ice blue; accent bars retain bot color. */
+:root[data-skin=wild][data-theme=dark] .glass {
+  box-shadow: var(--shadow-glass);
+}
+:root[data-skin=wild][data-theme=dark] :is(.pop-input,select,.field input,.field textarea,.kcol,.segmented,.scope,.task-tabs,.hub-tabs,.navmodes,.sys,.emotions) {
+  box-shadow: var(--shadow-hard);
+}
+:root[data-skin=wild][data-theme=dark] :is(.theme-previews .light,.theme-previews .dark,.m-memory-diff-remove,.m-memory-diff-add,.m-persona-chat-preview .m-persona-bubble) {
+  border-color: var(--line);
+}
+:root[data-skin=wild][data-theme=dark] .m-cards-b-diff-line[data-different=true],
+:root[data-skin=wild][data-theme=dark] .m-cards-b-checkup-item[data-warning=true] {
+  border-left-color: var(--line);
+}
+:root[data-skin=wild][data-theme=dark] .m-cards-a-hour:nth-child(n+2) {
+  border-top-color: var(--line);
+}
+
+/* Contrast fixes from both audit widths, without changing any bot token. */
+:root[data-skin=wild] .grip {
+  color: var(--ink-2);
+}
+:root[data-skin=wild][data-theme=dark] [data-scroll=task] .box,
+:root[data-skin=wild][data-theme=dark] [data-scroll=task] .pill:not(.wait):not(.bad):not(.neutral) {
+  color: color-mix(in srgb,var(--bot-strong) 70%,var(--ink));
+}
+:root[data-skin=wild][data-theme=dark] .m-memory-good {
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-skin=wild] button:active {
+    transform: none !important;
+    translate: none !important;
+    scale: none !important;
+  }
+}

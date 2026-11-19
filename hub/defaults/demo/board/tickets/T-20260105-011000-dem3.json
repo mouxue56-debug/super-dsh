@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 2,
+  "id": "T-20260105-011000-dem3",
+  "title": "查「春季换盆」的常见做法",
+  "goal": "收集三种常见做法并注明来源,只读资料,不下结论。",
+  "key": null,
+  "from": {
+    "name": "chief",
+    "type": "assistant"
+  },
+  "to": [
+    "research"
+  ],
+  "claimedBy": "research",
+  "state": "progress",
+  "review": "none",
+  "root": "T-20260105-011000-dem3",
+  "hop": 0,
+  "expects_reply": false,
+  "open_ask": null,
+  "report": null,
+  "reports": [],
+  "project": "demo-garden",
+  "sessions": {
+    "from": "",
+    "to": ""
+  },
+  "workdir": {
+    "path": null,
+    "writable": []
+  },
+  "forbidden": [],
+  "acceptance": [],
+  "progress": [],
+  "verification": [],
+  "costRefs": [],
+  "readExternalContent": false,
+  "routing": {
+    "requestedBy": "",
+    "via": "",
+    "hint": ""
+  },
+  "parentId": null,
+  "history": [
+    {
+      "ts": "2026-01-05T01:10:00.000Z",
+      "by": "chief",
+      "action": "created"
+    },
+    {
+      "ts": "2026-01-05T01:11:00.000Z",
+      "by": "research",
+      "action": "claimed"
+    }
+  ],
+  "createdAt": "2026-01-05T01:10:00.000Z",
+  "updatedAt": "2026-01-05T01:11:00.000Z",
+  "claimedByType": "assistant"
+}

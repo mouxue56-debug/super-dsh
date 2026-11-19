@@ -1,0 +1,19 @@
+Super DSH
+Copyright (c) 2026 Super DSH contributors
+
+非官方声明 / Unofficial notice
+本项目是独立的社区项目，与 DeepSeek、xAI 等公司及其任何产品没有隶属、赞助或背书关系。
+它在 DSH（DeepSeek Harness，上游项目，MIT 许可）之上运行，只通过 DSH 公开的接口使用它；
+文中提到的产品名只用来说明兼容对象。
+This is an independent community project, not affiliated with, endorsed by, or sponsored by
+DeepSeek, xAI or any other company. It runs on top of DSH (DeepSeek Harness, an upstream
+MIT-licensed project) and uses only its public interfaces; product names are mentioned solely
+to state what it is compatible with.
+
+借鉴与致谢见仓库根 CREDITS.md。示例头像与图形为本项目自绘；仅 shell/pets/ 目录带有
+六位第三方同人角色（CC BY-NC-SA 4.0，非商业，不在 MIT 范围内，逐位出处见 shell/pets/CREDITS.md）。
+非官方同人形象，与各 AI 公司无关；Claude、GPT、Grok、Gemini、Qwen、DeepSeek 等为各自公司的商标。
+Prior work we learned from is listed in CREDITS.md at the repository root. Sample avatars are
+drawn shapes made for this project; only shell/pets/ carries six third-party fan characters
+(CC BY-NC-SA 4.0, non-commercial, not covered by MIT; see shell/pets/CREDITS.md). Unofficial
+fan art, unrelated to any AI company; product names are trademarks of their owners.

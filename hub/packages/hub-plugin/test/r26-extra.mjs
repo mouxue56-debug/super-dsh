@@ -1,0 +1,1 @@
+export const name='r26-extra';export const inject=['tools'];export function apply(ctx){ctx.tools.register({name:'r26_unregistered',description:'隔离清单测试',parameters:{type:'object',properties:{}},output:{schema:{type:'string'},render:()=>[]},execute:async()=> 'never'});}

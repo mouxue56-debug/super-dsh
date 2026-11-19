@@ -1,0 +1,33 @@
+{
+  "说明": "allowed=待清理基线：键为「文件|规则」，值为允许的最大命中数，只许减少不许新增或上调。fixtures=测试夹具：按「文件|规则」放行，每条必须写 reason；它不是待清理项，新增须由负责人裁定。",
+  "allowed": {
+    "packages/hub-plugin/tool-levels.yaml.r26-draft|user-home-path": 2,
+    "packages/hub-web/shell/DSH-Hub.html|oversize-file": 1,
+    "packages/hub-web/start.sh|cgnat-address": 2,
+    "packages/hub-web/test/c4-browser.cjs|user-home-path": 2,
+    "packages/hub-web/test/c5-browser.cjs|user-home-path": 5,
+    "packages/hub-web/test/client.test.mjs|user-home-path": 1,
+    "packages/hub-web/test/f1-browser.cjs|user-home-path": 2,
+    "packages/hub-web/trusted-devices.example.json|cgnat-address": 1
+  },
+  "fixtures": {
+    "packages/hub-bff/test/meeting.test.mjs|private-key-header": {
+      "reason": "测试用的假私钥头（合并后从 hub-plugin/test 搬到 hub-bff/test）"
+    },
+    "packages/hub-plugin/test/meeting.test.mjs|private-key-header": {
+      "reason": "测试用的假私钥头（本分支里的旧路径；合并后文件已搬到 hub-bff/test）"
+    },
+    "packages/hub-bff/test/review-meeting-kb.test.mjs|sk-token": {
+      "reason": "测试用的假密钥形状"
+    },
+    "packages/hub-web/test/r27-server.test.mjs|cgnat-address": {
+      "reason": "测试需要一个内网段地址"
+    },
+    "packages/hub-bff/test/review10-presence.test.mjs|user-home-path": {
+      "reason": "独立复核的测试夹具，按规定不许改"
+    },
+    "packages/hub-web/test/review10-adapter.test.mjs|user-home-path": {
+      "reason": "独立复核的测试夹具，按规定不许改"
+    }
+  }
+}

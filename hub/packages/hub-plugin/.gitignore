@@ -1,0 +1,11 @@
+test/fixture-*/
+test-results.txt
+probe-result.json
+live-results*.json
+live-results*.log
+approved-results*.json
+approved-results*.log
+
+test-results-a2.txt
+live-results-a2*.json
+live-results-a2*.log

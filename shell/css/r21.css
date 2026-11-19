@@ -1,0 +1,52 @@
+/* R21 P0-1：default 状态栏由系统绘制，应用只占真实可见视口。 */
+:root{--app-viewport-height:100dvh;--bottom-clearance:max(8px,calc(env(safe-area-inset-bottom) - 14px))}
+html,body{background:var(--elev);background-image:none}
+#app{height:var(--app-h,var(--app-viewport-height));bottom:auto;background:var(--elev)}
+#app>.shell{background:var(--elev);background-image:none}
+#app .shell .home-top{margin-top:0}
+#app .chat-header{margin-top:0}
+#app .shell .side-bottom{flex-basis:calc(52px + var(--bottom-clearance));height:calc(52px + var(--bottom-clearance));padding:6px 16px var(--bottom-clearance)}
+#app .chatview .composer-area{padding:12px 12px var(--bottom-clearance);min-height:calc(132px + var(--bottom-clearance))}
+.keyboard #app .chatview .composer-area{min-height:0;padding:8px 12px var(--bottom-clearance)}
+#app .drawer{position:absolute;max-height:calc(var(--app-h) - env(safe-area-inset-top) - var(--bottom-clearance));bottom:var(--bottom-clearance)}
+@media(max-width:699px){
+ #app .drawer,#app .drawer.hub-panel{top:0;bottom:0;height:var(--app-h);max-height:var(--app-h);padding-top:calc(12px + env(safe-area-inset-top));padding-bottom:var(--bottom-clearance)}
+}
+#app .chatview .composer-area{display:flex;flex-direction:column;justify-content:flex-end}
+/* P0-2：根文档没有滚动范围；仅内容容器接收滚动。 */
+html,body{position:fixed;inset:0;width:100%;height:100%;max-height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
+#app :is([data-scroll],.drawer,.hub-extension-view,#hub-view,.content-scroll,.kcol-body,.hub-quick,.prebody){overscroll-behavior:contain}
+#app .kcol{contain:layout style paint}
+#app .shell .bot-scroll{background-color:var(--bg)}
+@media(pointer:coarse){
+ #app .shell :is(.pin,.conversation):active{scale:1!important;opacity:1;transform:none!important;background:var(--elev)}
+ #app .shell .conversation:active{background:transparent}
+}
+/* P0-4：只在可拖元素关闭选字／系统长按菜单。 */
+#app :is(.kcard,.node,.stage-frame .mascot-wrap){-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+#app .kcard .grip{touch-action:manipulation}
+#app .kcard.dragging{box-shadow:0 8px 24px var(--pillow)!important;opacity:.65}
+.ghost{position:fixed;left:0;top:0;pointer-events:none;z-index:100}
+#app .chat-header{background:var(--elev);backdrop-filter:none;-webkit-backdrop-filter:none}
+#app .chat-header:before,#app .chat-header:after{content:none}
+/* P0-5：三行连续占位，不用额外间距撑开底栏。132 不含底部安全留白。 */
+#app .chatview .composer-area{row-gap:0}
+#app .chatview :is(.chat-quick-slot,.inputpill,.contextline){margin-top:0;margin-bottom:0;flex-shrink:0}
+#app .chatview .hub-quick{margin-top:0;margin-bottom:0}
+@media(pointer:coarse){#app .shell :is(.pin,.conversation)[data-r21-pressed=true]{scale:.97!important;transition:scale var(--dur-press) var(--ease-out)}}
+@media(prefers-reduced-motion:reduce){#app .shell :is(.pin,.conversation)[data-r21-pressed=true]{scale:1!important;transition:none}}
+
+/* P1：只让上层新图淡入，旧图保持不透明，尺寸／基线沿用 P0。 */
+#app .shell .pin .chief-pet-stage>img,#app .chatview .chief-pet-stage>img{transition:opacity 100ms cubic-bezier(.2,0,0,1)}
+/* R25 外层接管后采用较长淡入；未加载增强模块时保留原回退。 */
+#app .shell .pin .home-role.r25-motion-body .chief-pet-stage>img,#app .chatview .r22-pet-figure .r25-motion-body .chief-pet-stage>img{transition:opacity 320ms cubic-bezier(.2,0,0,1)}
+@media(prefers-reduced-motion:reduce){#app .shell .chief-pet-stage>img{transition:none}}
+
+/* 监工意见4：聊天右滑只移动上层，露出常驻首页；取消后恢复隐藏。 */
+@media(max-width:699px){
+ #app .shell.r21-back-home>.sidebar{display:flex;position:absolute;inset:0;width:100%;height:100%;max-width:var(--home-max);margin:0 auto;visibility:visible;pointer-events:none;z-index:0}
+ #app .shell.r21-back-home>.mainpane{z-index:1}
+}
+
+/* 监工意见5：看板列标题与列内空白也禁选字，不影响聊天消息。 */
+#app .kcol{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}

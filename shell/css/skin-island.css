@@ -1,0 +1,243 @@
+/* Island · R15: rounded type, dotted ground and borderless pillow surfaces. */
+:root[data-skin=island] {
+  /* Keep the fallback independent: tokens' --round otherwise refers to --font. */
+  --round: "DSH Round","DSH Round Ext","Hiragino Maru Gothic ProN",ui-rounded,-apple-system,"PingFang SC",sans-serif;
+  --font: var(--round);
+  --line-w: 0px;
+  --r-card: 18px;
+  --pillow: rgba(77,59,34,.17);
+  --shadow-hard: var(--shadow-card);
+  --shadow-glass: inset 0 1px 0 var(--shine),var(--shadow-card);
+  --dots: rgba(255,255,255,.21);
+  --glass: rgba(255,251,233,.9);
+}
+
+:root[data-skin=island][data-theme=dark] {
+  --pillow: rgba(8,28,30,.42);
+  --dots: rgba(201,243,223,.035);
+  --glass: rgba(42,89,87,.92);
+  --ink: #fffdf2;
+  --ink-2: #f5fff8;
+  --ink-3: #d3e6da;
+}
+
+:root[data-skin=island] :is(body,.sidebar,.mainpane,.chatview) {
+  background-image: radial-gradient(circle,var(--dots) 1.5px,transparent 1.5px);
+  background-size: 20px 20px;
+  background-position: 0 0;
+}
+
+:root[data-skin=island] .bubble {
+  border-radius: 34px 34px 34px 14px;
+  box-shadow: 0 5px 0 var(--pillow);
+}
+
+/* The shell paints the user body on .user-bubble, outside its action row. */
+:root[data-skin=island] .user-bubble {
+  border-radius: 30px 30px 12px 30px;
+  box-shadow: 0 4px 0 var(--pillow);
+}
+
+:root[data-skin=island] :is(button,input,textarea,select) {
+  font-family: var(--round);
+}
+
+:root[data-skin=island] :is(h1,h2,h3,strong) {
+  letter-spacing: .02em;
+}
+
+/* Cover fixed 1px shell badges, including every module badge subclass. */
+:root[data-skin=island] :is(.pill,.tag,.flag,.lv,.badge,.mcard>.eyebrow) {
+  border: 0;
+  border-radius: var(--r-pill);
+}
+
+:root[data-skin=island] .pill.neutral {
+  background: var(--fill);
+}
+
+:root[data-skin=island] .mcard>.eyebrow {
+  background: var(--bot-soft);
+}
+
+:root[data-skin=island] :is(.sticker,.pin .pin-star) {
+  border-radius: var(--r-pill);
+}
+
+/* Status dots keep their size, colour and circular shape. */
+:root[data-skin=island] :is(.bot-unread,.shell-bot-tree-head .shell-avatar-unread .bot-unread,.m-governance-dot) {
+  border: 0;
+}
+
+/* Preserve L0–L4 silhouettes and colours, including the L3 clipped octagon. */
+:root[data-skin=island] .shell-level-sticker {
+  border: 0;
+  box-shadow: 0 3px 0 var(--pillow);
+  text-shadow: none;
+}
+
+:root[data-skin=island] .shell-level-sticker[data-level-sticker="L2"] {
+  outline: none;
+  box-shadow: inset 0 0 0 3px color-mix(in srgb,var(--elev) 80%,transparent),inset 0 0 0 6px var(--pillow),0 3px 0 var(--pillow);
+}
+
+:root[data-skin=island] .launcher-tile>.icon {
+  box-shadow: 0 3px 0 var(--pillow);
+}
+
+:root[data-skin=island] button.userava {
+  border: 0;
+  border-radius: 22px;
+  box-shadow: var(--shadow-glass);
+}
+
+/* Programmatic focus belongs to the drawer's controls, not its perimeter. */
+:root[data-skin=island] aside.drawer {
+  outline: none;
+}
+
+:root[data-skin=island] .shell-tour-bubble {
+  border: 0;
+  box-shadow: var(--shadow-glass);
+}
+
+:root[data-skin=island] .shell-tour-target {
+  outline: none;
+  border-radius: var(--r-card);
+  box-shadow: 0 0 0 3px color-mix(in srgb,var(--bot) 55%,transparent),0 8px 20px var(--pillow);
+}
+
+/* A filled well remains visible against both cream and teal panel surfaces.
+   Native choice/range/colour controls retain their own geometry and state. */
+:root[data-skin=island] :is(input:not([type=checkbox],[type=radio],[type=range],[type=color],[type=button],[type=submit],[type=reset],[type=image],[type=hidden]),textarea,select,.pop-input) {
+  border: 0;
+  border-radius: 18px;
+  background: var(--elev-2);
+  color: var(--ink);
+}
+
+:root[data-skin=island] :is(.inputpill,.searchdock,.searchfield) :is(input,textarea) {
+  background: transparent;
+}
+
+:root[data-skin=island] input[type=checkbox] {
+  min-width: 20px;
+  min-height: 20px;
+  flex: none;
+}
+
+:root[data-skin=island] input[type=checkbox]:not(:checked) {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  border-radius: 8px;
+  background: var(--elev-2);
+  box-shadow: 0 2px 0 var(--pillow);
+}
+
+:root[data-skin=island] :is(input,textarea)::placeholder {
+  color: var(--ink-3);
+  opacity: 1;
+}
+
+:root[data-skin=island] :is(.ghostbtn,.btn-secondary) {
+  background: var(--elev-2);
+  box-shadow: 0 3px 0 var(--pillow);
+}
+
+/* Additional fixed corners and image-picker outlines found in source audit. */
+:root[data-skin=island] :is(.heatmap button,.attachchip img) {
+  border-radius: 14px;
+}
+
+:root[data-skin=island] .jp {
+  border: 0;
+}
+
+:root[data-skin=island] .m-interact-image-grid .m-interact-image-tile {
+  border: 0;
+  background: var(--elev-2);
+  box-shadow: 0 3px 0 var(--pillow);
+}
+
+:root[data-skin=island] .m-interact-image-grid .m-interact-image-tile[aria-pressed=true] {
+  background: var(--bot-soft);
+  box-shadow: inset 0 0 0 3px color-mix(in srgb,var(--bot) 35%,transparent),0 3px 0 var(--pillow);
+}
+
+/* Pending cards keep the approved 5px bot-colour top strip. */
+:root[data-skin=island] .kcard.pending {
+  border: 0;
+  border-top: 5px solid var(--bot);
+  box-shadow: 0 0 0 3px color-mix(in srgb,var(--bot) 35%,transparent),var(--shadow-hard);
+}
+
+:root[data-skin=island] .file-drag .mainpane:after {
+  border: 0;
+  box-shadow: 0 0 0 3px color-mix(in srgb,var(--bot) 40%,transparent),0 6px 16px var(--pillow);
+}
+
+/* Selection remains clear without confusing it with a keyboard focus outline. */
+:root[data-skin=island] :is(.model-choice.on,.kcol.over,.stage-outfits button[data-outfit-selected=true],.m-persona-outfits [data-outfit-selected=true],.m-persona-template[aria-pressed=true],.m-persona-avatar-choice[aria-pressed=true],.m-persona-swatch[aria-pressed=true],.m-cards-a-swatch[aria-pressed=true],.m-automation-cell[aria-pressed=true],.m-automation-today,.m-interact-selected,.m-interact-highlight):not(:focus-visible) {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb,var(--bot) 40%,transparent),0 4px 10px var(--pillow);
+}
+
+:root[data-skin=island] .stage-original>.creature {
+  filter: drop-shadow(0 6px 6px var(--pillow));
+}
+
+:root[data-skin=island] .m-cards-b-chart-hit[aria-pressed=true] {
+  filter: drop-shadow(0 3px 3px var(--pillow));
+}
+
+/* These three decorative dots were drawn as two x-offset hard-shadow copies. */
+:root[data-skin=island] .m-interact-heading:before {
+  width: 38px;
+  margin-right: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: radial-gradient(circle at 5px 50%,var(--sky) 5px,transparent 5px),radial-gradient(circle at 19px 50%,var(--pink) 5px,transparent 5px),radial-gradient(circle at 33px 50%,var(--mint) 5px,transparent 5px);
+}
+
+/* Raise foregrounds only; bot palettes and their coloured emphasis strips stay. */
+:root[data-skin=island][data-theme=dark] :is(button.textbutton,.m-plugins-tertiary,.pill:not(.bad),.box,.stage-status,.who,.m-memory-good,.m-persona-outfit-thumb) {
+  color: var(--ink);
+}
+
+/* Keyboard focus must also beat the more specific L2 sticker decoration. */
+:root[data-skin=island] :is(button,input,textarea,select,summary,a):focus-visible {
+  outline: 3px solid var(--ink) !important;
+  outline-offset: 3px !important;
+}
+
+/* Use the shared press scale without changing the island palette. */
+:root[data-skin=island] button:active:not(:disabled) {
+  transform: none;
+  scale: .97;
+  transition: scale var(--dur-press) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-skin=island] button:active:not(:disabled) {
+    transform: none;
+    scale: none;
+    transition: none;
+  }
+}
+
+/* W4: override inline botStyle only on the island-night chief surfaces. */
+:root[data-skin=island][data-theme=dark] :is(.pin[data-id="chief"],.titlepill[data-shell-title="chief"]){
+  --bot-soft:color-mix(in srgb,var(--bot) 10%,var(--elev))!important;
+}
+
+/* W6: soften the chief title tint while preserving the opaque fallback. */
+@media (prefers-reduced-transparency: no-preference) {
+  :root[data-skin=island][data-theme=dark] .titlepill[data-shell-title="chief"] {
+    background: color-mix(in srgb,var(--bot) 7%,var(--glass));
+  }
+}
+
+/* R19-C 消息纸面关闭底纹，标题与回复不再使用奶油胶囊或黄色装饰。 */
+:root[data-skin=island] #app .mainpane:has(.chatview),:root[data-skin=island] #app .chatview,:root[data-skin=island] #app .chatview .thread{background-image:none}
+:root[data-skin=island] #app .chat-header .titlepill{background:none;box-shadow:none!important}

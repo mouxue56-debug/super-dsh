@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 样例：每 10 分钟跑一次接单器（跑一次就退，不常驻）。只是样例，没有安装；路径和间隔按需改。
+     要不要装、装在哪台、间隔多久，由主人决定。 -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.dsh.hub-runner</string>
+  <key>ProgramArguments</key><array>
+    <string>/Users/<you>/.local/bin/node</string>
+    <string>/path/to/runner/hub-runner.mjs</string>
+    <string>--once</string><string>--config</string><string>/Users/<you>/.dsh-runner/config.json</string>
+  </array>
+  <key>StartInterval</key><integer>600</integer>
+  <key>EnvironmentVariables</key><dict>
+    <key>PATH</key><string>/Users/<you>/.local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>StandardOutPath</key><string>/Users/<you>/.dsh-runner/launchd.out.log</string>
+  <key>StandardErrorPath</key><string>/Users/<you>/.dsh-runner/launchd.err.log</string>
+</dict></plist>

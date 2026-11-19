@@ -1,0 +1,93 @@
+/* 第一次打开的轻引导。不盖住六格，只占六格上面一行。 */
+#app .shell .r29-welcome{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  margin:0 12px 8px;
+  padding:0;
+  position:static;
+  z-index:auto;
+  background:transparent;
+  pointer-events:auto;
+  max-width:100%;
+}
+#app .shell .r29-welcome-go{
+  flex:1 1 auto;
+  min-width:0;
+  min-height:44px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:0;
+  padding:6px 8px;
+  border:0;
+  border-radius:14px;
+  background:var(--well);
+  color:var(--ink);
+  text-align:left;
+  box-shadow:none;
+}
+#app .shell .r29-welcome-face{
+  width:28px;
+  height:28px;
+  flex:none;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  border-radius:50%;
+}
+#app .shell .r29-welcome-face > *{
+  width:28px;
+  height:28px;
+  max-width:28px;
+  max-height:28px;
+}
+#app .shell .r29-welcome-letter{
+  font-size:13px;
+  line-height:28px;
+  font-weight:700;
+}
+#app .shell .r29-welcome-text{
+  flex:1 1 auto;
+  min-width:0;
+  font-size:13px;
+  line-height:18px;
+  color:var(--ink-2);
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+#app .shell .r29-welcome-x{
+  flex:none;
+  width:44px;
+  min-width:44px;
+  height:44px;
+  min-height:44px;
+  margin:0;
+  padding:0;
+  border:0;
+  border-radius:14px;
+  background:transparent;
+  color:var(--ink-2);
+  font-size:12px;
+  line-height:16px;
+  box-shadow:none;
+}
+#app .shell .chatview .r29-welcome-mic{
+  margin:0;
+  padding:0 8px;
+  font-size:12px;
+  line-height:16px;
+  color:var(--ink-2);
+  text-align:center;
+  background:transparent;
+  pointer-events:none;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+@media (prefers-reduced-motion: reduce){
+  #app .shell .r29-welcome,
+  #app .shell .r29-welcome-mic{
+    animation:none;
+    transition:none;
+  }
+}

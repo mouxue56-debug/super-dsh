@@ -1,0 +1,36 @@
+# 权限表示例(通用):安装脚本把 @HUB_HOME@ 换成你的运行目录后写到 config/tool-levels.yaml。严格平面 YAML,每值单行紧凑 JSON。
+# 各数值(超时、输出上限等)均为暂定,可以改得更严,不能改松。说明见 packages/hub-plugin/tool-levels.md。
+version: 1
+base: "@HUB_HOME@"
+kb: "@HUB_HOME@/kb"
+kb_allow: {}
+forbidden: ["医院","病历","医疗","密钥","凭据","secrets",".env","聊天记录"]
+others: "L4"
+ticket_other_creator: "L3"
+own_root_agents_write: "L4"
+read: {"own":"L0","shared":"L0","tickets":"L0","kb":"L0","outside":"L4"}
+list_files: {"own":"L0","shared":"L0","tickets":"L0","kb":"L0","outside":"L4"}
+write: {"own":"L1","shared":"L3","tickets":"L4","kb":"L4","outside":"L4"}
+edit: {"own":"L1","shared":"L3","tickets":"L4","kb":"L4","outside":"L4"}
+ticket_create: {"own":"L4","shared":"L4","tickets":"L1","kb":"L4","outside":"L4"}
+ticket_update: {"own":"L4","shared":"L4","tickets":"L1","kb":"L4","outside":"L4"}
+ticket_move: {"own":"L4","shared":"L4","tickets":"L1","kb":"L4","outside":"L4"}
+bot_status: {"own":"L0","shared":"L4","tickets":"L4","kb":"L4","outside":"L4"}
+delegate_to_bot: {"own":"L4","shared":"L4","tickets":"L1","kb":"L4","outside":"L4"}
+bash: {"own":"CMD","shared":"CMD","tickets":"CMD","kb":"CMD","outside":"CMD"}
+cmd_run: ["ls","cat","head","tail","wc","grep","rg","find","sort","uniq","cut","sed","jq","date","pwd","echo","printf","diff","cmp","file","stat","du","tee"]
+cmd_git_readonly: ["status","log","diff","show"]
+cmd_script: ["python3","node","sh","bash"]
+cmd_ask_always: ["codex","grok","opencode","kb-agent","cua-driver","osascript","open","curl","wget","git","npm","pnpm","yarn","pip","pip3","brew","gem","cargo","go","ssh","scp","rsync","nc","telnet","ping","awk","less","more","vi","vim","nano","env","command","builtin","nohup","setsid","disown","timeout","nice","time"]
+cmd_deny: ["sudo","su","doas","launchctl","systemctl","service","shutdown","reboot","halt","diskutil","hdiutil","mount","umount","fdisk","newfs","mkfs","scutil","networksetup","pmset","csrutil","spctl","security","dscl","kill","killall","pkill","crontab","at","chflags","shred","srm","eval","exec","source","."]
+cmd_timeout_ms: 60000
+cmd_timeout_max_ms: 600000
+cmd_output_bytes: 4096
+cmd_grant_days: 30
+cmd_deny_paths: ["~/.secrets","~/.ssh","~/.gnupg","~/Library/Keychains","~/.config","~/.codex","~/.grok","~/.claude","~/.local/share/opencode","~/.dsh","~/.agents","$HUB_HOME/config","$HUB_HOME/dev-home*","$HUB_HOME/dsh-hub","/Applications/DeepSeek Harness.app","/Library/LaunchDaemons","/Library/LaunchAgents","~/Library/LaunchAgents","/etc","/System"]
+cmd_taint_tools: []
+expected_tools: {"bot":["read","write","edit","list_files","ticket_create","ticket_update","ticket_move","bot_status","bot_list","bot_update","bash"],"chief":["read","write","edit","list_files","ticket_create","ticket_update","ticket_move","bot_status","bot_list","bot_update","bash","bot_create","bot_set_status","delegate_to_bot"]}
+bot_list: "L0"
+bot_create: "L3"
+bot_update: "L3"
+bot_set_status: "L3"

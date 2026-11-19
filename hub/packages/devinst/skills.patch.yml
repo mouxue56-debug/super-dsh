@@ -1,0 +1,6 @@
+# 启用前须在权限表 tool-levels.yaml 登记 kernel_tools: ["skill"]。
+# 即 policyText 的 kernelTools 选项，否则工具清单对账判 skill 多出并全部停用。
+- id: skill-filesystem
+  disabled: false
+- id: tool-skill
+  disabled: false

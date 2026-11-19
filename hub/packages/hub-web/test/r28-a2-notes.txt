@@ -1,0 +1,292 @@
+TAP version 13
+# Subtest: board now data
+ok 1 - board now data
+  ---
+  duration_ms: 0.9065
+  type: 'test'
+  ...
+# Subtest: board now empty
+ok 2 - board now empty
+  ---
+  duration_ms: 0.160125
+  type: 'test'
+  ...
+# Subtest: board now error
+ok 3 - board now error
+  ---
+  duration_ms: 0.056875
+  type: 'test'
+  ...
+# Subtest: board log data
+ok 4 - board log data
+  ---
+  duration_ms: 0.828958
+  type: 'test'
+  ...
+# Subtest: board log empty
+ok 5 - board log empty
+  ---
+  duration_ms: 0.231292
+  type: 'test'
+  ...
+# Subtest: board log error
+ok 6 - board log error
+  ---
+  duration_ms: 0.126375
+  type: 'test'
+  ...
+# Subtest: ledger now data
+ok 7 - ledger now data
+  ---
+  duration_ms: 8.895959
+  type: 'test'
+  ...
+# Subtest: ledger now empty
+ok 8 - ledger now empty
+  ---
+  duration_ms: 0.224208
+  type: 'test'
+  ...
+# Subtest: ledger now error
+ok 9 - ledger now error
+  ---
+  duration_ms: 0.219625
+  type: 'test'
+  ...
+# Subtest: ledger log data
+ok 10 - ledger log data
+  ---
+  duration_ms: 0.280291
+  type: 'test'
+  ...
+# Subtest: ledger log empty
+ok 11 - ledger log empty
+  ---
+  duration_ms: 0.081333
+  type: 'test'
+  ...
+# Subtest: ledger log error
+ok 12 - ledger log error
+  ---
+  duration_ms: 0.0305
+  type: 'test'
+  ...
+# Subtest: schedule now data
+ok 13 - schedule now data
+  ---
+  duration_ms: 0.549083
+  type: 'test'
+  ...
+# Subtest: schedule now empty
+ok 14 - schedule now empty
+  ---
+  duration_ms: 0.051292
+  type: 'test'
+  ...
+# Subtest: schedule now error
+ok 15 - schedule now error
+  ---
+  duration_ms: 0.035041
+  type: 'test'
+  ...
+# Subtest: schedule log data
+ok 16 - schedule log data
+  ---
+  duration_ms: 0.038917
+  type: 'test'
+  ...
+# Subtest: schedule log empty
+ok 17 - schedule log empty
+  ---
+  duration_ms: 0.031
+  type: 'test'
+  ...
+# Subtest: schedule log error
+ok 18 - schedule log error
+  ---
+  duration_ms: 0.024958
+  type: 'test'
+  ...
+# Subtest: permissions now data
+ok 19 - permissions now data
+  ---
+  duration_ms: 0.082125
+  type: 'test'
+  ...
+# Subtest: permissions now empty
+ok 20 - permissions now empty
+  ---
+  duration_ms: 0.039042
+  type: 'test'
+  ...
+# Subtest: permissions now error
+ok 21 - permissions now error
+  ---
+  duration_ms: 0.027958
+  type: 'test'
+  ...
+# Subtest: permissions log data
+ok 22 - permissions log data
+  ---
+  duration_ms: 0.02625
+  type: 'test'
+  ...
+# Subtest: permissions log empty
+ok 23 - permissions log empty
+  ---
+  duration_ms: 0.029958
+  type: 'test'
+  ...
+# Subtest: permissions log error
+ok 24 - permissions log error
+  ---
+  duration_ms: 0.025666
+  type: 'test'
+  ...
+# Subtest: memory now data
+ok 25 - memory now data
+  ---
+  duration_ms: 0.020292
+  type: 'test'
+  ...
+# Subtest: memory now empty
+ok 26 - memory now empty
+  ---
+  duration_ms: 0.017584
+  type: 'test'
+  ...
+# Subtest: memory now error
+ok 27 - memory now error
+  ---
+  duration_ms: 0.018625
+  type: 'test'
+  ...
+# Subtest: memory log data
+ok 28 - memory log data
+  ---
+  duration_ms: 0.015667
+  type: 'test'
+  ...
+# Subtest: memory log empty
+ok 29 - memory log empty
+  ---
+  duration_ms: 0.015625
+  type: 'test'
+  ...
+# Subtest: memory log error
+ok 30 - memory log error
+  ---
+  duration_ms: 0.021708
+  type: 'test'
+  ...
+# Subtest: devices now data
+ok 31 - devices now data
+  ---
+  duration_ms: 0.015375
+  type: 'test'
+  ...
+# Subtest: devices now empty
+ok 32 - devices now empty
+  ---
+  duration_ms: 0.059291
+  type: 'test'
+  ...
+# Subtest: devices now error
+ok 33 - devices now error
+  ---
+  duration_ms: 0.027167
+  type: 'test'
+  ...
+# Subtest: devices log data
+ok 34 - devices log data
+  ---
+  duration_ms: 0.019625
+  type: 'test'
+  ...
+# Subtest: devices log empty
+ok 35 - devices log empty
+  ---
+  duration_ms: 0.087375
+  type: 'test'
+  ...
+# Subtest: devices log error
+ok 36 - devices log error
+  ---
+  duration_ms: 0.025292
+  type: 'test'
+  ...
+# Subtest: connections now data
+ok 37 - connections now data
+  ---
+  duration_ms: 0.017208
+  type: 'test'
+  ...
+# Subtest: connections now empty
+ok 38 - connections now empty
+  ---
+  duration_ms: 0.015709
+  type: 'test'
+  ...
+# Subtest: connections now error
+ok 39 - connections now error
+  ---
+  duration_ms: 0.0155
+  type: 'test'
+  ...
+# Subtest: connections log data
+ok 40 - connections log data
+  ---
+  duration_ms: 0.015625
+  type: 'test'
+  ...
+# Subtest: connections log empty
+ok 41 - connections log empty
+  ---
+  duration_ms: 0.032458
+  type: 'test'
+  ...
+# Subtest: connections log error
+ok 42 - connections log error
+  ---
+  duration_ms: 0.0155
+  type: 'test'
+  ...
+# Subtest: 后端文字只作为文本，权限和纪要日期可见
+ok 43 - 后端文字只作为文本，权限和纪要日期可见
+  ---
+  duration_ms: 0.1865
+  type: 'test'
+  ...
+# Subtest: 旧壳初始化不注册、不碰状态
+ok 44 - 旧壳初始化不注册、不碰状态
+  ---
+  duration_ms: 0.113792
+  type: 'test'
+  ...
+# Subtest: 真实与演示切换恢复固定任务、待输入和活动
+ok 45 - 真实与演示切换恢复固定任务、待输入和活动
+  ---
+  duration_ms: 0.513834
+  type: 'test'
+  ...
+# Subtest: 接口形状错误显示暂无
+ok 46 - 接口形状错误显示暂无
+  ---
+  duration_ms: 0.133958
+  type: 'test'
+  ...
+# Subtest: 真实数据产生指定的导航按钮
+ok 47 - 真实数据产生指定的导航按钮
+  ---
+  duration_ms: 0.161625
+  type: 'test'
+  ...
+1..47
+# tests 47
+# suites 0
+# pass 47
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 287.7425

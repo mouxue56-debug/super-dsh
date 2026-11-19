@@ -1,0 +1,8 @@
+# 本地运行产物
+packages/*/run/
+packages/*/run*/
+packages/*/*.pid
+packages/*/*.log
+packages/*/test/.tmp*/
+packages/*/test/scratch/
+test/.tmp*/

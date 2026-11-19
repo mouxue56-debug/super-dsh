@@ -1,0 +1,10 @@
+{
+  "prices": [
+    {"channel":"sample","model":"meter","mode":"metered","currency":"USD","input":1.11,"source":"https://example.invalid/fake","checkedAt":"2029-01-01","expiresAt":"2031-01-01"},
+    {"channel":"sample","model":"old","mode":"metered","currency":"USD","input":1.11,"source":"https://example.invalid/fake","checkedAt":"2029-01-01","expiresAt":"2030-01-01"},
+    {"channel":"sample","model":"eur","mode":"metered","currency":"EUR","input":2.22,"source":"https://example.invalid/fake","checkedAt":"2029-01-01","expiresAt":"2031-01-01"},
+    {"channel":"sample","model":"plan","mode":"plan","referenceInput":2.22,"referenceCurrency":"USD"},
+    {"channel":"sample","model":"plan-empty","mode":"plan"},
+    {"channel":"sample","model":"local","mode":"local"}
+  ]
+}

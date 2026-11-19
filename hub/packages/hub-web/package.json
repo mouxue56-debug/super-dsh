@@ -1,0 +1,7 @@
+{
+  "name": "hub-web",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.mjs test/r29b-all-browser.mjs test/r31-fa-browser.mjs test/r31-int-shots.mjs test/r32-int.mjs"
+  }
+}

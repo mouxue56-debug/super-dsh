@@ -1,0 +1,25 @@
+# 演示用:让 DSH 内核的默认模型指向本机假模型(127.0.0.1:18296,OpenAI 兼容,只回显,不联网)。
+# 钥匙环境变量 HUB_FAKE_KEY 随便填一个字符串即可,它不会被发到任何地方。端口 18296 为暂定,可改。
+- id: agent-default-model
+  name: "@deepseek-ai/dsh-agent-default-model"
+  config:
+    provider: hub-fake
+    model: echo-1
+- id: llm-pi-ai
+  config:
+    providers:
+      hub-fake:
+        displayName: Fake Echo (demo)
+        apiKeyEnv: HUB_FAKE_KEY
+        api: openai-completions
+        baseURL: http://127.0.0.1:18296/v1
+        defaultContextWindow: 32000
+        defaultMaxTokens: 1024
+        compat:
+          supportsDeveloperRole: false
+          maxTokensField: max_tokens
+        models:
+          - id: echo-1
+            name: Echo 1 (fake, demo)
+            input:
+              - text

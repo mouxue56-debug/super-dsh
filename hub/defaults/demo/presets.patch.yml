@@ -1,0 +1,137 @@
+# 演示实例用的两个助理预设：首席（hub-chief）与普通助理（hub-bot）。由第26轮预设瘦身而来，人设文字换成通用的短句。
+# 关掉宿主层继承的 working_directory 工具：助理一律没有改会话目录的工具。
+- id: tool-working-directory
+  disabled: true
+- insert:
+    - id: preset-hub-chief
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: hub-chief
+        name: 演示总管
+        description: 演示实例用的总管助理（虚构数据，只接假模型）。
+        order: 100
+        plugins:
+          - id: hub-tool-fs
+            name: '@deepseek-ai/dsh-tool-fs'
+            config:
+              read: true
+              write: true
+              edit: true
+              readImage: false
+              applyPatch: false
+          - id: hub-command-scope
+            name: cordis:group
+            group: true
+            isolate:
+              shell: true
+              shellEnv: true
+            config:
+              - id: hub-shell-env
+                name: '@deepseek-ai/dsh-shell-env'
+              - id: hub-bash-sandbox
+                name: '@deepseek-ai/dsh-bash-sandbox'
+                config:
+                  timeoutMs: 60000
+                  maxTimeoutMs: 600000
+                  maxOutputBytes: 1048576
+              - id: hub-tool-bash
+                name: '@deepseek-ai/dsh-tool-bash'
+                config:
+                  enableRunInBackground: false
+                  promoteOnTimeout: false
+              - id: hub-permissions
+                name: dsh-hub-plugin
+                config:
+                  bot: chief
+
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              includeRuntimeContext: false
+              prefix: |-
+                你的名字和职责以工作目录里的 AGENTS.md 为准。这是演示实例，所有数据都是虚构的。用 bot_list 查助理名单，用 delegate_to_bot 把活派给同事。用中文，先给结论，短段落。
+          - id: agent-instructions
+            name: '@deepseek-ai/dsh-agent-instructions'
+            config:
+              projectRootMarkers: [AGENTS.md]
+              instructionFileCandidates: [AGENTS.md]
+              localInstructionFileCandidates: []
+              maxBytes: 65536
+          - id: time-context
+            name: '@deepseek-ai/dsh-time-context'
+          - id: compaction
+            name: cordis:group
+            group: true
+            isolate:
+              compaction: true
+            config:
+              - id: compaction-basic
+                name: '@deepseek-ai/dsh-compaction-basic'
+              - id: command-compact
+                name: '@deepseek-ai/dsh-command-compact'
+    - id: preset-hub-bot
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: hub-bot
+        name: 演示助理
+        description: 演示实例用的普通助理（虚构数据，只接假模型）。
+        order: 106
+        plugins:
+          - id: hub-tool-fs
+            name: '@deepseek-ai/dsh-tool-fs'
+            config:
+              read: true
+              write: true
+              edit: true
+              readImage: false
+              applyPatch: false
+          - id: hub-command-scope
+            name: cordis:group
+            group: true
+            isolate:
+              shell: true
+              shellEnv: true
+            config:
+              - id: hub-shell-env
+                name: '@deepseek-ai/dsh-shell-env'
+              - id: hub-bash-sandbox
+                name: '@deepseek-ai/dsh-bash-sandbox'
+                config:
+                  timeoutMs: 60000
+                  maxTimeoutMs: 600000
+                  maxOutputBytes: 1048576
+              - id: hub-tool-bash
+                name: '@deepseek-ai/dsh-tool-bash'
+                config:
+                  enableRunInBackground: false
+                  promoteOnTimeout: false
+              - id: hub-permissions
+                name: dsh-hub-plugin
+                config:
+                  bot: "*"
+
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              includeRuntimeContext: false
+              prefix: |-
+                你的名字和职责以工作目录里的 AGENTS.md 为准。这是演示实例，所有数据都是虚构的。只在自己的工作目录里读写。用中文，先给结论，短段落。
+          - id: agent-instructions
+            name: '@deepseek-ai/dsh-agent-instructions'
+            config:
+              projectRootMarkers: [AGENTS.md]
+              instructionFileCandidates: [AGENTS.md]
+              localInstructionFileCandidates: []
+              maxBytes: 65536
+          - id: time-context
+            name: '@deepseek-ai/dsh-time-context'
+          - id: compaction
+            name: cordis:group
+            group: true
+            isolate:
+              compaction: true
+            config:
+              - id: compaction-basic
+                name: '@deepseek-ai/dsh-compaction-basic'
+              - id: command-compact
+                name: '@deepseek-ai/dsh-command-compact'

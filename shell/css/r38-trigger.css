@@ -1,0 +1,94 @@
+/* 触发：首席安排与卡片定时——卡片小标（小钟、首席安排中、首席建议）、点开的说明块与三个操作、新建里的「交给首席安排」与「什么时候做」、
+   看板上的「定时任务」折叠区、今天页的首席建议。放在 r35-claim 之后、r29-polish 之前（r29-polish 仍是最后一份样式）。 */
+:root {
+  --r38-wait: #5b6ee1;
+  --r38-wait-soft: #e8ecff;
+  --r38-clock: #0f8b8d;
+  --r38-clock-soft: #dcf4f2;
+  --r38-ask: #c2410c;
+  --r38-ok: #1f9d72;
+}
+:root[data-theme=dark] { --r38-wait: #9fb0ff; --r38-wait-soft: #20264a; --r38-clock: #5fd6d8; --r38-clock-soft: #11393a; --r38-ask: #ff9a72; --r38-ok: #4fe0b0; }
+
+/* ---------- 卡片上的小标 ---------- */
+.r38-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 2px; min-width: 0; }
+.r38-chip {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 3px 10px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere;
+  border: 1.5px solid currentColor; background: transparent;
+}
+.r38-chip.is-wait { color: var(--r38-wait); background: var(--r38-wait-soft); }
+.r38-chip.is-ask { color: var(--r38-ask); }
+.r38-chip.is-done { color: var(--r38-ok); }
+.r38-chip.is-clock { color: var(--r38-clock); background: var(--r38-clock-soft); }
+.r38-chip.is-mute { color: var(--ink-2, #777); }
+.r38-pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: r38-pulse 1.6s ease-in-out infinite; flex: none; }
+@keyframes r38-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .r38-pulse { animation: none; } }
+.r38-clk { width: 14px; height: 14px; flex: none; }
+[data-r38-card=wanted], [data-r38-card=proposed] { border-style: dashed; }
+
+/* ---------- 点开卡：首席安排的来历、定时、三个操作 ---------- */
+.r38-box {
+  margin: 4px 0 12px; padding: 12px 14px; border: var(--line-w, 1.5px) solid var(--line); border-radius: 16px; color: var(--ink);
+  background: var(--elev);
+}
+.r38-box > strong { font-size: 15px; }
+.r38-box p { margin: 4px 0 8px; font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.r38-box.is-wait { background: var(--r38-wait-soft); }
+.r38-box.is-ask { background: color-mix(in srgb, var(--r38-ask) 14%, var(--elev)); }
+.r38-box.is-done { background: color-mix(in srgb, var(--r38-ok) 14%, var(--elev)); }
+.r38-box.is-clock { background: var(--r38-clock-soft); }
+.r38-needs { margin: 0 0 8px; padding-left: 18px; font-size: 13.5px; line-height: 1.45; }
+.r38-box .r30-row { flex-wrap: wrap; }
+.r38-box .r30-row button { flex: 1 1 96px; }
+.r38-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; margin: 6px 0 4px; }
+.r38-form { display: grid; gap: 8px; margin: 6px 0 8px; }
+.r38-form label { display: grid; gap: 4px; font-size: 13px; }
+.r38-form input[type=datetime-local], .r38-form input[type=time] {
+  box-sizing: border-box; width: 100%; padding: 8px 10px; border: var(--line-w, 1.5px) solid var(--line); border-radius: 12px;
+  background: var(--bg); color: var(--ink); font: inherit; min-height: 40px;
+}
+.r38-modes, .r38-days { display: flex; flex-wrap: wrap; gap: 6px; }
+.r38-modes button, .r38-days button {
+  min-height: 40px; padding: 6px 12px; border: var(--line-w, 1.5px) solid var(--line); border-radius: 999px; background: var(--elev);
+  color: var(--ink); font: inherit; font-size: 14px;
+}
+.r38-days button { min-width: 40px; padding: 6px 0; }
+.r38-modes button.is-on, .r38-days button.is-on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.r38-hint { margin: 0; font-size: 12.5px; color: var(--ink-2, #777); line-height: 1.4; }
+
+/* ---------- 新建与派给谁：「交给首席安排」 ---------- */
+.r38-ico {
+  display: inline-flex; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; border-radius: 50%;
+  background: var(--r38-wait-soft); color: var(--r38-wait); font-size: 16px; line-height: 1;
+}
+.r38-give, .r38-ask { border-style: dashed; }
+.r38-give > span:last-child, .r38-ask > span:last-child { font-weight: 700; }
+.r38-when { margin: 8px 0 4px; }
+.r38-when h3 { margin: 4px 0 6px; font-size: 14px; }
+
+/* ---------- 看板上的「定时任务」折叠区 ---------- */
+.r38-tpl { margin: 10px 0 4px; border: var(--line-w, 1.5px) dashed var(--line); border-radius: 16px; padding: 0 12px; background: var(--elev); }
+.r38-tpl > summary { cursor: pointer; padding: 10px 0; font-weight: 700; font-size: 14.5px; display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.r38-tpl ul { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 6px; }
+.r38-tpl-row {
+  display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box; text-align: left; min-height: 48px;
+  padding: 8px 10px; border: var(--line-w, 1.5px) solid var(--line); border-radius: 12px; background: var(--bg); color: var(--ink); font: inherit;
+}
+.r38-tpl-row b { display: block; font-size: 14px; overflow-wrap: anywhere; }
+.r38-tpl-row small { color: var(--ink-2, #777); font-size: 12.5px; }
+.r38-tpl-row .r38-chip { margin-left: auto; flex: none; }
+
+/* ---------- 今天页：首席建议（三个操作）、定时、没叫动 ---------- */
+#app .r30l-trow.r38-has-acts { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.r38-acts { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 12px 12px; margin: 0 0 6px; border: var(--line-w, 1.5px) solid var(--line); border-top: 0;
+  border-radius: 0 0 16px 16px; background: color-mix(in srgb, var(--r38-ask) 8%, var(--elev)); }
+.r38-acts button {
+  flex: 1 1 88px; min-height: 44px; padding: 8px 12px; border: var(--line-w, 1.5px) solid var(--line); border-radius: 12px; background: var(--bg);
+  color: var(--ink); font: inherit; font-size: 14.5px;
+}
+.r38-acts button.r38-yes { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 700; }
+.r38-acts .r38-pick { flex: 1 1 100%; }
+.r38-acts .r38-why { flex: 1 1 100%; margin: 0; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+#app .r30l-r-wait .r30l-state { color: var(--r38-clock); }

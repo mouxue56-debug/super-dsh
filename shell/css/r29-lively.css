@@ -1,0 +1,76 @@
+/* 待机眨眼只压舞台本身。姿态以脚底为轴，不用整块上下平移冒充换帧。 */
+@keyframes r29-blink {
+  0%, 100% { transform: scaleY(1); }
+  45%, 55% { transform: scaleY(0.96); }
+}
+@keyframes r29-idle-sway {
+  0%, 100% { transform: rotate(-1.2deg) scale(1, 1); }
+  50% { transform: rotate(1.2deg) scale(1.02, 0.98); }
+}
+@keyframes r29-think {
+  0%, 100% { transform: rotate(-2.5deg); }
+  50% { transform: rotate(2.5deg); }
+}
+@keyframes r29-react {
+  0% { transform: scale(1.06, 0.92); }
+  40% { transform: scale(0.97, 1.04); }
+  100% { transform: scale(1); }
+}
+#app .shell [data-pet-stage][data-pet-state="idle"],
+#app .shell [data-pet-stage][data-pet-state="idleB"] {
+  transform-origin: 50% 100%;
+  animation: r29-idle-sway 3.2s ease-in-out infinite;
+}
+#app .shell [data-pet-stage][data-pet-state="thinking"] {
+  transform-origin: 50% 100%;
+  animation: r29-think 3s ease-in-out infinite;
+}
+#app .shell [data-pet-stage].r29-blink {
+  transform-origin: 50% 45%;
+  animation: r29-blink 140ms ease-in-out 1;
+}
+#app .shell [data-pet-stage].r29-react {
+  transform-origin: 50% 100%;
+  animation: r29-react 280ms cubic-bezier(.3, 1.6, .5, 1) 1;
+}
+#app .shell .pin .r29-doing {
+  display: block;
+  margin: 2px 0 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: 11px;
+  line-height: 14px;
+  text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+#app .shell .pin .r29-doing[hidden] { display: none; }
+#app .shell .home-top .r29-go-stage {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  margin-top: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+}
+html[data-r29-page-hidden="1"] [data-pet-stage],
+html[data-r29-page-hidden="1"] .r29-mover,
+html[data-r29-page-hidden="1"] .r29-fx,
+html[data-r29-page-hidden="1"] .r29-cards,
+html[data-r29-page-hidden="1"] .r29-lid,
+html[data-r29-page-hidden="1"] .r29-voice-dot {
+  animation-play-state: paused !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  #app .shell [data-pet-stage].r29-blink,
+  #app .shell [data-pet-stage][data-pet-state="idle"],
+  #app .shell [data-pet-stage][data-pet-state="idleB"],
+  #app .shell [data-pet-stage][data-pet-state="thinking"],
+  #app .shell [data-pet-stage].r29-react { animation: none; }
+}

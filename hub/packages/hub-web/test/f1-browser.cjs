@@ -1,0 +1,60 @@
+// F1：仅项目3592假环境和本机已有Chromium，全部外部请求拦截；无真实模型。
+const playwright=require(process.env.PLAYWRIGHT_CORE||require('os').homedir()+'/node_modules/playwright-core');
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const engine=process.env.HUB_R24_BROWSER||'chromium';
+const shotPrefix=process.env.HUB_R24_PREFIX||'f1-';
+const base='http://127.0.0.1:3592',out=process.env.HUB_R24_SHOTS||path.resolve('shots');fs.mkdirSync(out,{recursive:true});
+(async()=>{
+ const {project,lastSentence}=await import(process.env.HUB_R24_TIMELINE||'../../hub-bff/lib/timeline.mjs');
+ const browser=await playwright[engine].launch({headless:true,executablePath:engine==='webkit'?process.env.WEBKIT:process.env.CHROMIUM||require('os').homedir()+'/Library/Caches/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell',timeout:15000});
+ const checks=[],errors=[],blocked=[];
+ const check=(label,ok)=>{assert(ok,label);checks.push(label);console.log('通过：'+label);};
+ try{
+  const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:3,isMobile:true,hasTouch:true});
+  page.on('pageerror',e=>errors.push(e.message));
+  await page.route('**/*',route=>{const u=new URL(route.request().url());if(u.protocol==='data:'||(u.protocol==='blob:'&&u.origin===base)||u.origin===base)return route.continue();blocked.push(u.origin);return route.abort();});
+  const fixture=async b=>assert.equal(await page.evaluate(async b=>(await fetch('/bff/__fixture',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)})).status,b),200);
+  const snap=async(name,locator)=>{await page.waitForTimeout(500);if(locator)await locator.evaluate(el=>el.scrollIntoView({block:'center'}));await page.waitForTimeout(150);await page.screenshot({path:path.join(out,shotPrefix+name+'.png'),animations:'disabled'});};
+  await page.goto(base+'/?key=r24-offline-web');await page.waitForFunction(()=>window.HubReal?.state().sessions.length>=7);
+  const ts=new Date().toISOString();
+  const card=(id,seq,reason,extra={})=>({id,type:'approval',bot:'chief',sessionId:'chief-f1',seq,tool:'write',level:'L3',path:'/Users/example/dsh-work/shared/验收草稿.md',action:'写共享区',chars:32,preview:'这份文件没有写入，等待你确认。',why:'把核对后的日期写进共享区。',status:'unavailable',reason,createdAt:ts,expiresAt:new Date(Date.now()+600000).toISOString(),...extra});
+  const expected=[['no-device','没有登录中的设备，这一步没做','01-没有登录设备'],['dsh-disconnected','服务断开了，没等到你点头，这一步没做','02-服务断开'],['bff-restart','服务断开了，没等到你点头，这一步没做','03-BFF重启'],['bad-request','这张卡信息不全，已按拒绝处理','04-卡片信息不全']];
+  const cards=expected.map(([r],i)=>card('f1-'+r,i+2,r));
+  cards.push(card('f1-legacy',6,undefined));
+  const shortWhy=lastSentence('先核对内容。把确认后的日期写进共享区。验证审批卡能显');
+  const longWhy=lastSentence('需要'.repeat(50)+'。未完成的尾巴');
+  cards.push(card('f1-why',8,undefined,{status:'pending',why:shortWhy}),card('f1-long-why',9,undefined,{status:'pending',why:longWhy}));
+  const native=['the user rejected tool "write"','approval request was cancelled','tool "write" requires approval, but no approval channel is available','unexpected kernel failure'];
+  const event=(seq,type,data)=>({event:{seq,type,data,time:Date.now()+seq}});
+  const traces=native.flatMap((text,i)=>[event(11+i*2,'tool/call',{callId:'f1-tool-'+i,name:'write',arguments:{file_path:'/Users/example/dsh-work/shared/验收草稿.md'}}),event(12+i*2,'tool/result',{message:{toolCallId:'f1-tool-'+i,isError:true,content:[{type:'text',text:'Error: '+text}]}})]);
+  const prefix='（改一下）主人 看了审批卡，要你按这条意见改完重做（重做照常走审批，这不算绕过）：';
+  const messages=[{role:'user',text:'确认这几张审批卡的结束原因。',seq:1},...project(traces).surface(),{role:'user',text:prefix+'内容加上日期',seq:20},{role:'assistant',text:'会按修改意见重做，需要审批的步骤照常等你点头。',seq:21}];
+  await fixture({type:'timeline',id:'chief-f1',title:'F1 收尾小修验收',messages,cards});
+  await page.waitForFunction(()=>HubReal.state().sessions.some(s=>s.id==='chief-f1'));
+  await page.evaluate(()=>{Hub.state.view='chat';Hub.state.detail=false;window.render();});
+  const ready=page.waitForResponse(r=>r.url().endsWith('/sessions/chief-f1/read')&&r.request().method()==='POST');await page.locator('[data-real-open="chief-f1"]').click();await ready;
+  for(const [reason,text,name] of expected){const c=page.locator('[data-real-card="f1-'+reason+'"]');await c.waitFor();check(reason+' 显示对应原因且没有审批按钮',(await c.textContent()).includes(text)&&await c.locator('[data-real-answer]').count()===0);await snap(name,c);}
+  check('旧卡无reason仍沿用原文案',(await page.locator('[data-real-card="f1-legacy"]').textContent()).includes('没有登录中的设备，这一步没做'));
+  const group=page.locator('[data-real-tool-group="f1-tool-0"]');await group.locator('summary').click();
+  const toolText=await group.textContent();
+  check('工具条四类英文均映射为中文，展开可见每一步',await group.locator('[data-real-tool]:visible').count()===4&&['主人 没批准','审批取消了','审批通道不在线','这一步没做成'].every(t=>toolText.includes(t))&&!/the user rejected|cancelled|requires approval|unexpected kernel|unavailable/i.test(toolText));
+  await snap('05-工具条中文结果',group);
+  check('理由采用完整句，长句80字后保留省略号',(await page.locator('[data-real-card="f1-why"] .hub-real-why').textContent())==='为什么要写：'+shortWhy&&(await page.locator('[data-real-card="f1-long-why"] .hub-real-why').textContent())==='为什么要写：'+longWhy&&Array.from(longWhy).length===81&&longWhy.endsWith('…'));
+  await snap('06-完整理由与省略号',page.locator('[data-real-card="f1-long-why"]'));
+  const revision=page.getByText('改一下：内容加上日期',{exact:true});
+  check('历史用户气泡只显示修改意见，接口原文未变',await revision.count()===1&&!(await page.locator('.thread-inner').textContent()).includes(prefix)&&await page.evaluate(async prefix=>{const h=await fetch('/bff/sessions/chief-f1/history').then(r=>r.json());return h.messages.some(m=>m.role==='user'&&m.text===prefix+'内容加上日期');},prefix));
+  await snap('07-改一下用户气泡',revision);
+  await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>HubReal.state().sessions.some(s=>s.id==='chief-f1'));
+  await page.evaluate(()=>{Hub.state.view='chat';Hub.state.detail=false;window.render();});
+  const reloaded=page.waitForResponse(r=>r.url().endsWith('/sessions/chief-f1/read')&&r.request().method()==='POST');await page.locator('[data-real-open="chief-f1"]').click();await reloaded;
+  await page.waitForSelector('[data-real-card="f1-why"]');
+  check('重载后修改气泡与断线原因仍保留',await page.getByText('改一下：内容加上日期',{exact:true}).count()===1&&(await page.locator('[data-real-card="f1-dsh-disconnected"]').textContent()).includes('服务断开了，没等到你点头，这一步没做'));
+  await fixture({id:'delegation-1',status:'failed',reason:'超过 8 步自动停'});await fixture({type:'session',id:'pm-work',lastText:'超过 8 步自动停'});
+  await page.waitForFunction(()=>HubReal.state().sessions.find(s=>s.id==='pm-work')?.lastText==='超过 8 步自动停');
+  await page.evaluate(()=>{Hub.state.view='chat';Hub.state.detail=false;window.render();});
+  const row=page.locator('.home-recent-list [data-real-open="pm-work"]');
+  check('首页最近显示派工失败原因',await row.isVisible()&&(await row.locator('.preview').textContent())==='超过 8 步自动停');await snap('08-首页最近步数上限',row);
+  check('页面没有脚本错误',errors.length===0);check('浏览器没有请求外部网络',blocked.length===0);
+  console.log('F1 '+engine+' 专项：'+checks.length+'项通过');
+ }finally{fs.writeFileSync(path.join(out,process.env.HUB_R24_PREFIX?shotPrefix+'results.json':'f1-'+engine+'-results.json'),JSON.stringify({engine,browserVersion:browser.version(),viewport:{width:390,height:844,scale:3},checks,errors,blocked},null,2));await browser.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

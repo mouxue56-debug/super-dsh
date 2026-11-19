@@ -1,0 +1,2 @@
+# 样例：每 10 分钟跑一次接单器（跑一次就退）。没有安装。
+*/10 * * * * PATH=$HOME/.local/bin:/opt/homebrew/bin:/usr/bin:/bin node /path/to/runner/hub-runner.mjs --once --config $HOME/.dsh-runner/config.json >> $HOME/.dsh-runner/cron.log 2>&1

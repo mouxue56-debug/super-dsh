@@ -1,0 +1,19 @@
+/* R25 L2：呼吸只在 HTML 外层执行 transform CSS 关键帧，不常挂 will-change。 */
+@keyframes r25-breath{0%,100%{transform:translateY(0)}50%{transform:translateY(-2%)}}
+@keyframes r25-breath-night{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.4%)}}
+@keyframes r25-entry{from{transform:scale(.975,1.025)}to{transform:scale(1)}}
+#app .shell .chief-pet-stage.r25-entry-stage{transform-origin:50% 100%;animation:r25-entry 500ms cubic-bezier(.3,1.6,.5,1)}
+#app .shell .r25-motion-body{transform-origin:50% 100%;animation:r25-breath var(--r25-cycle,3.2s) ease-in-out var(--r25-phase,0s) infinite}
+html[data-r25-motion-night=true] #app .shell .r25-motion-body{animation-name:r25-breath-night;animation-duration:calc(var(--r25-cycle,3.2s) * 1.5)}
+html[data-r25-motion-hidden=true] #app .shell .r25-entry-stage,
+html[data-r25-motion-hidden=true] #app .shell .r25-motion-body,
+#app .shell .r25-motion-body[data-r25-motion-covered=true],
+#app .shell .r25-motion-body[data-r25-motion-offscreen=true]{animation-play-state:paused}
+/* 图像站台的手势外框不动；备用 SVG 保持直属 HTML figure，不在 SVG 上呼吸。 */
+#app .shell .r22-pet-figure>.r25-pet-body{position:absolute;inset:0;display:block}
+#app .shell .chatview .r22-pet-figure>.r25-pet-body>.role-silhouette{width:86px;height:132px;display:block;margin:auto;transform-origin:50% 100%}
+.keyboard #app .shell .chatview .r22-pet-figure>.r25-pet-body>.role-silhouette{width:52px;height:72px}
+@media(prefers-reduced-motion:reduce){
+ #app .shell .r25-motion-body,#app .shell .chief-pet-stage.r25-entry-stage{animation:none!important;transform:none;will-change:auto}
+ #app .shell .chief-pet-stage>img{transition:none!important}
+}

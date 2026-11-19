@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "late",
+      "when": {
+        "kind": "unclaimed",
+        "olderThan": "2h",
+        "state": "queued",
+        "project": "ops"
+      },
+      "ticket": {
+        "title": "有单超时未领",
+        "goal": "请处理超时未领的这一类单",
+        "to": ["agent-a"],
+        "key": "late",
+        "project": "ops"
+      }
+    },
+    {
+      "id": "stuck",
+      "when": { "kind": "blocked" },
+      "ticket": {
+        "title": "有单被阻断",
+        "goal": "请看被阻断的单，只处理派给自己的",
+        "to": ["agent-a"],
+        "key": "stuck",
+        "project": "ops"
+      }
+    },
+    {
+      "id": "morning",
+      "when": { "kind": "daily", "at": "09:00", "tz": "instance", "catchUp": true },
+      "ticket": {
+        "title": "每日看一眼看板",
+        "goal": "到点查看派给自己的单",
+        "to": ["agent-a"],
+        "key": "morning",
+        "project": "ops"
+      }
+    },
+    {
+      "id": "needs-owner",
+      "when": { "kind": "needs-owner" },
+      "ticket": {
+        "title": "有单缺主人信息",
+        "goal": "源单在等主人回答。请看清问题，不要自己猜。",
+        "to": ["agent-a"],
+        "key": "needs-owner",
+        "project": "ops"
+      }
+    },
+    {
+      "id": "inbox",
+      "when": { "kind": "new-file", "dir": "inbox", "suffix": ".txt" },
+      "ticket": {
+        "title": "文件夹里有新文件",
+        "goal": "处理新出现的文件",
+        "to": ["agent-a"],
+        "key": "inbox",
+        "project": "ops"
+      }
+    }
+  ]
+}

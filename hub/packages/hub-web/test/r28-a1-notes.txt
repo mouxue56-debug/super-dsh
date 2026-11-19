@@ -1,0 +1,25 @@
+2026-11-18，本工作树 r28/a1，基线 58babcc。
+
+改前：
+node --test packages/hub-web/test/r26-roster.test.mjs packages/hub-web/test/r26-client.test.mjs packages/hub-web/test/client.test.mjs
+28 项：25 通过，3 失败。失败均为 listen EPERM（127.0.0.1）：client.test.mjs 离线 BFF、r26-client.test.mjs 代理、r26-roster.test.mjs 代理。
+
+改后：
+node --test packages/hub-web/test/r28-a1.test.mjs packages/hub-web/test/r26-roster.test.mjs packages/hub-web/test/r26-client.test.mjs packages/hub-web/test/client.test.mjs
+34 项：31 通过，3 失败；与基线相同的 3 项 listen EPERM。新增 6 项通过。
+node --check packages/hub-web/hub-real.js：通过。
+node --check packages/hub-web/test/r28-a1-browser.cjs：通过。
+
+浏览器环境启动尝试：
+node packages/hub-web/test/r28-shell-env.mjs <shell-new> packages/hub-web/test/r28-a1-tmp
+监听 127.0.0.1:3595 时 EPERM，进程已退出，网页服务未启动。
+node packages/hub-web/test/r28-a1-browser.cjs
+Chromium 启动时 bootstrap_check_in Permission denied，进程 SIGTRAP 退出。未连接页面，未产生截图。
+因此新壳真实交互、真实会话聊天验证、首页六格及旧壳行为均未完成浏览器验证；浏览器脚本也尚未经联调。
+为遵守仅工作目录内写入，测试临时文件及脚本截图位置设在 packages/hub-web/test/ 内，而不是同级 work/。
+既有真实会话 H.postMessage 对 records 内非 hubReal 消息有保护；只作源码及单元断言，未做浏览器实测。
+
+提交尝试：git add 指定的 hub-real.js、r28-a1.test.mjs、r28-a1-browser.cjs、r28-a1-notes.txt；
+失败：实际 git 元数据在工作树之外，创建 index.lock 返回 Operation not permitted。没有提交。
+测试环境启动产生的本地 fixture 和测试输出保留，未删除，也未暂存。
+浏览器脚本尚未覆盖完整的聊天发送、首页六格与旧壳原行为对比，不能作为验收通过依据。

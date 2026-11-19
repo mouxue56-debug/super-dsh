@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 2,
+  "id": "T-20260105-011200-dem4",
+  "title": "给示例小站起一个栏目名",
+  "goal": "想三个备选栏目名,供选择。",
+  "key": null,
+  "from": {
+    "name": "owner",
+    "type": "owner"
+  },
+  "to": [
+    "writer"
+  ],
+  "claimedBy": null,
+  "state": "queued",
+  "review": "none",
+  "root": "T-20260105-011200-dem4",
+  "hop": 0,
+  "expects_reply": false,
+  "open_ask": null,
+  "report": null,
+  "reports": [],
+  "project": "demo-garden",
+  "sessions": {
+    "from": "",
+    "to": ""
+  },
+  "workdir": {
+    "path": null,
+    "writable": []
+  },
+  "forbidden": [],
+  "acceptance": [],
+  "progress": [],
+  "verification": [],
+  "costRefs": [],
+  "readExternalContent": false,
+  "routing": {
+    "requestedBy": "",
+    "via": "",
+    "hint": ""
+  },
+  "parentId": null,
+  "history": [
+    {
+      "ts": "2026-01-05T01:12:00.000Z",
+      "by": "owner",
+      "action": "created"
+    }
+  ],
+  "createdAt": "2026-01-05T01:12:00.000Z",
+  "updatedAt": "2026-01-05T01:12:00.000Z"
+}

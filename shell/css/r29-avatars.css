@@ -1,0 +1,71 @@
+/* 叠头像、未读数字。不改已有 56px 行高和红点定位原文。 */
+.r29-face{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:var(--r29-size,40px);height:var(--r29-size,40px);min-width:var(--r29-size,40px);
+  border-radius:50%;overflow:hidden;flex:none;position:relative;vertical-align:middle;
+  background:var(--r29-ink,var(--bot,#6d7a86));color:#fff
+}
+svg.r29-shape{display:inline-block;background:transparent}
+.r29-face-img{width:100%;height:100%;object-fit:cover;display:block}
+.r29-initial{font-size:calc(var(--r29-size,40px) * .42);font-weight:700;line-height:1}
+.r29-stack{
+  position:relative;display:inline-block;flex:none;vertical-align:middle;
+  width:var(--r29-size,40px);height:var(--r29-size,40px);min-width:var(--r29-size,40px)
+}
+.r29-stack>.r29-face{
+  position:absolute;box-sizing:border-box;border:1px solid var(--paper,#fff);
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--ink) 18%,transparent)
+}
+.r29-stack[data-r29-n="2"]>.r29-face:nth-child(1){left:0;top:0}
+.r29-stack[data-r29-n="2"]>.r29-face:nth-child(2){right:0;bottom:0;z-index:1}
+.r29-stack[data-r29-n="3"]>.r29-face:nth-child(1){left:0;top:0}
+.r29-stack[data-r29-n="3"]>.r29-face:nth-child(2){right:0;top:0;z-index:1}
+.r29-stack[data-r29-n="3"]>.r29-face:nth-child(3){
+  left:50%;bottom:0;z-index:2;transform:translateX(-50%)
+}
+#app .shell .home-recent-list .r29-face,
+#app .shell .home-recent-list .r29-stack{flex:none}
+#app .shell .home-recent-list .conversation .line strong,
+#app .shell .home-recent-list .r29-group-row .line strong{
+  display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+#app .shell .home-recent-list .r29-group-row{
+  display:flex;align-items:center;gap:10px;width:100%;height:56px;min-height:56px;
+  margin:0;padding:0;border:0;background:transparent;text-align:left;color:inherit
+}
+#app .shell .home-recent-list .r29-group-row .grow{min-width:0;flex:1}
+#app .shell .home-recent-list .r29-group-row .preview{
+  display:block;margin:0;font-size:13px;line-height:18px;color:var(--ink-2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+#app .shell .home-recent-list .r29-group-row strong{font-size:15px;line-height:20px;font-weight:700}
+#app .shell .home-row-meta .bot-unread.r29-unread{
+  position:static;left:auto;top:auto;display:inline-flex;align-items:center;justify-content:center;
+  width:auto;min-width:1.6em;height:16px;padding:0 4px;border:0;border-radius:999px;
+  background:var(--badge);color:#fff;font-size:11px;font-weight:700;line-height:16px;
+  text-align:center;box-shadow:none!important
+}
+#app .shell .pin .home-assistant-unread.r29-unread{
+  position:absolute;left:auto;right:8px;top:8px;z-index:3;
+  display:inline-flex;align-items:center;justify-content:center;
+  width:auto;min-width:1.6em;height:16px;padding:0 4px;border:0;border-radius:999px;
+  background:var(--badge);color:#fff;font-size:11px;font-weight:700;line-height:16px;
+  text-align:center;box-shadow:0 0 0 2px var(--paper)!important
+}
+.kmeta>.r29-assign,.r29-who-line,.r29-owner{
+  display:inline-flex;align-items:center;gap:4px;min-width:0;font-size:12px;line-height:16px
+}
+.kmeta>.r29-assign{flex:1 0 100%}
+.kmeta>.r29-assign .r29-face,.kmeta>.r29-assign .creature,
+.r29-who-line .r29-face,.r29-who-line .creature,
+.r29-owner .r29-face,.r29-owner .creature,
+.r29-activity-face .r29-face,.r29-activity-face .creature,
+.r22-board-popover .r29-face,.r22-board-popover .creature,
+.particle-map .r29-face{width:28px;height:28px;min-width:28px;flex:none}
+.r29-activity-face{display:inline-flex;flex:none;align-items:center}
+.r22-board-popover .r29-face,.r22-board-dock .r29-face{vertical-align:middle}
+.r29-confirm-face{
+  display:inline-flex;align-items:center;vertical-align:middle;
+  width:32px;height:32px;margin-right:6px;flex:none;
+}
+.r29-confirm-face>.r29-face{width:32px;height:32px;min-width:32px}

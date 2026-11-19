@@ -1,0 +1,106 @@
+/* 对话页精简。旧节点留在文档里给离线校验点，这里只把它们从画面拿掉。 */
+#app .shell .chat-header .sidebtn,
+#app .shell .chat-header .ledger-shortcut,
+#app .shell .chat-header .shell-memory-mount,
+#app .shell .chat-header [data-demo-content="title"],
+#app .shell .chat-header .hub-real-health{
+  display:none!important;
+}
+#app .shell .chat-header .shell-title-meta{display:none!important}
+#app .shell .chat-header .shell-title-meta:has(.shell-board-return),
+#app .shell .chat-header .shell-title-meta:has([data-r29-offline]:not([hidden])){
+  display:flex!important;
+  align-items:center;
+  height:auto;
+  min-height:16px;
+}
+#app .shell .chat-header{height:48px;min-height:48px;align-items:center}
+#app .shell .chat-header .titlepill.r29-title{
+  display:flex!important;
+  align-items:center;
+  gap:8px;
+  height:36px;
+  min-height:36px;
+  max-width:100%;
+}
+#app .shell .chat-header .r29-avatar{
+  width:32px;height:32px;flex:none;display:grid;place-items:center;overflow:visible;
+  border-radius:999px;
+}
+#app .shell .chat-header .r29-avatar>.r29-face,
+#app .shell .chat-header .r29-avatar>.r29-stack{
+  width:32px;height:32px;min-width:32px;
+}
+#app .shell .chat-header .r29-avatar>img,
+#app .shell .chat-header .r29-avatar>svg,
+#app .shell .chat-header .r29-avatar>.creature{
+  width:32px;height:32px;border-radius:999px;object-fit:cover;
+}
+#app .shell .chat-header .r29-settings{
+  width:36px;min-width:36px;height:36px;min-height:36px;padding:0;border:0;border-radius:999px;
+  background:var(--well);color:var(--ink);display:grid;place-items:center;flex:none;
+}
+#app .shell .chat-header .r29-offline{font-size:12px;color:var(--danger,#E5604A)}
+#app .shell .chatview .chat-quick-slot,
+#app .shell .chatview .hub-quick,
+body.keyboard #app .shell .chatview .chat-quick-slot{
+  display:none!important;height:0!important;min-height:0!important;max-height:0!important;
+  margin:0!important;padding:0!important;overflow:hidden!important;
+}
+#app .shell .chatview .contextline:not(:has(.chief-pet-lane)),
+body.keyboard #app .shell .chatview .contextline:not(:has(.chief-pet-lane)){
+  display:none!important;
+}
+#app .shell .chatview .contextline [data-context-mix]{display:none!important}
+#app .shell .chatview [data-r29-voice-slot]:empty{display:none}
+#app .shell .chatview [data-r29-voice-slot]{min-height:0}
+#app .shell .chatview .r22-input-row{height:36px!important;min-height:36px}
+#app .shell .chatview .inputpill{
+  height:36px!important;min-height:36px!important;position:relative;
+}
+#app .shell .chatview .inputpill textarea{
+  height:32px!important;min-height:32px!important;max-height:32px!important;
+  padding:5px 0 5px 8px!important;
+}
+#app .shell .chatview .r22-input-row>.iconbtn,
+#app .shell .chatview .r22-input-row .r29-plus{
+  width:36px!important;min-width:36px!important;height:36px!important;min-height:36px!important;
+}
+#app .shell .chatview .r22-session-key{
+  display:none!important;width:0!important;min-width:0!important;height:0!important;
+  min-height:0!important;position:absolute!important;pointer-events:none!important;
+}
+#app .shell .chatview .r29-plus-panel{
+  display:flex;flex-direction:column;gap:6px;align-self:flex-start;
+  padding:8px;background:var(--paper);border-radius:16px;
+  box-shadow:0 3px 0 var(--lip);max-width:100%;
+}
+#app .shell .chatview .r29-plus-panel button{
+  min-height:36px;border:0;border-radius:12px;background:var(--well);color:var(--ink);
+  text-align:left;padding:0 12px;
+}
+#app .shell .chatview .r29-previews{
+  display:flex;gap:6px;overflow-x:auto;max-width:100%;
+}
+#app .shell .chatview .r29-chip{
+  display:flex;align-items:center;gap:6px;flex:none;max-width:100%;
+  background:var(--well);border-radius:12px;padding:4px 6px;min-height:36px;
+}
+#app .shell .chatview .r29-chip img{
+  width:32px;height:32px;object-fit:cover;border-radius:8px;flex:none;
+}
+#app .shell .chatview .r29-file-name,
+#app .shell .chatview .r29-retry{
+  font-size:13px;color:var(--ink);background:none;border:0;padding:0;text-align:left;
+}
+#app .shell .chatview .r29-chip .iconbtn{
+  width:28px;min-width:28px;height:28px;min-height:28px;border:0;border-radius:999px;
+  background:transparent;color:var(--ink);
+}
+#app .shell .chatview .r29-queue{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  min-height:28px;font-size:13px;color:var(--ink-2);
+}
+#app .shell .chatview .r29-queue button{
+  border:0;background:none;color:var(--ink);min-height:28px;padding:0 4px;
+}

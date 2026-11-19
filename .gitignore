@@ -1,0 +1,20 @@
+# 构建产物与本地运行数据
+shell/dist/
+shell/dist-generic/
+shell/tmp/
+.dsh-public-export
+node_modules/
+*.pid
+*.log
+.DS_Store
+hub/packages/*/run/
+hub/packages/*/test/.tmp/
+shots/
+验图/
+hub/packages/*/test/scratch/
+hub/packages/*/test/.tmp*/
+hub/packages/*/run*/
+hub/test/.tmp*/
+evidence/
+hub/packages/review7-test-data/
+hub/packages/*/.review*/

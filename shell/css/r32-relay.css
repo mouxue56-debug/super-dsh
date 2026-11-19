@@ -1,0 +1,176 @@
+/* 接力：卡片上的进度线、点开的时间线、新建接力、演示的交棒动效。
+   放在 r30-board / r30-ledger-today 之后、r29-polish 之前（r29-polish 仍是最后一份样式）。 */
+:root {
+  --r32-done: #1f9d72;
+  --r32-now: var(--ink);
+  --r32-glow: #ffd43a;
+  --r32-stuck: #c2410c;
+}
+:root[data-theme=dark] { --r32-done: #4fe0b0; --r32-glow: #ffd43a; --r32-stuck: #ff9a72; }
+
+/* 「你」的头像 */
+.r32-me {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: var(--r32-px, 28px); height: var(--r32-px, 28px); border-radius: 50%;
+  background: var(--ink); color: var(--bg); font-size: calc(var(--r32-px, 28px) * .5); font-weight: 700; line-height: 1;
+}
+
+/* ---------- 卡片上：一排小头像连成线 ---------- */
+.r32-strip { display: flex; align-items: center; gap: 10px; min-width: 0; margin: 6px 0 2px; }
+.r32-nodes { flex: 1 1 auto; max-width: 100%; display: flex; align-items: center; min-width: 0; margin: 0; padding: 4px 2px; list-style: none; }
+.r32-node, .r32-dot { position: relative; flex: none; width: var(--r32-px); height: var(--r32-px); }
+.r32-face { display: block; width: 100%; height: 100%; border-radius: 50%; overflow: hidden; transition: filter .3s, opacity .3s; }
+.r32-face > * { width: 100% !important; height: 100% !important; max-width: none; border-radius: 50%; }
+.r32-face .r29-desk-letter { --r29-desk-size: var(--r32-px); font-size: calc(var(--r32-px) * .5); }
+.r32-node.is-wait .r32-face, .r32-step.is-wait .r32-face { filter: grayscale(1); opacity: .42; }
+.r32-node.is-done .r32-face, .r32-step.is-done .r32-face { opacity: .95; }
+.r32-node.is-now::before, .r32-step.is-now .r32-dot::before {
+  content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2.5px solid var(--r32-now);
+  box-shadow: 0 0 0 0 var(--r32-glow); animation: r32-breathe 2.2s ease-in-out infinite;
+}
+.r32-node.is-now .r32-face, .r32-step.is-now .r32-face { animation: r32-bob 2.2s ease-in-out infinite; }
+.r32-node.is-gate::before, .r32-step.is-gate .r32-dot::before {
+  content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2.5px dashed var(--r32-glow);
+  animation: r32-breathe 2.2s ease-in-out infinite;
+}
+.r32-node.is-stuck::before, .r32-step.is-stuck .r32-dot::before {
+  content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2.5px solid var(--r32-stuck);
+}
+.r32-tick {
+  position: absolute; right: -4px; bottom: -4px; display: flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; border-radius: 50%; background: var(--r32-done); color: #fff; border: 1.5px solid var(--elev);
+}
+.r32-tick svg { width: 9px; height: 9px; }
+.r32-tick.r32-ask-dot { background: var(--r32-glow); color: #1c1b22; font-size: 10px; font-weight: 800; line-height: 1; }
+.r32-link { position: relative; flex: 1 1 12px; min-width: 6px; max-width: 56px; height: 3px; margin: 0 3px; border-radius: 2px; background: var(--sep); overflow: hidden; }
+.r32-link i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 2px; background: var(--r32-done); }
+.r32-link.is-done i { width: 100%; }
+.r32-link.is-pass i { animation: r32-flow .9s ease-out both; }
+.r32-link.is-pass + .r32-node { animation: r32-arrive .7s .55s both; }
+.r32-node:has(+ .r32-link.is-pass) .r32-tick { animation: r32-tick .6s both; }
+.r32-strip[data-many] .r32-link { min-width: 4px; margin: 0 2px; }
+.r30-face.is-static { pointer-events: none; cursor: default; }
+@keyframes r32-breathe {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 212, 58, .55); }
+  50% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(255, 212, 58, 0); }
+}
+@keyframes r32-bob { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+@keyframes r32-flow {
+  0% { width: 0; background: var(--r32-glow); box-shadow: 0 0 0 0 var(--r32-glow); }
+  70% { width: 100%; background: var(--r32-glow); box-shadow: 0 0 8px 2px var(--r32-glow); }
+  100% { width: 100%; background: var(--r32-done); box-shadow: none; }
+}
+@keyframes r32-arrive { 0% { transform: scale(.7); } 60% { transform: scale(1.22); } 100% { transform: scale(1); } }
+@keyframes r32-tick { 0% { transform: scale(0); } 60% { transform: scale(1.4); } 100% { transform: scale(1); } }
+
+/* ---------- 点开：竖着的接力时间线 ---------- */
+.r32-tl-wrap h3 { margin: 14px 0 8px; }
+.r32-tl { margin: 0; padding: 0; list-style: none; }
+.r32-step { position: relative; display: flex; align-items: stretch; gap: 12px; padding-bottom: 14px; }
+.r32-rail { position: relative; flex: none; display: flex; flex-direction: column; align-items: center; width: 34px; }
+.r32-step:not(:last-child) .r32-rail::after {
+  content: ""; position: absolute; top: 36px; bottom: -14px; left: 50%; width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--sep);
+}
+.r32-step.is-done:not(:last-child) .r32-rail::after { background: var(--r32-done); }
+.r32-dot { width: 30px; height: 30px; margin-top: 2px; }
+.r32-flag {
+  display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; margin-top: 2px; border-radius: 50%;
+  background: var(--fill); color: var(--ink-2); font-size: 15px;
+}
+.r32-step.is-done.r32-end .r32-flag { background: var(--r32-done); color: #fff; }
+.r32-body { flex: 1 1 auto; min-width: 0; }
+.r32-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.r32-head strong { font-size: 14px; }
+.r32-chip {
+  padding: 1px 8px; border-radius: 999px; background: var(--fill); color: var(--ink-2); font-size: 11px; font-style: normal;
+}
+.r32-step.is-now .r32-chip { background: var(--r32-glow); color: #1c1b22; }
+.r32-step.is-done .r32-chip { background: color-mix(in srgb, var(--r32-done) 22%, transparent); color: var(--ink); }
+.r32-step.is-gate .r32-chip { background: var(--r32-glow); color: #1c1b22; }
+.r32-step.is-stuck .r32-chip { background: color-mix(in srgb, var(--r32-stuck) 22%, transparent); color: var(--ink); }
+.r32-body p { margin: 3px 0 0; font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
+.r32-task { color: var(--ink); }
+.r32-when, .r32-time { color: var(--ink-2); font-size: 12px !important; }
+.r32-ret { color: var(--r32-stuck); }
+.r32-note { margin-top: 6px; border: 1px solid var(--sep); border-radius: 12px; background: var(--fill); }
+.r32-note summary { min-height: 36px; padding: 8px 12px; font-size: 13px; cursor: pointer; list-style: none; }
+.r32-note summary::-webkit-details-marker { display: none; }
+.r32-note summary::after { content: "展开"; float: right; color: var(--ink-2); font-size: 12px; }
+.r32-note[open] summary::after { content: "收起"; }
+.r32-note p { margin: 0; padding: 0 12px 10px; white-space: pre-wrap; }
+
+/* ---------- 等你：放行、退回、回答 ---------- */
+.r32-ask {
+  margin: 4px 0 12px; padding: 12px 14px; border: var(--line-w, 1.5px) solid var(--line); border-radius: 16px;
+  background: var(--bot-soft, #fff0af); color: var(--ink);
+}
+.r32-ask > strong { font-size: 15px; }
+.r32-ask p { margin: 4px 0 8px; font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.r32-ask.is-stuck { background: color-mix(in srgb, var(--r32-stuck) 14%, var(--elev)); }
+.r32-ask.is-done { background: color-mix(in srgb, var(--r32-done) 16%, var(--elev)); }
+.r32-ask .r30-form { margin: 0 0 8px; }
+.r32-ask textarea { width: 100%; box-sizing: border-box; }
+
+/* ---------- 新建：接力 ---------- */
+.r32-mode { display: flex; gap: 8px; margin: 10px 0 4px; }
+.r32-mode button {
+  flex: 1 1 0; min-height: 44px; padding: 0 10px; border: var(--line-w, 1px) solid var(--line); border-radius: 999px;
+  background: var(--elev); color: var(--ink); font-size: 14px;
+}
+.r32-mode button.is-on { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 700; }
+.r32-tpls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.r32-tpl {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 56px; padding: 8px 12px; text-align: left;
+  border: var(--line-w, 1px) solid var(--line); border-radius: 14px; background: var(--elev); color: var(--ink);
+}
+.r32-tpl b { font-size: 14px; }
+.r32-tpl small { color: var(--ink-2); font-size: 11px; line-height: 1.3; overflow-wrap: anywhere; }
+.r32-build { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.r32-build-row { display: flex; align-items: flex-start; gap: 8px; padding: 8px 8px 8px 10px; border: 1px solid var(--sep); border-radius: 14px; background: var(--elev); }
+.r32-n { flex: none; width: 18px; margin-top: 7px; color: var(--ink-2); font-size: 12px; text-align: center; }
+.r32-build-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.r32-build-main strong { font-size: 14px; }
+.r32-build-main textarea {
+  width: 100%; box-sizing: border-box; min-height: 52px; padding: 8px 10px; border: 1px solid var(--sep); border-radius: 10px;
+  background: var(--bg); color: var(--ink); font-size: 14px; line-height: 1.35; resize: none;
+}
+.r32-gate { display: flex; align-items: center; gap: 8px; min-height: 32px; font-size: 12px; color: var(--ink-2); }
+.r32-gate input { width: 18px; height: 18px; }
+.r32-del { flex: none; min-width: 44px; min-height: 44px; margin: -4px -2px 0 0; border: 0; background: transparent; color: var(--ink-2); font-size: 16px; }
+.r32-hint { margin: 6px 0; color: var(--ink-2); font-size: 12px; line-height: 1.4; }
+.r32-new .r30-primary[aria-disabled=true] { opacity: .5; }
+
+/* ---------- 演示：重播 ---------- */
+.r32-replay {
+  flex: none; min-height: 44px; padding: 0 12px; border: 1px dashed var(--ink-2); border-radius: 999px; background: transparent;
+  color: var(--ink-2); font-size: 13px;
+}
+.r29-desk-bar .r32-replay { margin-left: auto; }
+.r29-desk-bar .r32-replay + .r30-new { margin-left: 8px; }
+small.r32-home-line { color: var(--bot-strong, var(--ink)); font-weight: 700; }
+
+/* 电脑上的五列很窄：头像缩小、线缩短，数字跟在后面；棒数多（6 棒以上）再缩，放不下就换行。 */
+.r29-desk .r32-strip { flex-wrap: wrap; gap: 2px 8px; }
+.r29-desk .r32-nodes { flex: 0 1 auto; max-width: 100%; flex-wrap: wrap; row-gap: 6px; padding: 5px 2px; }
+.r29-desk .r32-node { --r32-px: 20px !important; }
+.r29-desk .r32-strip[data-many] .r32-node { --r32-px: 15px !important; }
+.r29-desk .r32-link { flex: 0 0 8px; min-width: 8px; max-width: 8px; margin: 0 2px; }
+.r29-desk .r32-strip[data-many] .r32-link { flex-basis: 4px; min-width: 4px; max-width: 4px; margin: 0 1px; }
+.r29-desk .r32-tick { width: 11px; height: 11px; right: -3px; bottom: -3px; border-width: 1px; }
+.r29-desk .r32-tick svg { width: 7px; height: 7px; }
+.r29-desk .r32-tick.r32-ask-dot { font-size: 8px; }
+.r29-desk .r32-node.is-now::before, .r29-desk .r32-node.is-gate::before, .r29-desk .r32-node.is-stuck::before { inset: -3px; border-width: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .r32-node.is-now::before, .r32-node.is-gate::before, .r32-step.is-now .r32-dot::before, .r32-step.is-gate .r32-dot::before,
+  .r32-node.is-now .r32-face, .r32-step.is-now .r32-face, .r32-link.is-pass i, .r32-link.is-pass + .r32-node,
+  .r32-node:has(+ .r32-link.is-pass) .r32-tick { animation: none !important; }
+  .r32-link.is-pass i { width: 100%; background: var(--r32-done); }
+}
+
+/* 外部身份的小标；换人下拉 */
+.r32-ext { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px; font-size: 10px; font-style: normal; font-weight: 700;
+  line-height: 1.5; color: var(--ink-2); background: color-mix(in srgb, var(--ink-2) 14%, transparent); vertical-align: middle; }
+.r32-pick .r30-who { position: relative; }
+.r32-pick .r30-who .r32-ext { margin-left: 0; }
+.r32-ask select { width: 100%; box-sizing: border-box; min-height: 40px; border-radius: 10px; font: inherit; }

@@ -1,0 +1,81 @@
+/* 录音状态条和语音气泡。按钮本体由对话页放，这里只改它的状态样子。 */
+[data-r29-voice-slot] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--ink, #1c1b22);
+  font: 500 14px/1.4 var(--font, sans-serif);
+}
+[data-r29-mic][data-r29-phase="recording"],
+[data-r29-mic][data-r29-phase="held"],
+[data-r29-mic][data-r29-phase="stopping"] {
+  background: var(--solid, var(--lemon, #ffd43a));
+  color: var(--on-solid, var(--ink, #1c1b22));
+}
+[data-r29-mic][data-r29-phase="recording"]::after,
+[data-r29-mic][data-r29-phase="held"]::after,
+[data-r29-mic][data-r29-phase="stopping"]::after {
+  content: "发送";
+  margin-left: 4px;
+  font: 700 13px/1 var(--round, sans-serif);
+}
+[data-r29-mic][disabled] { opacity: 0.55; }
+.r29-voice-clock {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.r29-voice-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+  background: var(--tomato, #c0392b);
+  flex: none;
+}
+.r29-voice-dot.is-live { animation: r29-voice-blink 1.2s ease-in-out infinite; }
+.r29-voice-action {
+  box-sizing: border-box;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px 12px;
+  border: var(--line-w, 1.5px) solid var(--line, #1c1b22);
+  border-radius: var(--r-pill, 999px);
+  background: var(--elev, #fffdf7);
+  color: var(--ink, #1c1b22);
+  font: 700 14px/1.2 var(--round, sans-serif);
+}
+.r29-voice-bubble {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  max-width: min(100%, 280px);
+  margin: 4px 0 4px auto;
+  padding: 10px 12px;
+  border: var(--line-w, 1.5px) solid var(--line, #1c1b22);
+  border-radius: 16px 16px 4px 16px;
+  background: var(--bot-soft, #fff0af);
+  color: var(--ink, #1c1b22);
+}
+.r29-voice-bar { display: flex; align-items: center; gap: 8px; }
+.r29-voice-label { font: 700 14px/1.2 var(--round, sans-serif); }
+.r29-voice-duration { font-variant-numeric: tabular-nums; }
+.r29-voice-caption {
+  margin: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font: 500 15px/1.45 var(--font, sans-serif);
+}
+@keyframes r29-voice-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .r29-voice-dot.is-live { animation: none; }
+  [data-r29-mic][data-r29-phase="recording"]::after,
+  [data-r29-mic][data-r29-phase="held"]::after,
+  [data-r29-mic][data-r29-phase="stopping"]::after { transition: none; }
+}

@@ -1,0 +1,2227 @@
+{
+ "schema": "dsh-hub-pet-pack/2",
+ "license": "CC BY-NC-SA 4.0（非商业、署名、相同方式共享），见 LICENSE 与 CREDITS.md；不在项目的 MIT 范围内",
+ "assistants": {
+  "chief": {
+   "enabled": true,
+   "pack": "dsh",
+   "packName": "蓝毛小女仆",
+   "avatar": "dsh/avatar.webp",
+   "avatar96": "dsh/avatar-96.webp",
+   "avatar192": "dsh/avatar-192.webp",
+   "frame": {
+    "w": 297,
+    "h": 341
+   },
+   "characterHeight": 256,
+   "footY": 339,
+   "centerX": 153.5,
+   "fps": 12,
+   "upscale": {
+    "model": "realesrgan-x4plus-anime",
+    "scale": 4
+   },
+   "states": {
+    "idle": {
+     "src": "dsh/idle.webp",
+     "still": "dsh/idle-still.webp",
+     "loop": true,
+     "frames": 30,
+     "durationMs": 2500,
+     "action": "dsh/待机呼吸休闲",
+     "range": [
+      14,
+      30
+     ],
+     "bytes": 444990,
+     "stillBytes": 19104,
+     "quality": 48,
+     "compressionMethod": 4,
+     "stillQuality": 80,
+     "overTarget": false,
+     "overLimit": false,
+     "stillOverLimit": false,
+     "seamDiff": 2.935032367706299,
+     "adjacentMedian": 2.7543766498565674,
+     "playback": "ping-pong",
+     "lowFrequencyAnchored": true
+    },
+    "poke": {
+     "src": "dsh/poke.webp",
+     "still": "dsh/poke-still.webp",
+     "loop": false,
+     "frames": 29,
+     "durationMs": 2417,
+     "action": "dsh/点击回应-害羞惊讶",
+     "range": [
+      25,
+      54
+     ],
+     "bytes": 439110,
+     "stillBytes": 18852,
+     "quality": 56,
+     "compressionMethod": 4,
+     "stillQuality": 80,
+     "overTarget": false,
+     "overLimit": false,
+     "stillOverLimit": false,
+     "seamDiff": 12.535405158996582,
+     "adjacentMedian": 7.014684677124023,
+     "playback": "forward",
+     "lowFrequencyAnchored": true,
+     "startDiff": 15.794330596923828,
+     "endDiff": 14.765694618225098
+    },
+    "greet": {
+     "src": "dsh/greet.webp",
+     "still": "dsh/greet-still.webp",
+     "loop": false,
+     "frames": 24,
+     "durationMs": 2000,
+     "action": "dsh/点击回应-元气挥手",
+     "range": [
+      79,
+      103
+     ],
+     "bytes": 412006,
+     "stillBytes": 18356,
+     "quality": 72,
+     "compressionMethod": 4,
+     "stillQuality": 80,
+     "overTarget": false,
+     "overLimit": false,
+     "stillOverLimit": false,
+     "seamDiff": 16.68251609802246,
+     "adjacentMedian": 1.6836603879928589,
+     "playback": "forward",
+     "lowFrequencyAnchored": true,
+     "startDiff": 16.557884216308594,
+     "endDiff": 9.265385627746582
+    },
+    "done": {
+     "src": "dsh/done.webp",
+     "still": "dsh/done-still.webp",
+     "loop": false,
+     "frames": 24,
+     "durationMs": 2000,
+     "action": "dsh/工作状态-雀跃庆祝",
+     "range": [
+      45,
+      69
+     ],
+     "bytes": 435352,
+     "stillBytes": 23456,
+     "quality": 48,
+     "compressionMethod": 4,
+     "stillQuality": 80,
+     "overTarget": false,
+     "overLimit": false,
+     "stillOverLimit": false,
+     "seamDiff": 18.38671112060547,
+     "adjacentMedian": 4.442302227020264,
+     "playback": "forward",
+     "lowFrequencyAnchored": true,
+     "startDiff": 17.473800659179688,
+     "endDiff": 10.182042121887207
+    },
+    "working": {
+     "src": "dsh/working.webp",
+     "still": "dsh/working-still.webp",
+     "loop": true,
+     "frames": 17,
+     "durationMs": 1417,
+     "action": "dsh/工作状态-忙碌点按",
+     "range": [
+      42,
+      59
+     ],
+     "bytes": 438668,
+     "stillBytes": 25648,
+     "quality": 80,
+     "compressionMethod": 4,
+     "stillQuality": 80,
+     "overTarget": false,
+     "overLimit": false,
+     "stillOverLimit": false,
+     "seamDiff": 6.03471565246582,
+     "adjacentMedian": 4.249392032623291,
+     "playback": "forward",
+     "lowFrequencyAnchored": true
+    },
+    "thinking": {
+     "src": "dsh/thinking.webp",
+     "still": "dsh/thinking-still.webp",
+     "loop": true,
+     "frames": 22,
+     "durationMs": 1833,
+     "action": "dsh/工作状态-思考冒泡",
+     "range": [
+      60,
+      72
+     ],
+     "bytes": 446864,
+     "stillBytes": 23414,
+     "quality": 64,
+     "compressionMethod": 4,
+     "stillQuality": 80,
+     "overTarget": false,
+     "overLimit": false,
+     "stillOverLimit": false,
+     "seamDiff": 3.0847434997558594,
+     "adjacentMedian": 2.792036533355713,
+     "playback": "ping-pong",
+     "lowFrequencyAnchored": true
+    },
+    "research": {
+     "src": "dsh/research.webp",
+     "still": "dsh/research-still.webp",
+     "loop": true,
+     "frames": 20,
+     "durationMs": 1667,
+     "action": "dsh/轻快记录",
+     "range": [
+      35,
+      55
+     ],
+     "bytes": 375582,
+     "stillBytes": 18554,
+     "quality": 80,
+     "compressionMethod": 4,
+     "stillQuality": 80,
+     "overTarget": false,
+     "overLimit": false,
+     "stillOverLimit": false,
+     "seamDiff": 5.086009979248047,
+     "adjacentMedian": 3.309035539627075,
+     "playback": "forward",
+     "lowFrequencyAnchored": true
+    },
+    "confused": {
+     "src": "dsh/confused.webp",
+     "still": "dsh/confused-still.webp",
+     "loop": false,
+     "frames": 24,
+     "durationMs": 2000,
+     "action": "dsh/工作状态-垂头叹气冒汗",
+     "range": [
+      35,
+      59
+     ],
+     "bytes": 447632,
+     "stillBytes": 23666,
+     "quality": 64,
+     "compressionMethod": 4,
+     "stillQuality": 80,
+     "overTarget": false,
+     "overLimit": false,
+     "stillOverLimit": false,
+     "seamDiff": 13.570018768310547,
+     "adjacentMedian": 3.001958131790161,
+     "playback": "forward",
+     "lowFrequencyAnchored": true,
+     "startDiff": 20.632719039916992,
+     "endDiff": 18.921396255493164
+    },
+    "waiting": {
+     "src": "dsh/waiting.webp",
+     "still": "dsh/waiting-still.webp",
+     "loop": true,
+     "frames": 22,
+     "durationMs": 1833,
+     "action": "dsh/工作状态-原地踱步张望",
+     "range": [
+      52,
+      64
+     ],
+     "bytes": 437036,
+     "stillBytes": 21670,
+     "quality": 72,
+     "compressionMethod": 4,
+     "stillQuality": 80,
+     "overTarget": false,
+     "overLimit": false,
+     "stillOverLimit": false,
+     "seamDiff": 3.9808125495910645,
+     "adjacentMedian": 2.1774723529815674,
+     "playback": "ping-pong",
+     "lowFrequencyAnchored": true
+    },
+    "drowsy": {
+     "src": "dsh/drowsy.webp",
+     "still": "dsh/drowsy-still.webp",
+     "loop": true,
+     "frames": 26,
+     "durationMs": 2167,
+     "action": "dsh/哈欠连天",
+     "range": [
+      31,
+      45
+     ],
+     "bytes": 441082,
+     "stillBytes": 19788,
+     "quality": 64,
+     "compressionMethod": 4,
+     "stillQuality": 80,
+     "overTarget": false,
+     "overLimit": false,
+     "stillOverLimit": false,
+     "seamDiff": 3.021404266357422,
+     "adjacentMedian": 2.2546303272247314,
+     "playback": "ping-pong",
+     "lowFrequencyAnchored": true
+    },
+    "sleep": {
+     "src": "dsh/sleep.webp",
+     "still": "dsh/sleep-still.webp",
+     "loop": true,
+     "frames": 26,
+     "durationMs": 2167,
+     "action": "dsh/原地小憩沉眠",
+     "range": [
+      62,
+      76
+     ],
+     "bytes": 448860,
+     "stillBytes": 20284,
+     "quality": 56,
+     "compressionMethod": 4,
+     "stillQuality": 80,
+     "overTarget": false,
+     "overLimit": false,
+     "stillOverLimit": false,
+     "seamDiff": 3.067072629928589,
+     "adjacentMedian": 3.2432968616485596,
+     "playback": "ping-pong",
+     "lowFrequencyAnchored": true
+    },
+    "idleB": {
+     "src": "dsh/idleB.webp",
+     "still": "dsh/idleB-still.webp",
+     "loop": false,
+     "frames": 24,
+     "durationMs": 2000,
+     "action": "dsh/东张西望",
+     "range": [
+      87,
+      111
+     ],
+     "bytes": 428742,
+     "stillBytes": 16908,
+     "quality": 80,
+     "stillQuality": 80,
+     "overTarget": false,
+     "overLimit": false,
+     "stillOverLimit": false,
+     "seamDiff": 14.300067901611328,
+     "adjacentMedian": 1.9795808792114258,
+     "playback": "forward",
+     "lowFrequencyAnchored": true,
+     "startDiff": 21.99388885498047,
+     "endDiff": 19.880552291870117
+    }
+   },
+   "pools": {
+    "idle": [
+     {
+      "src": "dsh/idle.webp",
+      "still": "dsh/idle-still.webp",
+      "loop": true,
+      "frames": 30,
+      "durationMs": 2500,
+      "action": "dsh/待机呼吸休闲",
+      "range": [
+       14,
+       30
+      ],
+      "bytes": 444990,
+      "stillBytes": 19104,
+      "quality": 48,
+      "compressionMethod": 4,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 2.935032367706299,
+      "adjacentMedian": 2.7543766498565674,
+      "playback": "ping-pong",
+      "lowFrequencyAnchored": true
+     },
+     {
+      "src": "dsh/idle-2.webp",
+      "still": "dsh/idle-2-still.webp",
+      "loop": false,
+      "frames": 24,
+      "durationMs": 2000,
+      "action": "dsh/东张西望",
+      "range": [
+       87,
+       111
+      ],
+      "bytes": 428742,
+      "stillBytes": 16908,
+      "quality": 80,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 14.300067901611328,
+      "adjacentMedian": 1.9795808792114258,
+      "playback": "forward",
+      "lowFrequencyAnchored": true,
+      "startDiff": 21.99388885498047,
+      "endDiff": 19.880552291870117
+     },
+     {
+      "src": "dsh/idle-3.webp",
+      "still": "dsh/idle-3-still.webp",
+      "loop": true,
+      "frames": 18,
+      "durationMs": 1500,
+      "action": "dsh/悠闲哼歌",
+      "range": [
+       28,
+       46
+      ],
+      "bytes": 375210,
+      "stillBytes": 18922,
+      "quality": 80,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 15.62489128112793,
+      "adjacentMedian": 8.241944313049316,
+      "playback": "forward",
+      "lowFrequencyAnchored": true
+     },
+     {
+      "src": "dsh/idle-4.webp",
+      "still": "dsh/idle-4-still.webp",
+      "loop": true,
+      "frames": 30,
+      "durationMs": 2500,
+      "action": "dsh/超大伸懒腰",
+      "range": [
+       54,
+       70
+      ],
+      "bytes": 440516,
+      "stillBytes": 18450,
+      "quality": 48,
+      "compressionMethod": 4,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 2.965930700302124,
+      "adjacentMedian": 2.098231792449951,
+      "playback": "ping-pong",
+      "lowFrequencyAnchored": true
+     },
+     {
+      "src": "dsh/idle-5.webp",
+      "still": "dsh/idle-5-still.webp",
+      "loop": true,
+      "frames": 31,
+      "durationMs": 2583,
+      "action": "dsh/照镜子",
+      "range": [
+       52,
+       68
+      ],
+      "bytes": 428572,
+      "stillBytes": 18400,
+      "quality": 40,
+      "compressionMethod": 4,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 0.0,
+      "adjacentMedian": 4.784036159515381,
+      "playback": "ping-pong + 首帧闭合",
+      "lowFrequencyAnchored": true
+     },
+     {
+      "src": "dsh/idle-6.webp",
+      "still": "dsh/idle-6-still.webp",
+      "loop": true,
+      "frames": 30,
+      "durationMs": 2500,
+      "action": "dsh/原地专心玩魔方",
+      "range": [
+       66,
+       82
+      ],
+      "bytes": 444150,
+      "stillBytes": 18536,
+      "quality": 48,
+      "compressionMethod": 4,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 5.345993995666504,
+      "adjacentMedian": 2.9547016620635986,
+      "playback": "ping-pong",
+      "lowFrequencyAnchored": true
+     }
+    ],
+    "poke": [
+     {
+      "src": "dsh/poke.webp",
+      "still": "dsh/poke-still.webp",
+      "loop": false,
+      "frames": 29,
+      "durationMs": 2417,
+      "action": "dsh/点击回应-害羞惊讶",
+      "range": [
+       25,
+       54
+      ],
+      "bytes": 439110,
+      "stillBytes": 18852,
+      "quality": 56,
+      "compressionMethod": 4,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 12.535405158996582,
+      "adjacentMedian": 7.014684677124023,
+      "playback": "forward",
+      "lowFrequencyAnchored": true,
+      "startDiff": 15.794330596923828,
+      "endDiff": 14.765694618225098
+     },
+     {
+      "src": "dsh/poke-2.webp",
+      "still": "dsh/poke-2-still.webp",
+      "loop": false,
+      "frames": 24,
+      "durationMs": 2000,
+      "action": "dsh/点击回应-挠痒咯咯笑",
+      "range": [
+       45,
+       69
+      ],
+      "bytes": 428840,
+      "stillBytes": 17408,
+      "quality": 80,
+      "compressionMethod": 4,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 20.228923797607422,
+      "adjacentMedian": 6.087250709533691,
+      "playback": "forward",
+      "lowFrequencyAnchored": true,
+      "startDiff": 22.71181297302246,
+      "endDiff": 16.241104125976562
+     },
+     {
+      "src": "dsh/poke-3.webp",
+      "still": "dsh/poke-3-still.webp",
+      "loop": false,
+      "frames": 24,
+      "durationMs": 2000,
+      "action": "dsh/点击回应-开心跃动",
+      "range": [
+       58,
+       82
+      ],
+      "bytes": 444650,
+      "stillBytes": 26216,
+      "quality": 48,
+      "compressionMethod": 4,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 41.80024719238281,
+      "adjacentMedian": 6.075540542602539,
+      "playback": "forward",
+      "lowFrequencyAnchored": true,
+      "startDiff": 41.596012115478516,
+      "endDiff": 12.711215019226074
+     }
+    ],
+    "greet": [
+     {
+      "src": "dsh/greet.webp",
+      "still": "dsh/greet-still.webp",
+      "loop": false,
+      "frames": 24,
+      "durationMs": 2000,
+      "action": "dsh/点击回应-元气挥手",
+      "range": [
+       79,
+       103
+      ],
+      "bytes": 412006,
+      "stillBytes": 18356,
+      "quality": 72,
+      "compressionMethod": 4,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 16.68251609802246,
+      "adjacentMedian": 1.6836603879928589,
+      "playback": "forward",
+      "lowFrequencyAnchored": true,
+      "startDiff": 16.557884216308594,
+      "endDiff": 9.265385627746582
+     },
+     {
+      "src": "dsh/greet-2.webp",
+      "still": "dsh/greet-2-still.webp",
+      "loop": false,
+      "frames": 24,
+      "durationMs": 2000,
+      "action": "dsh/女仆屈膝礼仪",
+      "range": [
+       40,
+       64
+      ],
+      "bytes": 407524,
+      "stillBytes": 16736,
+      "quality": 80,
+      "compressionMethod": 4,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 16.309446334838867,
+      "adjacentMedian": 2.1240484714508057,
+      "playback": "forward",
+      "lowFrequencyAnchored": true,
+      "startDiff": 25.62926483154297,
+      "endDiff": 29.982463836669922
+     }
+    ],
+    "done": [
+     {
+      "src": "dsh/done.webp",
+      "still": "dsh/done-still.webp",
+      "loop": false,
+      "frames": 24,
+      "durationMs": 2000,
+      "action": "dsh/工作状态-雀跃庆祝",
+      "range": [
+       45,
+       69
+      ],
+      "bytes": 435352,
+      "stillBytes": 23456,
+      "quality": 48,
+      "compressionMethod": 4,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 18.38671112060547,
+      "adjacentMedian": 4.442302227020264,
+      "playback": "forward",
+      "lowFrequencyAnchored": true,
+      "startDiff": 17.473800659179688,
+      "endDiff": 10.182042121887207
+     },
+     {
+      "src": "dsh/done-2.webp",
+      "still": "dsh/done-2-still.webp",
+      "loop": false,
+      "frames": 24,
+      "durationMs": 2000,
+      "action": "dsh/凭空生花",
+      "range": [
+       57,
+       81
+      ],
+      "bytes": 435072,
+      "stillBytes": 17866,
+      "quality": 72,
+      "compressionMethod": 4,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 26.438045501708984,
+      "adjacentMedian": 5.210170269012451,
+      "playback": "forward",
+      "lowFrequencyAnchored": true,
+      "startDiff": 19.855972290039062,
+      "endDiff": 34.839481353759766
+     }
+    ],
+    "working": [
+     {
+      "src": "dsh/working.webp",
+      "still": "dsh/working-still.webp",
+      "loop": true,
+      "frames": 17,
+      "durationMs": 1417,
+      "action": "dsh/工作状态-忙碌点按",
+      "range": [
+       42,
+       59
+      ],
+      "bytes": 438668,
+      "stillBytes": 25648,
+      "quality": 80,
+      "compressionMethod": 4,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 6.03471565246582,
+      "adjacentMedian": 4.249392032623291,
+      "playback": "forward",
+      "lowFrequencyAnchored": true
+     },
+     {
+      "src": "dsh/working-2.webp",
+      "still": "dsh/working-2-still.webp",
+      "loop": true,
+      "frames": 31,
+      "durationMs": 2583,
+      "action": "dsh/写代码",
+      "range": [
+       42,
+       58
+      ],
+      "bytes": 440164,
+      "stillBytes": 18342,
+      "quality": 48,
+      "compressionMethod": 4,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 0.0,
+      "adjacentMedian": 2.0146238803863525,
+      "playback": "ping-pong + 首帧闭合",
+      "lowFrequencyAnchored": true
+     }
+    ],
+    "thinking": [
+     {
+      "src": "dsh/thinking.webp",
+      "still": "dsh/thinking-still.webp",
+      "loop": true,
+      "frames": 22,
+      "durationMs": 1833,
+      "action": "dsh/工作状态-思考冒泡",
+      "range": [
+       60,
+       72
+      ],
+      "bytes": 446864,
+      "stillBytes": 23414,
+      "quality": 64,
+      "compressionMethod": 4,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 3.0847434997558594,
+      "adjacentMedian": 2.792036533355713,
+      "playback": "ping-pong",
+      "lowFrequencyAnchored": true
+     },
+     {
+      "src": "dsh/thinking-2.webp",
+      "still": "dsh/thinking-2-still.webp",
+      "loop": true,
+      "frames": 30,
+      "durationMs": 2500,
+      "action": "dsh/原地专心玩魔方",
+      "range": [
+       66,
+       82
+      ],
+      "bytes": 444150,
+      "stillBytes": 18536,
+      "quality": 48,
+      "compressionMethod": 4,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 5.345993995666504,
+      "adjacentMedian": 2.9547016620635986,
+      "playback": "ping-pong",
+      "lowFrequencyAnchored": true
+     }
+    ],
+    "research": [
+     {
+      "src": "dsh/research.webp",
+      "still": "dsh/research-still.webp",
+      "loop": true,
+      "frames": 20,
+      "durationMs": 1667,
+      "action": "dsh/轻快记录",
+      "range": [
+       35,
+       55
+      ],
+      "bytes": 375582,
+      "stillBytes": 18554,
+      "quality": 80,
+      "compressionMethod": 4,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 5.086009979248047,
+      "adjacentMedian": 3.309035539627075,
+      "playback": "forward",
+      "lowFrequencyAnchored": true
+     }
+    ],
+    "confused": [
+     {
+      "src": "dsh/confused.webp",
+      "still": "dsh/confused-still.webp",
+      "loop": false,
+      "frames": 24,
+      "durationMs": 2000,
+      "action": "dsh/工作状态-垂头叹气冒汗",
+      "range": [
+       35,
+       59
+      ],
+      "bytes": 447632,
+      "stillBytes": 23666,
+      "quality": 64,
+      "compressionMethod": 4,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 13.570018768310547,
+      "adjacentMedian": 3.001958131790161,
+      "playback": "forward",
+      "lowFrequencyAnchored": true,
+      "startDiff": 20.632719039916992,
+      "endDiff": 18.921396255493164
+     },
+     {
+      "src": "dsh/confused-2.webp",
+      "still": "dsh/confused-2-still.webp",
+      "loop": false,
+      "frames": 24,
+      "durationMs": 2000,
+      "action": "dsh/被吓一跳",
+      "range": [
+       47,
+       71
+      ],
+      "bytes": 412008,
+      "stillBytes": 18718,
+      "quality": 72,
+      "compressionMethod": 4,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 12.048249244689941,
+      "adjacentMedian": 3.4490458965301514,
+      "playback": "forward",
+      "lowFrequencyAnchored": true,
+      "startDiff": 14.947969436645508,
+      "endDiff": 9.84202766418457
+     }
+    ],
+    "waiting": [
+     {
+      "src": "dsh/waiting.webp",
+      "still": "dsh/waiting-still.webp",
+      "loop": true,
+      "frames": 22,
+      "durationMs": 1833,
+      "action": "dsh/工作状态-原地踱步张望",
+      "range": [
+       52,
+       64
+      ],
+      "bytes": 437036,
+      "stillBytes": 21670,
+      "quality": 72,
+      "compressionMethod": 4,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 3.9808125495910645,
+      "adjacentMedian": 2.1774723529815674,
+      "playback": "ping-pong",
+      "lowFrequencyAnchored": true
+     }
+    ],
+    "drowsy": [
+     {
+      "src": "dsh/drowsy.webp",
+      "still": "dsh/drowsy-still.webp",
+      "loop": true,
+      "frames": 26,
+      "durationMs": 2167,
+      "action": "dsh/哈欠连天",
+      "range": [
+       31,
+       45
+      ],
+      "bytes": 441082,
+      "stillBytes": 19788,
+      "quality": 64,
+      "compressionMethod": 4,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 3.021404266357422,
+      "adjacentMedian": 2.2546303272247314,
+      "playback": "ping-pong",
+      "lowFrequencyAnchored": true
+     }
+    ],
+    "sleep": [
+     {
+      "src": "dsh/sleep.webp",
+      "still": "dsh/sleep-still.webp",
+      "loop": true,
+      "frames": 26,
+      "durationMs": 2167,
+      "action": "dsh/原地小憩沉眠",
+      "range": [
+       62,
+       76
+      ],
+      "bytes": 448860,
+      "stillBytes": 20284,
+      "quality": 56,
+      "compressionMethod": 4,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 3.067072629928589,
+      "adjacentMedian": 3.2432968616485596,
+      "playback": "ping-pong",
+      "lowFrequencyAnchored": true
+     }
+    ],
+    "idleB": [
+     {
+      "src": "dsh/idleB.webp",
+      "still": "dsh/idleB-still.webp",
+      "loop": false,
+      "frames": 24,
+      "durationMs": 2000,
+      "action": "dsh/东张西望",
+      "range": [
+       87,
+       111
+      ],
+      "bytes": 428742,
+      "stillBytes": 16908,
+      "quality": 80,
+      "stillQuality": 80,
+      "overTarget": false,
+      "overLimit": false,
+      "stillOverLimit": false,
+      "seamDiff": 14.300067901611328,
+      "adjacentMedian": 1.9795808792114258,
+      "playback": "forward",
+      "lowFrequencyAnchored": true,
+      "startDiff": 21.99388885498047,
+      "endDiff": 19.880552291870117
+     }
+    ]
+   },
+   "lowFrequencyAnchored": true,
+   "canvasAddedTop": 33,
+   "tiers": {
+    "360": {
+     "frame": {
+      "w": 418,
+      "h": 480
+     },
+     "characterHeight": 360,
+     "footY": 476.71875,
+     "centerX": 215.859375,
+     "files": {
+      "dsh/idle.webp": "dsh/x360/idle.webp",
+      "dsh/idle-still.webp": "dsh/x360/idle-still.webp",
+      "dsh/poke.webp": "dsh/x360/poke.webp",
+      "dsh/poke-still.webp": "dsh/x360/poke-still.webp",
+      "dsh/greet.webp": "dsh/x360/greet.webp",
+      "dsh/greet-still.webp": "dsh/x360/greet-still.webp",
+      "dsh/done.webp": "dsh/x360/done.webp",
+      "dsh/done-still.webp": "dsh/x360/done-still.webp",
+      "dsh/working.webp": "dsh/x360/working.webp",
+      "dsh/working-still.webp": "dsh/x360/working-still.webp",
+      "dsh/thinking.webp": "dsh/x360/thinking.webp",
+      "dsh/thinking-still.webp": "dsh/x360/thinking-still.webp",
+      "dsh/research.webp": "dsh/x360/research.webp",
+      "dsh/research-still.webp": "dsh/x360/research-still.webp",
+      "dsh/confused.webp": "dsh/x360/confused.webp",
+      "dsh/confused-still.webp": "dsh/x360/confused-still.webp",
+      "dsh/waiting.webp": "dsh/x360/waiting.webp",
+      "dsh/waiting-still.webp": "dsh/x360/waiting-still.webp",
+      "dsh/drowsy.webp": "dsh/x360/drowsy.webp",
+      "dsh/drowsy-still.webp": "dsh/x360/drowsy-still.webp",
+      "dsh/sleep.webp": "dsh/x360/sleep.webp",
+      "dsh/sleep-still.webp": "dsh/x360/sleep-still.webp",
+      "dsh/idleB.webp": "dsh/x360/idleB.webp",
+      "dsh/idleB-still.webp": "dsh/x360/idleB-still.webp",
+      "dsh/idle-2.webp": "dsh/x360/idle-2.webp",
+      "dsh/idle-2-still.webp": "dsh/x360/idle-2-still.webp",
+      "dsh/idle-3.webp": "dsh/x360/idle-3.webp",
+      "dsh/idle-3-still.webp": "dsh/x360/idle-3-still.webp",
+      "dsh/idle-4.webp": "dsh/x360/idle-4.webp",
+      "dsh/idle-4-still.webp": "dsh/x360/idle-4-still.webp",
+      "dsh/idle-5.webp": "dsh/x360/idle-5.webp",
+      "dsh/idle-5-still.webp": "dsh/x360/idle-5-still.webp",
+      "dsh/idle-6.webp": "dsh/x360/idle-6.webp",
+      "dsh/idle-6-still.webp": "dsh/x360/idle-6-still.webp",
+      "dsh/poke-2.webp": "dsh/x360/poke-2.webp",
+      "dsh/poke-2-still.webp": "dsh/x360/poke-2-still.webp",
+      "dsh/poke-3.webp": "dsh/x360/poke-3.webp",
+      "dsh/poke-3-still.webp": "dsh/x360/poke-3-still.webp",
+      "dsh/greet-2.webp": "dsh/x360/greet-2.webp",
+      "dsh/greet-2-still.webp": "dsh/x360/greet-2-still.webp",
+      "dsh/done-2.webp": "dsh/x360/done-2.webp",
+      "dsh/done-2-still.webp": "dsh/x360/done-2-still.webp",
+      "dsh/working-2.webp": "dsh/x360/working-2.webp",
+      "dsh/working-2-still.webp": "dsh/x360/working-2-still.webp",
+      "dsh/thinking-2.webp": "dsh/x360/thinking-2.webp",
+      "dsh/thinking-2-still.webp": "dsh/x360/thinking-2-still.webp",
+      "dsh/confused-2.webp": "dsh/x360/confused-2.webp",
+      "dsh/confused-2-still.webp": "dsh/x360/confused-2-still.webp"
+     }
+    },
+    "216": {
+     "frame": {
+      "w": 251,
+      "h": 288
+     },
+     "characterHeight": 216,
+     "footY": 286.03125,
+     "centerX": 129.515625,
+     "files": {
+      "dsh/idle.webp": "dsh/x216/idle.webp",
+      "dsh/idle-still.webp": "dsh/x216/idle-still.webp",
+      "dsh/poke.webp": "dsh/x216/poke.webp",
+      "dsh/poke-still.webp": "dsh/x216/poke-still.webp",
+      "dsh/greet.webp": "dsh/x216/greet.webp",
+      "dsh/greet-still.webp": "dsh/x216/greet-still.webp",
+      "dsh/drowsy.webp": "dsh/x216/drowsy.webp",
+      "dsh/drowsy-still.webp": "dsh/x216/drowsy-still.webp",
+      "dsh/sleep.webp": "dsh/x216/sleep.webp",
+      "dsh/sleep-still.webp": "dsh/x216/sleep-still.webp",
+      "dsh/idleB.webp": "dsh/x216/idleB.webp",
+      "dsh/idleB-still.webp": "dsh/x216/idleB-still.webp",
+      "dsh/idle-2.webp": "dsh/x216/idle-2.webp",
+      "dsh/idle-2-still.webp": "dsh/x216/idle-2-still.webp",
+      "dsh/idle-3.webp": "dsh/x216/idle-3.webp",
+      "dsh/idle-3-still.webp": "dsh/x216/idle-3-still.webp",
+      "dsh/idle-4.webp": "dsh/x216/idle-4.webp",
+      "dsh/idle-4-still.webp": "dsh/x216/idle-4-still.webp",
+      "dsh/idle-5.webp": "dsh/x216/idle-5.webp",
+      "dsh/idle-5-still.webp": "dsh/x216/idle-5-still.webp",
+      "dsh/idle-6.webp": "dsh/x216/idle-6.webp",
+      "dsh/idle-6-still.webp": "dsh/x216/idle-6-still.webp",
+      "dsh/poke-2.webp": "dsh/x216/poke-2.webp",
+      "dsh/poke-2-still.webp": "dsh/x216/poke-2-still.webp",
+      "dsh/poke-3.webp": "dsh/x216/poke-3.webp",
+      "dsh/poke-3-still.webp": "dsh/x216/poke-3-still.webp",
+      "dsh/greet-2.webp": "dsh/x216/greet-2.webp",
+      "dsh/greet-2-still.webp": "dsh/x216/greet-2-still.webp"
+     }
+    }
+   }
+  },
+  "research": {
+   "enabled": true,
+   "pack": "grok",
+   "packName": "Grok 哥特小恶魔",
+   "avatar": "grok/avatar.webp",
+   "avatar192": "grok/avatar.webp",
+   "frame": {
+    "w": 666,
+    "h": 640
+   },
+   "characterHeight": 640,
+   "footY": 640,
+   "centerX": 333.0,
+   "fps": 1,
+   "states": {
+    "idle": {
+     "src": "grok/idle.webp",
+     "still": "grok/idle.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "grok/待机"
+    },
+    "poke": {
+     "src": "grok/pat.webp",
+     "still": "grok/pat.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2000,
+     "action": "grok/被摸头"
+    },
+    "greet": {
+     "src": "grok/greet_noon.webp",
+     "still": "grok/greet_noon.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2000,
+     "action": "grok/打招呼"
+    },
+    "thinking": {
+     "src": "grok/thinking.webp",
+     "still": "grok/thinking.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "grok/思考"
+    },
+    "working": {
+     "src": "grok/writing.webp",
+     "still": "grok/writing.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "grok/写东西"
+    },
+    "research": {
+     "src": "grok/searching.webp",
+     "still": "grok/searching.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "grok/查资料"
+    },
+    "done": {
+     "src": "grok/happy.webp",
+     "still": "grok/happy.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2000,
+     "action": "grok/开心"
+    },
+    "confused": {
+     "src": "grok/dizzy.webp",
+     "still": "grok/dizzy.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2000,
+     "action": "grok/晕头转向"
+    },
+    "waiting": {
+     "src": "grok/listening.webp",
+     "still": "grok/listening.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "grok/听着"
+    },
+    "drowsy": {
+     "src": "grok/yawn.webp",
+     "still": "grok/yawn.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "grok/打哈欠"
+    },
+    "sleep": {
+     "src": "grok/sleeping.webp",
+     "still": "grok/sleeping.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "grok/睡着"
+    },
+    "idleB": {
+     "src": "grok/idle-2.webp",
+     "still": "grok/idle-2.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "grok/东张西望"
+    }
+   },
+   "pools": {
+    "idle": [
+     {
+      "src": "grok/idle.webp",
+      "still": "grok/idle.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "grok/待机"
+     },
+     {
+      "src": "grok/idle-2.webp",
+      "still": "grok/idle-2.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "grok/东张西望"
+     },
+     {
+      "src": "grok/idle-3.webp",
+      "still": "grok/idle-3.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "grok/悠闲"
+     }
+    ],
+    "working": [
+     {
+      "src": "grok/writing.webp",
+      "still": "grok/writing.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "grok/写东西"
+     },
+     {
+      "src": "grok/running.webp",
+      "still": "grok/running.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "grok/跑腿"
+     }
+    ],
+    "research": [
+     {
+      "src": "grok/searching.webp",
+      "still": "grok/searching.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "grok/查资料"
+     },
+     {
+      "src": "grok/reading.webp",
+      "still": "grok/reading.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "grok/读资料"
+     }
+    ],
+    "done": [
+     {
+      "src": "grok/happy.webp",
+      "still": "grok/happy.webp",
+      "loop": false,
+      "frames": 1,
+      "durationMs": 2000,
+      "action": "grok/开心"
+     },
+     {
+      "src": "grok/proud.webp",
+      "still": "grok/proud.webp",
+      "loop": false,
+      "frames": 1,
+      "durationMs": 2000,
+      "action": "grok/得意"
+     }
+    ],
+    "confused": [
+     {
+      "src": "grok/dizzy.webp",
+      "still": "grok/dizzy.webp",
+      "loop": false,
+      "frames": 1,
+      "durationMs": 2000,
+      "action": "grok/晕头转向"
+     },
+     {
+      "src": "grok/oops.webp",
+      "still": "grok/oops.webp",
+      "loop": false,
+      "frames": 1,
+      "durationMs": 2000,
+      "action": "grok/糟糕"
+     }
+    ],
+    "drowsy": [
+     {
+      "src": "grok/yawn.webp",
+      "still": "grok/yawn.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "grok/打哈欠"
+     },
+     {
+      "src": "grok/tired.webp",
+      "still": "grok/tired.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "grok/累了"
+     }
+    ]
+   },
+   "static": true
+  },
+  "art": {
+   "enabled": true,
+   "pack": "gpt",
+   "packName": "GPT 白龙御姐",
+   "avatar": "gpt/avatar.webp",
+   "avatar192": "gpt/avatar.webp",
+   "frame": {
+    "w": 702,
+    "h": 640
+   },
+   "characterHeight": 640,
+   "footY": 640,
+   "centerX": 351.0,
+   "fps": 1,
+   "states": {
+    "idle": {
+     "src": "gpt/idle.webp",
+     "still": "gpt/idle.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "gpt/待机"
+    },
+    "poke": {
+     "src": "gpt/pat.webp",
+     "still": "gpt/pat.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2000,
+     "action": "gpt/被摸头"
+    },
+    "greet": {
+     "src": "gpt/greet_noon.webp",
+     "still": "gpt/greet_noon.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2000,
+     "action": "gpt/打招呼"
+    },
+    "thinking": {
+     "src": "gpt/thinking.webp",
+     "still": "gpt/thinking.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "gpt/思考"
+    },
+    "working": {
+     "src": "gpt/writing.webp",
+     "still": "gpt/writing.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "gpt/写东西"
+    },
+    "research": {
+     "src": "gpt/searching.webp",
+     "still": "gpt/searching.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "gpt/查资料"
+    },
+    "done": {
+     "src": "gpt/happy.webp",
+     "still": "gpt/happy.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2000,
+     "action": "gpt/开心"
+    },
+    "confused": {
+     "src": "gpt/dizzy.webp",
+     "still": "gpt/dizzy.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2000,
+     "action": "gpt/晕头转向"
+    },
+    "waiting": {
+     "src": "gpt/listening.webp",
+     "still": "gpt/listening.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "gpt/听着"
+    },
+    "drowsy": {
+     "src": "gpt/yawn.webp",
+     "still": "gpt/yawn.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "gpt/打哈欠"
+    },
+    "sleep": {
+     "src": "gpt/sleeping.webp",
+     "still": "gpt/sleeping.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "gpt/睡着"
+    },
+    "idleB": {
+     "src": "gpt/idle-2.webp",
+     "still": "gpt/idle-2.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "gpt/东张西望"
+    }
+   },
+   "pools": {
+    "idle": [
+     {
+      "src": "gpt/idle.webp",
+      "still": "gpt/idle.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "gpt/待机"
+     },
+     {
+      "src": "gpt/idle-2.webp",
+      "still": "gpt/idle-2.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "gpt/东张西望"
+     },
+     {
+      "src": "gpt/idle-3.webp",
+      "still": "gpt/idle-3.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "gpt/悠闲"
+     }
+    ],
+    "working": [
+     {
+      "src": "gpt/writing.webp",
+      "still": "gpt/writing.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "gpt/写东西"
+     },
+     {
+      "src": "gpt/running.webp",
+      "still": "gpt/running.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "gpt/跑腿"
+     }
+    ],
+    "research": [
+     {
+      "src": "gpt/searching.webp",
+      "still": "gpt/searching.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "gpt/查资料"
+     },
+     {
+      "src": "gpt/reading.webp",
+      "still": "gpt/reading.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "gpt/读资料"
+     }
+    ],
+    "done": [
+     {
+      "src": "gpt/happy.webp",
+      "still": "gpt/happy.webp",
+      "loop": false,
+      "frames": 1,
+      "durationMs": 2000,
+      "action": "gpt/开心"
+     },
+     {
+      "src": "gpt/proud.webp",
+      "still": "gpt/proud.webp",
+      "loop": false,
+      "frames": 1,
+      "durationMs": 2000,
+      "action": "gpt/得意"
+     }
+    ],
+    "confused": [
+     {
+      "src": "gpt/dizzy.webp",
+      "still": "gpt/dizzy.webp",
+      "loop": false,
+      "frames": 1,
+      "durationMs": 2000,
+      "action": "gpt/晕头转向"
+     },
+     {
+      "src": "gpt/oops.webp",
+      "still": "gpt/oops.webp",
+      "loop": false,
+      "frames": 1,
+      "durationMs": 2000,
+      "action": "gpt/糟糕"
+     }
+    ],
+    "drowsy": [
+     {
+      "src": "gpt/yawn.webp",
+      "still": "gpt/yawn.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "gpt/打哈欠"
+     },
+     {
+      "src": "gpt/tired.webp",
+      "still": "gpt/tired.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "gpt/累了"
+     }
+    ]
+   },
+   "static": true
+  },
+  "pm": {
+   "enabled": true,
+   "pack": "claude",
+   "packName": "Claude 橙花书卷",
+   "avatar": "claude/avatar.webp",
+   "avatar192": "claude/avatar.webp",
+   "frame": {
+    "w": 638,
+    "h": 640
+   },
+   "characterHeight": 640,
+   "footY": 640,
+   "centerX": 319.0,
+   "fps": 1,
+   "states": {
+    "idle": {
+     "src": "claude/idle.webp",
+     "still": "claude/idle.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "claude/待机"
+    },
+    "poke": {
+     "src": "claude/pat-2.webp",
+     "still": "claude/pat-2.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2000,
+     "action": "claude/被摸头"
+    },
+    "greet": {
+     "src": "claude/greet_noon.webp",
+     "still": "claude/greet_noon.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2000,
+     "action": "claude/打招呼"
+    },
+    "thinking": {
+     "src": "claude/thinking.webp",
+     "still": "claude/thinking.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "claude/思考"
+    },
+    "working": {
+     "src": "claude/writing.webp",
+     "still": "claude/writing.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "claude/写东西"
+    },
+    "research": {
+     "src": "claude/searching.webp",
+     "still": "claude/searching.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "claude/查资料"
+    },
+    "done": {
+     "src": "claude/happy-2.webp",
+     "still": "claude/happy-2.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2000,
+     "action": "claude/开心"
+    },
+    "confused": {
+     "src": "claude/dizzy.webp",
+     "still": "claude/dizzy.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2000,
+     "action": "claude/晕头转向"
+    },
+    "waiting": {
+     "src": "claude/listening.webp",
+     "still": "claude/listening.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "claude/听着"
+    },
+    "drowsy": {
+     "src": "claude/yawn.webp",
+     "still": "claude/yawn.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "claude/打哈欠"
+    },
+    "sleep": {
+     "src": "claude/sleeping-2.webp",
+     "still": "claude/sleeping-2.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "claude/睡着"
+    },
+    "idleB": {
+     "src": "claude/idle-2.webp",
+     "still": "claude/idle-2.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "claude/东张西望"
+    }
+   },
+   "pools": {
+    "idle": [
+     {
+      "src": "claude/idle.webp",
+      "still": "claude/idle.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "claude/待机"
+     },
+     {
+      "src": "claude/idle-2.webp",
+      "still": "claude/idle-2.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "claude/东张西望"
+     },
+     {
+      "src": "claude/idle-3.webp",
+      "still": "claude/idle-3.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "claude/悠闲"
+     }
+    ],
+    "working": [
+     {
+      "src": "claude/writing.webp",
+      "still": "claude/writing.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "claude/写东西"
+     },
+     {
+      "src": "claude/running.webp",
+      "still": "claude/running.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "claude/跑腿"
+     }
+    ],
+    "research": [
+     {
+      "src": "claude/searching.webp",
+      "still": "claude/searching.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "claude/查资料"
+     },
+     {
+      "src": "claude/reading-2.webp",
+      "still": "claude/reading-2.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "claude/读资料"
+     }
+    ],
+    "done": [
+     {
+      "src": "claude/happy-2.webp",
+      "still": "claude/happy-2.webp",
+      "loop": false,
+      "frames": 1,
+      "durationMs": 2000,
+      "action": "claude/开心"
+     },
+     {
+      "src": "claude/proud.webp",
+      "still": "claude/proud.webp",
+      "loop": false,
+      "frames": 1,
+      "durationMs": 2000,
+      "action": "claude/得意"
+     }
+    ],
+    "confused": [
+     {
+      "src": "claude/dizzy.webp",
+      "still": "claude/dizzy.webp",
+      "loop": false,
+      "frames": 1,
+      "durationMs": 2000,
+      "action": "claude/晕头转向"
+     },
+     {
+      "src": "claude/oops.webp",
+      "still": "claude/oops.webp",
+      "loop": false,
+      "frames": 1,
+      "durationMs": 2000,
+      "action": "claude/糟糕"
+     }
+    ],
+    "drowsy": [
+     {
+      "src": "claude/yawn.webp",
+      "still": "claude/yawn.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "claude/打哈欠"
+     },
+     {
+      "src": "claude/tired.webp",
+      "still": "claude/tired.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "claude/累了"
+     }
+    ]
+   },
+   "static": true
+  },
+  "content": {
+   "enabled": true,
+   "pack": "qwen",
+   "packName": "千问 国风千金",
+   "avatar": "qwen/avatar.webp",
+   "avatar192": "qwen/avatar.webp",
+   "frame": {
+    "w": 676,
+    "h": 640
+   },
+   "characterHeight": 640,
+   "footY": 640,
+   "centerX": 338.0,
+   "fps": 1,
+   "states": {
+    "idle": {
+     "src": "qwen/idle.webp",
+     "still": "qwen/idle.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "qwen/待机"
+    },
+    "poke": {
+     "src": "qwen/pat.webp",
+     "still": "qwen/pat.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2000,
+     "action": "qwen/被摸头"
+    },
+    "greet": {
+     "src": "qwen/greet_noon.webp",
+     "still": "qwen/greet_noon.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2000,
+     "action": "qwen/打招呼"
+    },
+    "thinking": {
+     "src": "qwen/thinking.webp",
+     "still": "qwen/thinking.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "qwen/思考"
+    },
+    "working": {
+     "src": "qwen/writing.webp",
+     "still": "qwen/writing.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "qwen/写东西"
+    },
+    "research": {
+     "src": "qwen/searching.webp",
+     "still": "qwen/searching.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "qwen/查资料"
+    },
+    "done": {
+     "src": "qwen/happy.webp",
+     "still": "qwen/happy.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2000,
+     "action": "qwen/开心"
+    },
+    "confused": {
+     "src": "qwen/dizzy.webp",
+     "still": "qwen/dizzy.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2000,
+     "action": "qwen/晕头转向"
+    },
+    "waiting": {
+     "src": "qwen/listening.webp",
+     "still": "qwen/listening.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "qwen/听着"
+    },
+    "drowsy": {
+     "src": "qwen/yawn.webp",
+     "still": "qwen/yawn.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "qwen/打哈欠"
+    },
+    "sleep": {
+     "src": "qwen/sleeping.webp",
+     "still": "qwen/sleeping.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "qwen/睡着"
+    },
+    "idleB": {
+     "src": "qwen/idle-2.webp",
+     "still": "qwen/idle-2.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "qwen/东张西望"
+    }
+   },
+   "pools": {
+    "idle": [
+     {
+      "src": "qwen/idle.webp",
+      "still": "qwen/idle.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "qwen/待机"
+     },
+     {
+      "src": "qwen/idle-2.webp",
+      "still": "qwen/idle-2.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "qwen/东张西望"
+     },
+     {
+      "src": "qwen/idle-3.webp",
+      "still": "qwen/idle-3.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "qwen/悠闲"
+     }
+    ],
+    "working": [
+     {
+      "src": "qwen/writing.webp",
+      "still": "qwen/writing.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "qwen/写东西"
+     },
+     {
+      "src": "qwen/running.webp",
+      "still": "qwen/running.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "qwen/跑腿"
+     }
+    ],
+    "research": [
+     {
+      "src": "qwen/searching.webp",
+      "still": "qwen/searching.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "qwen/查资料"
+     },
+     {
+      "src": "qwen/reading.webp",
+      "still": "qwen/reading.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "qwen/读资料"
+     }
+    ],
+    "done": [
+     {
+      "src": "qwen/happy.webp",
+      "still": "qwen/happy.webp",
+      "loop": false,
+      "frames": 1,
+      "durationMs": 2000,
+      "action": "qwen/开心"
+     },
+     {
+      "src": "qwen/proud.webp",
+      "still": "qwen/proud.webp",
+      "loop": false,
+      "frames": 1,
+      "durationMs": 2000,
+      "action": "qwen/得意"
+     }
+    ],
+    "confused": [
+     {
+      "src": "qwen/dizzy.webp",
+      "still": "qwen/dizzy.webp",
+      "loop": false,
+      "frames": 1,
+      "durationMs": 2000,
+      "action": "qwen/晕头转向"
+     },
+     {
+      "src": "qwen/oops.webp",
+      "still": "qwen/oops.webp",
+      "loop": false,
+      "frames": 1,
+      "durationMs": 2000,
+      "action": "qwen/糟糕"
+     }
+    ],
+    "drowsy": [
+     {
+      "src": "qwen/yawn.webp",
+      "still": "qwen/yawn.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "qwen/打哈欠"
+     },
+     {
+      "src": "qwen/tired.webp",
+      "still": "qwen/tired.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "qwen/累了"
+     }
+    ]
+   },
+   "static": true
+  },
+  "writer": {
+   "enabled": true,
+   "pack": "gemini",
+   "packName": "Gemini 猫耳娘",
+   "avatar": "gemini/avatar.webp",
+   "avatar192": "gemini/avatar.webp",
+   "frame": {
+    "w": 556,
+    "h": 640
+   },
+   "characterHeight": 640,
+   "footY": 640,
+   "centerX": 278.0,
+   "fps": 1,
+   "states": {
+    "idle": {
+     "src": "gemini/idle.webp",
+     "still": "gemini/idle.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "gemini/待机"
+    },
+    "poke": {
+     "src": "gemini/pat.webp",
+     "still": "gemini/pat.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2000,
+     "action": "gemini/被摸头"
+    },
+    "greet": {
+     "src": "gemini/greet_noon.webp",
+     "still": "gemini/greet_noon.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2000,
+     "action": "gemini/打招呼"
+    },
+    "thinking": {
+     "src": "gemini/thinking.webp",
+     "still": "gemini/thinking.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "gemini/思考"
+    },
+    "working": {
+     "src": "gemini/writing.webp",
+     "still": "gemini/writing.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "gemini/写东西"
+    },
+    "research": {
+     "src": "gemini/searching.webp",
+     "still": "gemini/searching.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "gemini/查资料"
+    },
+    "done": {
+     "src": "gemini/happy.webp",
+     "still": "gemini/happy.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2000,
+     "action": "gemini/开心"
+    },
+    "confused": {
+     "src": "gemini/dizzy.webp",
+     "still": "gemini/dizzy.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2000,
+     "action": "gemini/晕头转向"
+    },
+    "waiting": {
+     "src": "gemini/listening.webp",
+     "still": "gemini/listening.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "gemini/听着"
+    },
+    "drowsy": {
+     "src": "gemini/yawn.webp",
+     "still": "gemini/yawn.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "gemini/打哈欠"
+    },
+    "sleep": {
+     "src": "gemini/sleeping.webp",
+     "still": "gemini/sleeping.webp",
+     "loop": true,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "gemini/睡着"
+    },
+    "idleB": {
+     "src": "gemini/idle-2.webp",
+     "still": "gemini/idle-2.webp",
+     "loop": false,
+     "frames": 1,
+     "durationMs": 2400,
+     "action": "gemini/东张西望"
+    }
+   },
+   "pools": {
+    "idle": [
+     {
+      "src": "gemini/idle.webp",
+      "still": "gemini/idle.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "gemini/待机"
+     },
+     {
+      "src": "gemini/idle-2.webp",
+      "still": "gemini/idle-2.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "gemini/东张西望"
+     },
+     {
+      "src": "gemini/idle-3.webp",
+      "still": "gemini/idle-3.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "gemini/悠闲"
+     }
+    ],
+    "working": [
+     {
+      "src": "gemini/writing.webp",
+      "still": "gemini/writing.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "gemini/写东西"
+     },
+     {
+      "src": "gemini/running.webp",
+      "still": "gemini/running.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "gemini/跑腿"
+     }
+    ],
+    "research": [
+     {
+      "src": "gemini/searching.webp",
+      "still": "gemini/searching.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "gemini/查资料"
+     },
+     {
+      "src": "gemini/reading.webp",
+      "still": "gemini/reading.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "gemini/读资料"
+     }
+    ],
+    "done": [
+     {
+      "src": "gemini/happy.webp",
+      "still": "gemini/happy.webp",
+      "loop": false,
+      "frames": 1,
+      "durationMs": 2000,
+      "action": "gemini/开心"
+     },
+     {
+      "src": "gemini/proud.webp",
+      "still": "gemini/proud.webp",
+      "loop": false,
+      "frames": 1,
+      "durationMs": 2000,
+      "action": "gemini/得意"
+     }
+    ],
+    "confused": [
+     {
+      "src": "gemini/dizzy.webp",
+      "still": "gemini/dizzy.webp",
+      "loop": false,
+      "frames": 1,
+      "durationMs": 2000,
+      "action": "gemini/晕头转向"
+     },
+     {
+      "src": "gemini/oops.webp",
+      "still": "gemini/oops.webp",
+      "loop": false,
+      "frames": 1,
+      "durationMs": 2000,
+      "action": "gemini/糟糕"
+     }
+    ],
+    "drowsy": [
+     {
+      "src": "gemini/yawn.webp",
+      "still": "gemini/yawn.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "gemini/打哈欠"
+     },
+     {
+      "src": "gemini/tired.webp",
+      "still": "gemini/tired.webp",
+      "loop": true,
+      "frames": 1,
+      "durationMs": 2400,
+      "action": "gemini/累了"
+     }
+    ]
+   },
+   "static": true
+  }
+ },
+ "firstLoad": [
+  "chief.avatar",
+  "chief.states.idle.still"
+ ],
+ "stateKeys": [
+  "idle",
+  "idleB",
+  "greet",
+  "poke",
+  "thinking",
+  "working",
+  "research",
+  "done",
+  "confused",
+  "waiting",
+  "drowsy",
+  "sleep"
+ ],
+ "tiersNote": "dsh 带 360/216 两档动图；CrossPet 五位是静态立绘（一个姿态一张图），没有分档。"
+}

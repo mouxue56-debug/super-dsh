@@ -1,0 +1,14 @@
+{
+  "name": "dsh-hub-plugin",
+  "version": "0.24.0",
+  "type": "module",
+  "main": "index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./test-approval": "./test/approval-fixture.mjs"
+  },
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  }
+}

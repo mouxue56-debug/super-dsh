@@ -1,0 +1,251 @@
+/* Puff · R15: glossy candy pillows, varied dots, and the roundest UI.
+   Every selector is skin-scoped; bot colors, accent strips and avatars stay intact. */
+:root[data-skin=puff] {
+  --font: "Yuanti SC","Hiragino Maru Gothic ProN","M PLUS Rounded 1c",-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC","Noto Sans JP",sans-serif;
+  --round: var(--font);
+  --line-w: 0px;
+  --r-card: 18px;
+  --r-pill: 999px;
+  --pillow: rgba(214,84,140,.30);
+  --shadow-hard: var(--shadow-card);
+  --shadow-glass: inset 0 1px 0 var(--shine),var(--shadow-card);
+  --glass: rgba(255,250,252,.92);
+  --star: rgba(255,255,255,.75);
+  --puff-focus: #a82968;
+  --puff-halo: rgba(214,65,135,.32);
+  --puff-control: var(--elev-2);
+}
+:root[data-skin=puff][data-theme=dark] {
+  --pillow: rgba(203,93,159,.28);
+  --glass: rgba(92,47,88,.93);
+  --star: rgba(255,201,224,.16);
+  --puff-focus: #ffd0e7;
+  --puff-halo: rgba(255,171,214,.36);
+}
+:root[data-skin=puff] :is(body,.sidebar,.mainpane,.chatview) {
+  background-image: radial-gradient(var(--star) 3px,transparent 3.5px),radial-gradient(var(--star) 1.5px,transparent 2px),radial-gradient(var(--star) 5px,transparent 5.5px);
+  background-size: 64px 64px,40px 40px,128px 128px;
+  background-position: 8px 12px,26px 30px,70px 84px;
+}
+
+/* Pillows inherit the zero line width without erasing any bot accent border. */
+:root[data-skin=puff] :is(.pop-card,.surface,.mcard,.kcard,.waitbox,.schedule-card,.portrait-card,.livecard,.subtitle,.stage-frame,.ghost) {
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-glass);
+}
+:root[data-skin=puff] .bubble {
+  border-radius: 38px;
+  box-shadow: var(--shadow-glass);
+}
+:root[data-skin=puff] :is(.msg-user,.user-bubble) {
+  border-radius: var(--r-card);
+}
+:root[data-skin=puff] .user-bubble {
+  box-shadow: inset 0 3px 0 var(--shine),0 5px 0 var(--pillow);
+}
+:root[data-skin=puff] .ghostbtn {
+  background: var(--elev-2);
+  box-shadow: inset 0 2px 0 var(--shine),0 4px 0 var(--pillow);
+}
+/* R15 K2: audited secondary actions get a candy pad; selected states keep their material. */
+:root[data-skin=puff] :is(.m-governance-btn.btn-secondary,.m-memory-btn.btn-secondary,.m-plugins-button.m-plugins-secondary,.m-persona-btn.btn-secondary,.m-interact-btn.btn-secondary,.m-automation-btn.btn-secondary,.m-persona-swatch.btn-secondary):where(:not([aria-pressed=true]):not([aria-checked=true]):not([aria-current=page]):not(.m-automation-active)) {
+  background: var(--elev-2);
+  border-radius: var(--r-pill);
+  box-shadow: inset 0 2px 0 var(--shine),0 4px 0 var(--pillow);
+}
+:root[data-skin=puff] button:where(:not(.shell-level-sticker):not([data-level-sticker])) {
+  border-radius: var(--r-pill);
+}
+
+/* Hard-coded 1px badges and eyebrow labels bypass --line-w in base.css. */
+:root[data-skin=puff] :is(.pill,.tag,.flag,.lv,.badge,.eyebrow,.sticker) {
+  border: 0;
+  border-radius: var(--r-pill);
+  box-shadow: inset 0 2px 0 var(--shine);
+}
+:root[data-skin=puff] :is(.pill.neutral,.badge.neutral,.mcard>.eyebrow,.sticker:not(.bot),.pin .pin-star) {
+  background: var(--elev-2);
+  color: var(--ink);
+}
+:root[data-skin=puff] :is(.bot-unread,.m-governance-dot) {
+  border: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 2px 0 var(--shine),0 0 0 2px var(--bg);
+}
+:root[data-skin=puff] .shell-avatar-unread .bot-unread {
+  border: 0;
+  box-shadow: inset 0 2px 0 var(--shine),0 0 0 2px var(--bg);
+}
+
+/* Level sticker outlines change material only; each level keeps its own silhouette. */
+:root[data-skin=puff] .shell-level-sticker {
+  border: 0;
+  outline: none;
+  text-shadow: none;
+  box-shadow: inset 0 2px 0 var(--shine),0 3px 0 var(--pillow);
+}
+:root[data-skin=puff] .shell-level-sticker[data-level-sticker=L2] {
+  box-shadow: inset 0 2px 0 var(--shine),inset 0 0 0 4px var(--shine),0 3px 0 var(--pillow);
+}
+:root[data-skin=puff] .launcher-tile>.icon {
+  border: 0;
+  border-radius: var(--r-card);
+  box-shadow: inset 0 2px 0 var(--shine),0 3px 0 var(--pillow);
+}
+:root[data-skin=puff] button.userava {
+  border: 0;
+  box-shadow: inset 0 2px 0 var(--shine),0 3px 0 var(--pillow);
+}
+
+/* Programmatic drawer focus is quiet; interactive keyboard focus remains visible. */
+:root[data-skin=puff] .drawer {
+  border: 0;
+  border-radius: var(--r-card);
+  outline: none;
+  box-shadow: var(--shadow-glass);
+}
+:root[data-skin=puff] .drawer.hub-panel {
+  border-radius: var(--r-card);
+}
+:root[data-skin=puff] .mainpane:focus-visible {
+  outline: none;
+}
+
+/* Tour targets and selected controls use a translucent pink halo, not a dark frame. */
+:root[data-skin=puff] .shell-tour-bubble {
+  border: 0;
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-glass);
+}
+:root[data-skin=puff] :is(.m-interact-selected,.m-interact-highlight,.kcol.over,.model-choice.on,.m-automation-today,.m-automation-cell[aria-pressed=true],.stage-outfits button[data-outfit-selected=true],.m-persona-outfits [data-outfit-selected=true],.m-persona-template[aria-pressed=true],.m-persona-avatar-choice[aria-pressed=true],.m-persona-swatch[aria-pressed=true],.m-cards-a-swatch[aria-pressed=true]) {
+  outline: none;
+  box-shadow: inset 0 2px 0 var(--shine),0 0 0 4px var(--puff-halo),0 6px 14px var(--pillow);
+}
+:root[data-skin=puff] .shell-tour-target {
+  outline: none;
+  border-radius: var(--r-card);
+  box-shadow: inset 0 3px 0 var(--shine),0 0 0 6px var(--puff-halo),0 8px 20px var(--pillow);
+}
+
+/* An ivory/berry pillow separates the approval shortcut from the pink page ground. */
+:root[data-skin=puff] button.decision-shortcut {
+  border: 0;
+  border-radius: var(--r-card);
+  background: var(--elev);
+  color: var(--ink);
+  box-shadow: inset 0 3px 0 var(--shine),0 5px 0 var(--pillow);
+}
+:root[data-skin=puff] :where(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),select,textarea,.pop-input) {
+  border: 0;
+  border-radius: var(--r-card);
+  background: var(--puff-control);
+  color: var(--ink);
+  box-shadow: inset 0 2px 0 var(--shine),0 3px 0 var(--pillow);
+}
+:root[data-skin=puff] :where(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),select) {
+  border-radius: var(--r-pill);
+}
+:root[data-skin=puff] :is(input,textarea)::placeholder {
+  color: var(--ink-2);
+  opacity: 1;
+}
+/* These inputs already have a padded outer shell; avoid a second pillow inside. */
+:root[data-skin=puff] :is(.inputpill textarea,.searchfield input,.searchdock input,.projectpicker select,.full-navigation select) {
+  background: transparent;
+  box-shadow: none;
+}
+:root[data-skin=puff] input:is([type=checkbox],[type=radio]) {
+  border: 0;
+  border-radius: var(--r-pill);
+}
+/* Only unchecked boxes use the custom well; native checked marks retain the bot accent. */
+:root[data-skin=puff] input[type=checkbox] {
+  min-width: 20px;
+  min-height: 20px;
+  flex: none;
+}
+:root[data-skin=puff] input[type=checkbox]:not(:checked) {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: var(--elev-2);
+  box-shadow: inset 0 0 0 1.5px var(--puff-focus),inset 0 2px 0 var(--shine),0 2px 0 var(--pillow);
+}
+
+/* Remaining fixed corners and outlines found in the shell/module source audit. */
+:root[data-skin=puff] :is(.jp,.task-evidence,.tool,.screenshot-art,.kcol,.particle-wrap,.atmenu,.portrait-card,.preview-paper,.terminal,.canvas,.new-entry,.toggle-list,.model-choice,.balance-grid>div,.health-grid>div,.m-memory-path,.m-governance-mix-choices,.m-interact-callfull,.pin,.conversation,.m-cards-b-thumb,.m-cards-b-shot,.m-cards-a-choice,.m-persona-template,.m-persona-avatar-choice) {
+  border-radius: var(--r-card);
+}
+:root[data-skin=puff] .jp {
+  border: 0;
+  box-shadow: inset 0 2px 0 var(--shine);
+}
+:root[data-skin=puff] :is(.task-meta span,.pin .pin-star,.attachchip,.attachchip img,.dateblock,.queuebar,.voice-strip,.wave i) {
+  border-radius: var(--r-pill);
+}
+:root[data-skin=puff] .pin .pin-star {
+  box-shadow: inset 0 2px 0 var(--shine);
+}
+:root[data-skin=puff] .kcard.pending {
+  border: 0;
+  border-top: 5px solid var(--bot);
+  box-shadow: inset 0 3px 0 var(--shine),0 0 0 4px var(--puff-halo),0 6px 0 var(--pillow);
+}
+:root[data-skin=puff] .m-interact-image-grid .m-interact-image-tile {
+  border: 0;
+  border-radius: var(--r-card);
+  background: var(--elev-2);
+  box-shadow: inset 0 2px 0 var(--shine),0 3px 0 var(--pillow);
+}
+:root[data-skin=puff] .m-interact-image-grid .m-interact-image-tile[aria-pressed=true] {
+  background: var(--bot-soft);
+  box-shadow: inset 0 2px 0 var(--shine),inset 0 0 12px 4px var(--puff-halo),0 3px 0 var(--pillow);
+}
+/* The three decorative dots were made from x-offset hard shadows. */
+:root[data-skin=puff] .m-interact-heading:before {
+  width: 38px;
+  border: 0;
+  margin-right: 0;
+  background: radial-gradient(circle at 5px 5px,var(--sky) 5px,transparent 5.5px),radial-gradient(circle at 19px 5px,var(--pink) 5px,transparent 5.5px),radial-gradient(circle at 33px 5px,var(--mint) 5px,transparent 5.5px);
+  box-shadow: none;
+}
+
+/* Contrast fixes use surface text colors; the bot palette itself is untouched. */
+:root[data-skin=puff] .m-persona-outfit-thumb {
+  color: var(--ink);
+}
+:root[data-skin=puff] .stage-status {
+  color: var(--ink);
+  background: var(--elev);
+  border-radius: var(--r-pill);
+  padding: 4px 10px;
+}
+:root[data-skin=puff][data-theme=dark] :is(.textbutton,.pill:not(.wait):not(.bad):not(.neutral),.plan .box,.m-memory-badge.m-memory-good) {
+  color: var(--ink);
+}
+
+:root[data-skin=puff] :is(button,input,textarea,select) {
+  font-family: var(--round);
+}
+:root[data-skin=puff] :is(h1,h2,h3,.dhead h2,.pop-card-head,.mcard h3,.kcard h3,.m-persona-root h2,.m-persona-root h3) {
+  font-weight: 700;
+  letter-spacing: .03em;
+}
+/* Placed after selected/tour styles so keyboard focus also wins on those controls. */
+:root[data-skin=puff] :is(button,input,textarea,select,summary,a,[role=button],[tabindex]):focus-visible:not(.drawer):not(.mainpane) {
+  outline: 3px solid var(--puff-focus);
+  outline-offset: 3px;
+}
+:root[data-skin=puff] button:active:not(:disabled) {
+  transform: none;
+  scale: .97;
+  transition: scale var(--dur-press) var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-skin=puff] button:active:not(:disabled) {
+    transform: none;
+    scale: none;
+    transition: none;
+  }
+}
+

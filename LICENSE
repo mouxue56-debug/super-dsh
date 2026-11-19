@@ -1,0 +1,32 @@
+MIT License
+
+Copyright (c) 2026 Super DSH contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+Scope note / 适用范围说明
+
+The MIT License above covers the source code and documentation of this repository only.
+Character artwork under shell/pets/ is third-party material licensed under CC BY-NC-SA 4.0 (see shell/pets/LICENSE
+and shell/pets/CREDITS.md). Copyright of that artwork belongs to its respective authors and it is NOT covered by the
+MIT License. Delete the shell/pets/ directory if you need an MIT-only tree; the UI falls back to built-in drawn shapes.
+
+MIT 只覆盖本仓库的代码与文档。shell/pets/ 目录下的角色素材是第三方素材，采用 CC BY-NC-SA 4.0，版权属于各自作者，
+不在 MIT 范围内。需要纯 MIT 的树时，删掉 shell/pets/ 目录即可，界面会回落到自带的示意形象。

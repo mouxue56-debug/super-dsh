@@ -1,0 +1,24 @@
+# r16 测试实例专用：默认模型指向本机假模型端点（127.0.0.1:3296，OpenAI 兼容、回显），不连任何真实提供方。
+- id: agent-default-model
+  name: "@deepseek-ai/dsh-agent-default-model"
+  config:
+    provider: hub-fake
+    model: echo-1
+- id: llm-pi-ai
+  config:
+    providers:
+      hub-fake:
+        displayName: Hub Fake Echo (r16 test)
+        apiKeyEnv: HUB_FAKE_KEY
+        api: openai-completions
+        baseURL: http://127.0.0.1:3296/v1
+        defaultContextWindow: 32000
+        defaultMaxTokens: 1024
+        compat:
+          supportsDeveloperRole: false
+          maxTokensField: max_tokens
+        models:
+          - id: echo-1
+            name: Echo 1 (fake, r16)
+            input:
+              - text

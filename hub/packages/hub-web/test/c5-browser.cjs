@@ -1,0 +1,64 @@
+// C5 专项：仅3592假环境、本机已有浏览器；禁止访问非回环网络。
+const playwright=require(process.env.PLAYWRIGHT_CORE||require('os').homedir()+'/node_modules/playwright-core');
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const engine=process.env.HUB_R24_BROWSER||'chromium',base='http://127.0.0.1:3592';
+const out=process.env.HUB_R24_SHOTS||path.resolve('shots'),prefix=process.env.HUB_R24_PREFIX||'c5-'+engine+'-';fs.mkdirSync(out,{recursive:true});
+(async()=>{
+ const browser=await playwright[engine].launch({headless:true,executablePath:engine==='webkit'?process.env.WEBKIT:require('os').homedir()+'/Library/Caches/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell',timeout:15000});
+ const checks=[],errors=[],blocked=[],geometry={};let page;
+ const check=(label,ok)=>{assert(ok,label);checks.push(label);console.log('通过：'+label);};
+ try {
+  page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:3,isMobile:true,hasTouch:true});
+  page.on('pageerror',e=>{errors.push(e.message);console.error('页面脚本错误：'+e.stack);});
+  await page.route('**/*',route=>{const u=new URL(route.request().url());if(u.protocol==='data:'||(u.protocol==='blob:'&&u.origin===base)||u.origin===base)return route.continue();blocked.push(u.origin);return route.abort();});
+  const fixture=async b=>assert.equal(await page.evaluate(async b=>(await fetch('/bff/__fixture',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)})).status,b),200);
+  const snap=async(name,selector)=>{if(selector)await page.locator(selector).evaluate(el=>el.scrollIntoView({block:'center'}));await page.waitForTimeout(500);await page.screenshot({path:path.join(out,prefix+name+'.png'),animations:'disabled'});};
+  await page.goto(base+'/?key=r24-offline-web');await page.waitForFunction(()=>window.HubReal?.state().sessions.length>=7);
+  const tool=(id,name,p,status,seq,extra={})=>({id,name,path:p,status,seq,...extra});
+  const tools=[tool('c5-read','read','/Users/example/dsh-work/bots/chief/AGENTS.md','ok',2),tool('c5-write','write','/Users/example/dsh-work/bots/chief/notes/本地草稿.md','ok',3,{level:'L1'}),tool('c5-ticket','ticket_create','','ok',4,{level:'L1'})];
+  const messages=[{role:'user',text:'整理本地草稿，再把共享写入交给我确认。',seq:1},...tools.map(t=>({role:'assistant',text:'',seq:t.seq,tools:[t]})),{role:'assistant',text:'本地三步已完成，下面两份共享写入都还没做。',seq:5}];
+  const card=(id,seq,extra={})=>({id,type:'approval',bot:'chief',sessionId:'chief-c5',seq,tool:'write',path:'/Users/example/dsh-work/shared/交付物.md',action:'写共享区',chars:138,preview:'这是一份待确认的共享交付物。\n审批后才会写入。',why:'让协作助理能查阅确认后的交付内容。',status:'pending',createdAt:new Date().toISOString(),expiresAt:new Date(Date.now()+600000).toISOString(),...extra});
+  const cards=[card('c5-why',6),card('c5-no-why',7,{why:'  ',preview:'没有提供写入原因；不替助理编造原因。'}),card('c5-edit',8,{tool:'edit',path:'/Users/example/dsh-work/shared/项目日志.md',diff:'- 交付日期：周五\n+ 交付日期：周六',why:'把已核对的交付日期更新到日志。'}),card('c5-ticket-edit',10,{tool:'ticket_update',path:'/Users/example/dsh-work/tickets/working/T-20261117-190000-c5aa.md',why:'',action:'改别人的工单'})];
+  messages.push({role:'assistant',text:'这一步需要你点头。',seq:9,tools:[tool('c5-share','write','/Users/example/dsh-work/shared/项目日志.md','pending',9,{level:'L3',approvalId:'c5-edit'})]});
+  messages.push({role:'user',text:'下一轮再检查一次。',seq:11},{role:'assistant',text:'',seq:12,tools:[tool('c5-next','read','/Users/example/dsh-work/bots/chief/AGENTS.md','ok',12)]});
+  await fixture({type:'timeline',id:'chief-c5',title:'C5 审批与工具条',messages,cards});
+  await page.waitForFunction(()=>HubReal.state().sessions.some(s=>s.id==='chief-c5'));
+  await page.evaluate(()=>{Hub.state.view='chat';Hub.state.detail=false;window.render();});
+  const ready=page.waitForResponse(r=>r.url().endsWith('/sessions/chief-c5/read')&&r.request().method()==='POST');await page.locator('[data-real-open="chief-c5"]').click();await ready;
+  await page.waitForSelector('[data-real-card="c5-why"]');
+  const first=page.locator('[data-real-card="c5-why"]');
+  check('审批标题是一句动作，正文只留路径、字数、预览、原因、时间',await first.locator('h3').textContent()==='L3把一份文件写进共享区'&&await first.locator('dt').allTextContents().then(a=>JSON.stringify(a)==='["路径","字数"]')&&await first.locator('.hub-real-why').textContent()==='为什么要写：让协作助理能查阅确认后的交付内容。'&&(await first.textContent()).includes('剩余 '));
+  check('审批不再重复级别或要你点头',!(await first.textContent()).includes('级别')&&!(await first.textContent()).includes('L3 · 要你点头')&&await first.locator('[data-level-sticker="L3"]').count()===1);
+  check('按钮仍是批准、拒绝、改一下',JSON.stringify(await first.locator('[data-real-answer]').allTextContents())==='["批准","拒绝","改一下"]');
+  await snap('01-待批含原因','[data-real-card="c5-why"]');
+  check('未给 why 时不显示原因行、不编原因',await page.locator('[data-real-card="c5-no-why"] .hub-real-why').count()===0);
+  await snap('02-待批不含原因','[data-real-card="c5-no-why"]');
+  check('已有日志显示修改动作和增删对比，不重复全文预览',await page.locator('[data-real-card="c5-edit"] h3').textContent()==='L3改共享区里的项目日志'&&await page.locator('[data-real-card="c5-edit"] .diff .add').count()===1&&await page.locator('[data-real-card="c5-edit"] .diff .del').count()===1&&await page.locator('[data-real-card="c5-edit"] .hub-real-preview').count()===0);
+  await snap('03-改已有文件对比','[data-real-card="c5-edit"]');
+  check('改别人工单采用人话动作',await page.locator('[data-real-card="c5-ticket-edit"] h3').textContent()==='L3改别人建的工单');
+  const group=page.locator('[data-real-tool-group="c5-read"]');
+  check('连续三步合为原壳 details 与虚线工具条，默认收起',await group.locator('summary').textContent()==='做了 3 步'&&await group.evaluate(el=>!el.hidden&&!el.open&&el.getBoundingClientRect().height>0&&getComputedStyle(el).borderTopStyle==='dashed')&&await group.locator('[data-real-tool]').count()===3);
+  check('工具条不含气泡、名牌和可见操作栏',await page.locator('.hub-real-tool-message .bubble,.hub-real-tool-message .r22-nameplate,.hub-real-tool-message .message-footer:visible').count()===0);
+  check('正文、卡片和下一轮分别隔开工具条',await page.locator('.hub-real-tool-trace').count()===3&&await page.locator('[data-real-tool-group="c5-share"] [data-real-tool]').count()===1&&await page.locator('[data-real-tool-group="c5-next"] [data-real-tool]').count()===1);
+  await snap('04-三步工具条收起','[data-real-tool-group="c5-read"]');await group.locator('summary').click();
+  check('展开每步含动作、完整路径和真实结果',await group.locator('[data-real-tool]:visible').count()===3&&(await group.textContent()).includes('读了 AGENTS.md · 已完成')&&(await group.textContent()).includes('写了 notes/本地草稿.md · L1 已记录')&&(await group.textContent()).includes('建了一张工单 · L1 已记录')&&await group.locator('.hub-real-tool-path').count()===2);
+  await snap('05-三步工具条展开','[data-real-tool-group="c5-read"]');
+  await fixture({id:'c5-edit',status:'approved'});await page.waitForSelector('[data-real-card="c5-edit"][data-real-card-status="approved"]');
+  check('卡片更新后工具条仍展开且批准不冒充执行完成',await group.evaluate(el=>el.open)&&!(await page.locator('[data-real-tool-group="c5-share"] summary').textContent()).includes('已完成')&&(await page.locator('[data-real-tool-group="c5-share"] summary').textContent()).includes('已批准'));
+  await page.evaluate(()=>window.render());
+  check('重绘仍保持展开与去重',await group.evaluate(el=>el.open)&&await page.locator('[data-real-tool]').count()===5);
+  const chips=page.locator('.hub-real-phrases');
+  check('三条短语复用壳 hub-quick 容器和按钮',await chips.locator('[data-real-phrase]').count()===3&&await chips.evaluate(el=>getComputedStyle(el).display==='flex'));
+  geometry.phrases=await chips.evaluate(el=>({slot:{h:el.parentElement.clientHeight,w:el.parentElement.clientWidth},strip:{h:el.clientHeight,w:el.clientWidth,scrollWidth:el.scrollWidth,overflowX:getComputedStyle(el).overflowX},buttons:[...el.children].map(b=>({text:b.textContent,h:b.getBoundingClientRect().height,line:getComputedStyle(b).lineHeight,weight:getComputedStyle(b).fontWeight,scrollWidth:b.scrollWidth,clientWidth:b.clientWidth}))}));
+  check('胶囊字重500，按钮完整高度且可横滑抵达第三条',geometry.phrases.buttons.every(b=>b.weight==='500'&&b.h===30&&b.clientWidth>=b.scrollWidth)&&geometry.phrases.slot.h>=30&&['auto','scroll'].includes(geometry.phrases.strip.overflowX));
+  await snap('06-开场短语起点');await chips.evaluate(el=>el.scrollLeft=el.scrollWidth);await page.waitForTimeout(100);
+  check('横滑到末尾后第三条文字完整位于胶囊视窗',await chips.evaluate(el=>{const a=el.getBoundingClientRect(),b=el.lastElementChild.getBoundingClientRect();return b.right<=a.right+1&&b.left>=a.left-1;}));
+  await snap('07-开场短语末尾');
+  // 边界数据只来自假服务，不写真实文件。
+  await fixture({id:'c5-no-why',why:'<img src=x onerror=alert(1)>'.repeat(8),preview:'前'.repeat(220)});
+  await page.waitForFunction(()=>document.querySelector('[data-real-card="c5-no-why"] .hub-real-why'));
+  check('why与预览有长度上限并作为纯文本渲染',await page.locator('[data-real-card="c5-no-why"] .hub-real-why').evaluate(el=>el.textContent.length===87&&el.textContent.endsWith('…')&&!el.querySelector('img'))&&await page.locator('[data-real-card="c5-no-why"] .hub-real-preview').evaluate(el=>el.textContent.length===200));
+  check('专项回归页面无脚本错误',errors.length===0);check('浏览器未请求外部网络',blocked.length===0);
+  console.log('C5 专项回归：'+checks.length+' 项通过');
+ }finally{fs.writeFileSync(path.join(out,prefix+'results.json'),JSON.stringify({engine,browserVersion:browser.version(),checks,errors,blocked,geometry},null,2));await browser.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

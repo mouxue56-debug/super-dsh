@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "houseRules": "house-rules/AGENTS.md",
+  "seeds": [
+    {"from": "shared/dispatch-rules.md", "to": "shared/dispatch-rules.md"}
+  ],
+  "manuals": [
+    {"id": "dispatch-work", "title": "接单派单", "default": true},
+    {"id": "morning-meeting", "title": "晨会", "default": true},
+    {"id": "evening-meeting", "title": "晚会", "default": true},
+    {"id": "use-board", "title": "用看板", "default": true},
+    {"id": "group-work", "title": "在讨论组里做事", "default": true},
+    {"id": "operate-app", "title": "操作应用", "default": false},
+    {"id": "owner-memory", "title": "记忆三句话", "default": false}
+  ],
+  "templates": [
+    {"id": "chief", "title": "总管", "file": "templates/chief.md"},
+    {"id": "worker", "title": "干活", "file": "templates/worker.md"},
+    {"id": "blank", "title": "空白", "file": "templates/blank.md"}
+  ]
+}

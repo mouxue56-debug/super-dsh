@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+ "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>local.hub-board.triggers</string>
+  <key>StartInterval</key>
+  <integer>60</integer>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>node</string>
+    <string>/path/to/board-triggers.mjs</string>
+    <string>--rules</string>
+    <string>/path/to/rules.json</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HUB_BOARD_CONFIG</key>
+    <string>/path/to/hub-board.json</string>
+    <key>HUB_CONFIG_DIR</key>
+    <string>/path/to/config</string>
+    <key>HUB_PANIC_DIR</key>
+    <string>/path/to/panic</string>
+  </dict>
+</dict>
+</plist>

@@ -1,0 +1,236 @@
+/* 手机独立窗口的最后一层。只收窄到 699 以下，桌面三栏不动。
+   安全区为 0 时底边距仍是 8px，和原来的 max(8px, inset-14px) 相同。 */
+@media (max-width: 699px) {
+  :root {
+    --bottom-clearance: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+
+  #app .shell .home-top {
+    height: auto;
+    min-height: 44px;
+    flex-basis: auto;
+    align-items: center;
+  }
+  #app .shell .home-top .r22-home-status {
+    display: block;
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
+    height: auto;
+    min-height: 44px;
+    overflow: hidden;
+    line-height: 44px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #app .shell .home-top .r29-go-stage {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 44px;
+    margin-top: 0;
+    min-height: 44px;
+    max-width: 46%;
+    padding: 0 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #app .shell .pin > .r22-nameplate {
+    display: block;
+    max-width: calc(100% - 8px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #app .shell .chat-header .shell-title-stack,
+  #app .shell .chat-header .titlepill {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+  }
+  #app .shell .chat-header .titlepill .r22-nameplate,
+  #app .shell .conversation strong,
+  #app .shell .conversation .preview {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #app .shell .side-bottom {
+    grid-template-columns: 44px minmax(0, 1fr) 44px 44px;
+  }
+  #app .shell .side-bottom .r22-home-tool {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
+  #app .shell .side-bottom .searchdock,
+  #app .shell .side-bottom input {
+    height: 44px;
+    min-height: 44px;
+  }
+  #app .shell .r22-board-dock > button,
+  #app .shell .r22-board-dock summary {
+    height: 44px;
+    min-height: 44px;
+  }
+
+  #app .shell .chatview .r22-input-row {
+    height: auto !important;
+    min-height: 48px !important;
+    align-items: center;
+  }
+  #app .shell .chatview .inputpill {
+    height: auto !important;
+    min-height: 32px !important;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  #app .shell .chatview .inputpill textarea {
+    height: 32px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
+  }
+  #app .shell .chatview .r22-input-row > .iconbtn,
+  #app .shell .chatview .r22-input-row .r29-plus {
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+  #app .shell .chatview .r22-input-row .voicebtn,
+  #app .shell .chatview .inputpill .voicebtn {
+    width: auto !important;
+    min-width: 48px !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    padding: 0 8px !important;
+  }
+  #app .shell .chatview .r29-plus-panel button,
+  #app .shell .chatview .r29-queue button {
+    min-height: 44px;
+    height: auto;
+  }
+  #app .shell .chatview .r29-chip {
+    min-height: 48px;
+    align-items: center;
+  }
+  #app .shell .chatview .r29-chip .iconbtn {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
+
+  #app .shell .chatview .thread .msg .hub-mount .r22-letter .actions > button,
+  #app .shell .chatview .thread .r22-file .ghostbtn,
+  #app .shell .chatview .thread .tool > button,
+  #app .shell .chatview .r22-tool-call > summary,
+  #app .shell .chatview .r22-tool-body .textbutton,
+  #app .shell .r22-activity-footer .ghostbtn,
+  #app .shell .shell-activity-tabs button,
+  #app .r22-create-row button,
+  #app .shell .chatview .chief-pet-toggle,
+  #app .shell .chatview .chief-pet-lane.is-collapsed {
+    min-height: 44px;
+    height: auto;
+  }
+  #app .shell .chatview .chief-pet-toggle,
+  #app .shell .chatview .chief-pet-lane.is-collapsed {
+    width: 44px;
+    min-width: 44px;
+    max-width: 44px;
+    flex-basis: 44px;
+  }
+  #app .shell .stageview button,
+  #app .r25-feature-header .r25-feature-owner,
+  #app .r25-board-info > summary {
+    min-height: 44px;
+    height: auto;
+  }
+  #app .shell .chat-header .iconbtn,
+  #app .shell .chat-header .r22-round {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
+  #app .shell .drawer .dhead .iconbtn,
+  #app .shell .r22-session-sheet .dhead .iconbtn {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
+  #app .shell .drawer button:not(.shell-level-sticker),
+  #app .shell .r22-session-sheet button:not(.shell-level-sticker),
+  #app .shell .drawer summary,
+  #app .shell .r29-name,
+  #app .shell .r29-duty,
+  #app .shell .r29-line,
+  .r29-actions button {
+    min-height: 44px;
+  }
+
+  /* 等级贴保持小徽章，只把热区补到 44。L3 白字加深底色。 */
+  #app .shell .chatview .thread .msg .hub-mount .r22-letter .shell-level-sticker,
+  #app .shell .chatview .m-interact-stream .shell-level-sticker {
+    position: relative;
+  }
+  #app .shell .chatview .thread .msg .hub-mount .r22-letter .shell-level-sticker:after,
+  #app .shell .chatview .m-interact-stream .shell-level-sticker:after {
+    content: "";
+    position: absolute;
+    inset: -12px -9px;
+  }
+  #app .shell .chatview .r22-letter .shell-level-sticker[data-level-sticker="L3"] {
+    background: #7a261c;
+  }
+
+  #app:has(.drawer) .bot-scroll,
+  #app:has(.r22-session-sheet) .bot-scroll,
+  #app:has(.drawer) .mainpane :is(.thread, .content-scroll, .stageview, .board),
+  #app:has(.r22-session-sheet) .mainpane :is(.thread, .content-scroll, .stageview, .board) {
+    overflow: hidden !important;
+    overscroll-behavior: none;
+  }
+
+  #app .shell .chatview .r22-pet-figure {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 4px);
+  }
+  #app .shell .chatview .r22-pet-floor {
+    bottom: env(safe-area-inset-bottom, 0px);
+  }
+  #app .shell .pin .home-role > .chief-pet-stage > img {
+    transform: scale(0.96);
+    transform-origin: 50% 100%;
+  }
+  body.keyboard #app .shell .chatview .r22-pet-figure {
+    height: 64px;
+    overflow: hidden;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 4px);
+  }
+  body.keyboard #app .shell .chatview .r22-pet-platform .chief-pet-stage {
+    width: 56px;
+    height: 64px;
+    transform: none;
+    overflow: hidden;
+  }
+  body.keyboard #app .shell .chatview .chief-pet-stage > img {
+    width: 56px !important;
+    height: 64px !important;
+    left: 0 !important;
+    top: 0 !important;
+    object-fit: contain;
+    object-position: center bottom;
+  }
+
+  :root[data-theme="dark"] .r29-permission-choice small {
+    color: var(--ink-2);
+  }
+}

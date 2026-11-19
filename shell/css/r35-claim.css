@@ -1,0 +1,49 @@
+/* 开放认领（谁有空谁接）：卡片小标、点开的说明块、新建里的第一项、今天页「挂着没人接的」、演示的重播按钮。
+   放在 r32-relay 之后、r29-polish 之前（r29-polish 仍是最后一份样式）。 */
+:root {
+  --r35-open: #e8920c;
+  --r35-open-soft: #fff1d6;
+  --r35-taken: #1f9d72;
+  --r35-ask: #c2410c;
+}
+:root[data-theme=dark] { --r35-open: #ffb84a; --r35-open-soft: #3a2d12; --r35-taken: #4fe0b0; --r35-ask: #ff9a72; }
+
+/* ---------- 卡片上的小标 ---------- */
+.r35-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 2px; min-width: 0; }
+.r35-chip {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 3px 10px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere;
+  border: 1.5px solid currentColor; background: transparent;
+}
+.r35-chip.is-open { color: var(--r35-open); background: var(--r35-open-soft); }
+.r35-chip.is-taken { color: var(--r35-taken); }
+.r35-chip.is-asked { color: var(--r35-ask); }
+.r35-pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: r35-pulse 1.6s ease-in-out infinite; flex: none; }
+@keyframes r35-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .r35-pulse { animation: none; } }
+[data-r35-card=open] { border-style: dashed; }
+
+/* ---------- 点开卡：这张卡的来历 ---------- */
+.r35-box {
+  margin: 4px 0 12px; padding: 12px 14px; border: var(--line-w, 1.5px) solid var(--line); border-radius: 16px; color: var(--ink);
+  background: var(--elev);
+}
+.r35-box > strong { font-size: 15px; }
+.r35-box p { margin: 4px 0 8px; font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.r35-box.is-open { background: var(--r35-open-soft); }
+.r35-box.is-taken { background: color-mix(in srgb, var(--r35-taken) 14%, var(--elev)); }
+.r35-box.is-asked { background: color-mix(in srgb, var(--r35-ask) 14%, var(--elev)); }
+.r35-box .r30-form { margin: 0 0 8px; }
+.r35-box textarea { width: 100%; box-sizing: border-box; }
+
+/* ---------- 新建与派给谁：第一项「谁有空谁接」 ---------- */
+.r35-ico {
+  display: inline-flex; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; border-radius: 50%;
+  background: var(--r35-open-soft); color: var(--r35-open); font-size: 16px; line-height: 1;
+}
+.r35-give, .r35-whoopen { border-style: dashed; }
+.r35-give > span:last-child, .r35-whoopen > span:last-child { font-weight: 700; }
+
+/* ---------- 今天页：挂着没人接的 ---------- */
+#app .r30l-b-open { --b: var(--r35-open); }
+#app .r30l-b-open .r30l-tmain small { color: var(--r35-open); font-weight: 700; }

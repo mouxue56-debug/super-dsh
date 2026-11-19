@@ -1,0 +1,6 @@
+# 样例，不要安装：每 10 分钟看一次派给我的卡（只列出，不领单；领单交给被唤起的 agent）。
+# 令牌放在 0600 的配置文件里，不要写进 crontab。路径换成自己的。
+HUB_BOARD_CONFIG=/path/to/hub-board.json
+HUB_PANIC_DIR=/path/to/panic
+*/10 * * * * /usr/bin/env node /path/to/hub-handoff.mjs mine --json >> /path/to/handoff-mine.log 2>&1
+# 想让 agent 自己来做：把上面的命令换成「先 mine，有单再启动一次 agent 做完就退出」的脚本，不要让 agent 常驻。

@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 2,
+  "id": "T-20260105-010600-dem2",
+  "title": "写「阳台香草入门」初稿",
+  "goal": "800 字以内,面向新手,口吻轻松,结尾给三条行动建议。",
+  "key": null,
+  "from": {
+    "name": "chief",
+    "type": "assistant"
+  },
+  "to": [
+    "writer"
+  ],
+  "claimedBy": "writer",
+  "state": "progress",
+  "review": "submitted",
+  "root": "T-20260105-010100-dem1",
+  "hop": 0,
+  "expects_reply": false,
+  "open_ask": null,
+  "report": {
+    "summary": "初稿完成,约 700 字,已附三条行动建议。",
+    "file": null,
+    "sha256": null,
+    "by": "writer",
+    "ts": "2026-01-05T01:08:00.000Z",
+    "selfReported": true
+  },
+  "reports": [
+    {
+      "summary": "初稿完成,约 700 字,已附三条行动建议。",
+      "file": null,
+      "sha256": null,
+      "by": "writer",
+      "ts": "2026-01-05T01:08:00.000Z",
+      "selfReported": true,
+      "artifacts": []
+    }
+  ],
+  "project": "demo-garden",
+  "sessions": {
+    "from": "",
+    "to": ""
+  },
+  "workdir": {
+    "path": null,
+    "writable": []
+  },
+  "forbidden": [
+    "不要编造数据"
+  ],
+  "acceptance": [],
+  "progress": [],
+  "verification": [],
+  "costRefs": [],
+  "readExternalContent": false,
+  "routing": {
+    "requestedBy": "",
+    "via": "",
+    "hint": ""
+  },
+  "parentId": null,
+  "history": [
+    {
+      "ts": "2026-01-05T01:06:00.000Z",
+      "by": "chief",
+      "action": "created"
+    },
+    {
+      "ts": "2026-01-05T01:07:00.000Z",
+      "by": "writer",
+      "action": "claimed"
+    },
+    {
+      "ts": "2026-01-05T01:08:00.000Z",
+      "by": "writer",
+      "action": "reported"
+    },
+    {
+      "ts": "2026-01-05T01:09:00.000Z",
+      "by": "writer",
+      "action": "submitted"
+    }
+  ],
+  "createdAt": "2026-01-05T01:06:00.000Z",
+  "updatedAt": "2026-01-05T01:09:00.000Z",
+  "claimedByType": "assistant"
+}

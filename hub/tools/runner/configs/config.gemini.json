@@ -1,0 +1,25 @@
+{
+  "_说明": "Gemini CLI 一档，未验证：作者试跑时官方个人版客户端报 IneligibleTierError（已不被支持，官方让迁到 Antigravity），没有接通。欢迎有可用登录方式的人来验证或改。所有路径是占位。",
+  "identity": "gemini",
+  "board": {
+    "cli": ["/path/to/node", "/path/to/hub/packages/hub-bff/bin/hub-handoff.mjs"],
+    "configFile": "~/.dsh-runner/board-gemini.json",
+    "useOpen": true
+  },
+  "stateDir": "~/.dsh-runner/state-gemini",
+  "workRoot": "~/.dsh-runner/work-gemini",
+  "maxPerRun": 1,
+  "dailyLimit": 10,
+  "timeoutSec": 600,
+  "triageTimeoutSec": 60,
+  "denyPattern": "付款|支付|转账|汇款|收款|发邮件|发送邮件|群发|对外发送|删除|清空|密钥|令牌|token|密码|api[ _-]?key",
+  "rules": [{ "tier": "default", "match": "【简单】|【复杂】|档:\\s*default" }],
+  "envPass": ["PATH", "HOME", "LANG", "TMPDIR", "USER", "SHELL"],
+  "tiers": {
+    "default": {
+      "model": "gemini-default",
+      "cmd": ["/path/to/gemini", "--approval-mode", "auto_edit", "--skip-trust", "-o", "text", "-p", "按标准输入里的任务卡完成工作，只在当前目录内读写。"]
+    }
+  },
+  "triage": null
+}

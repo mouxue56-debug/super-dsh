@@ -1,0 +1,52 @@
+/* R25 P：资料与形象库沿用统一纸卡和底部弹层。 */
+.r25-assistant-profile{max-width:700px;margin:0 auto;padding:12px 16px 40px}
+.r25-assistant-profile>.surface{margin-top:16px}
+#app .r25-assistant-header .r25-profile-owner{display:flex;align-items:center;gap:6px;line-height:normal;min-width:0}
+#app .r25-profile-owner .bot-avatar{width:26px;height:26px;flex:none;object-fit:contain}
+#app .r25-profile-owner span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.r25-assistant-profile>.surface:first-child{margin-top:0}
+.r25-assistant-profile h2{font-size:19px;margin-bottom:12px}
+.r25-assistant-profile h3{margin:18px 0 8px}
+.r25-assistant-profile p{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0}
+.r25-assistant-profile li{margin:6px 0;overflow-wrap:anywhere}
+.r25-assistant-profile form{display:grid;gap:12px;margin-top:14px}
+.r25-assistant-profile textarea{min-height:100px}
+.r25-profile-avatar{display:flex;justify-content:center;padding:12px}
+.r25-profile-avatar .bot-avatar{width:150px;height:150px;max-width:100%;object-fit:contain}
+.r25-image-avatar{object-fit:cover;border-radius:28%;aspect-ratio:1}
+.r25-static-stage{display:flex;align-items:center;justify-content:center;height:100%;width:100%;transform-origin:50% 100%}
+.home-role>.r25-image-avatar,.home-role>.r25-shape-avatar{width:76px;height:76px;object-fit:cover;max-width:100%}
+.r22-pet-figure .r25-static-stage>.bot-avatar{width:86px;height:108px;object-fit:contain;max-height:108px}
+.keyboard .r22-pet-figure .r25-static-stage>.bot-avatar{width:52px;height:52px}
+.r25-avatar-pack-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0 24px}
+.r25-avatar-choice{min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px;padding:8px 3px;border:1px solid var(--sep);border-radius:16px;background:var(--elev);color:var(--ink)}
+.r25-avatar-choice .bot-avatar{width:70px;height:70px;object-fit:contain}
+.r25-avatar-choice strong{font-size:12px;line-height:18px}
+.r25-avatar-choice small{font-size:11px;line-height:16px;overflow-wrap:anywhere}
+.r25-color-options{display:flex;gap:10px;flex-wrap:wrap;padding:10px 0}
+.r25-color-option{width:34px;height:34px;min-width:34px;border:2px solid var(--sep);border-radius:50%}
+.r25-color-option[aria-pressed=true],.r25-avatar-choice[aria-pressed=true],.r25-shape-options button[aria-pressed=true]{outline:3px solid var(--ink);outline-offset:2px}
+.r25-color-auto{display:inline-flex;align-items:center;gap:6px;min-height:34px;font-size:12px;color:var(--ink-2)}
+.r25-color-auto i{width:20px;height:20px;border-radius:50%;outline:2px solid var(--ink);outline-offset:2px}
+.r25-shape-preview{display:flex;justify-content:center;padding:10px}
+.r25-shape-preview .bot-avatar{height:80px;width:80px}
+.r25-shape-options{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}
+.r25-shape-options button{border:1px solid var(--sep);border-radius:14px;background:var(--elev);padding:5px}
+.r25-shape-options svg{width:50px;height:50px;max-width:100%}
+.r25-draw-later{opacity:.45;margin-top:16px}
+.r25-profile-diff{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin-top:16px}
+.r25-profile-change{min-width:0;display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+.r25-profile-change h4{font-size:13px;margin:0}
+.r25-profile-diff-side{min-width:0;display:flex;flex-direction:column;gap:8px;border:1px solid var(--sep);border-radius:12px;padding:10px;overflow-wrap:anywhere}
+.r25-profile-diff-side>.bot-avatar{width:64px;height:64px;object-fit:contain}
+.r25-profile-diff-side p{margin:0;white-space:pre-wrap;font-size:12px;line-height:19px}
+.r25-profile-diff-side ul{margin:0;padding-left:14px;font-size:11px;line-height:18px}
+.r25-color-chip{display:inline-block;border-radius:8px;padding:3px 6px;font-size:11px;color:#1c1b22}
+.r25-directory-row{width:100%;text-align:left;gap:12px}
+.r25-directory-row>.bot-avatar{width:44px;height:44px}
+.r25-directory-row small{white-space:normal}
+/* 动态 3×3；格子高度沿用当前壳，超过九位留在助理列表。 */
+#app .shell .pinned{grid-template-columns:repeat(3,minmax(0,1fr))}
+#app .shell .pin>small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;max-width:100%}
+.r25-profile-open{width:100%;text-align:left;margin-bottom:12px}
+@media(prefers-reduced-motion:reduce){.r25-static-stage{animation:none!important}}

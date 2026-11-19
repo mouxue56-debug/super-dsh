@@ -1,0 +1,25 @@
+{
+  "_说明": "Grok CLI 一档。已在作者的环境里真实接过一张卡。所有路径是占位，请改成你自己的；参数以 grok --help 为准。",
+  "identity": "grok",
+  "board": {
+    "cli": ["/path/to/node", "/path/to/hub/packages/hub-bff/bin/hub-handoff.mjs"],
+    "configFile": "~/.dsh-runner/board-grok.json",
+    "useOpen": true
+  },
+  "stateDir": "~/.dsh-runner/state-grok",
+  "workRoot": "~/.dsh-runner/work-grok",
+  "maxPerRun": 1,
+  "dailyLimit": 10,
+  "timeoutSec": 600,
+  "triageTimeoutSec": 60,
+  "denyPattern": "付款|支付|转账|汇款|收款|发邮件|发送邮件|群发|对外发送|删除|清空|密钥|令牌|token|密码|api[ _-]?key",
+  "rules": [{ "tier": "default", "match": "【简单】|【复杂】|档:\\s*default" }],
+  "envPass": ["PATH", "HOME", "LANG", "TMPDIR", "USER", "SHELL"],
+  "tiers": {
+    "default": {
+      "model": "grok-4.7",
+      "cmd": ["/path/to/grok", "-m", "grok-4.7", "--prompt-file", "{promptfile}", "--cwd", "{dir}", "--permission-mode", "bypassPermissions", "--output-format", "plain", "--disable-web-search", "--no-subagents", "--max-turns", "12"]
+    }
+  },
+  "triage": null
+}

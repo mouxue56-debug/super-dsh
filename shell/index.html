@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-Hans"><head><!-- Icons: Phosphor Icons, MIT License, Copyright (c) 2023 Phosphor Icons --><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="DSH"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" media="(prefers-color-scheme: light)" content="#D5EEDD"><meta name="theme-color" media="(prefers-color-scheme: dark)" content="#173A3E"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; manifest-src 'self'; font-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"><title>超级 DSH · 你的助理们</title><link rel="icon" href="assets/icons/favicon-64.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon-180.png">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/skin-island.css">
+<link rel="stylesheet" href="css/skin-puff.css">
+<link rel="stylesheet" href="css/skin-wild.css">
+<link rel="stylesheet" href="css/r21.css">
+<link rel="stylesheet" href="css/skin-r22.css">
+<link rel="stylesheet" href="css/r25-motion.css">
+<link rel="stylesheet" href="css/r25-assistants.css">
+<link rel="stylesheet" href="css/r29-chat.css">
+<link rel="stylesheet" href="css/r29-voice.css">
+<link rel="stylesheet" href="css/r29-settings.css">
+<link rel="stylesheet" href="css/r29-more.css">
+<link rel="stylesheet" href="css/r29-lively.css">
+<link rel="stylesheet" href="css/r29-avatars.css">
+<link rel="stylesheet" href="css/r29-pet.css">
+<link rel="stylesheet" href="css/r29-welcome.css">
+<link rel="stylesheet" href="css/r29-group.css">
+<link rel="stylesheet" href="css/r29-board-desktop.css">
+<link rel="stylesheet" href="css/r30-avatar.css">
+<link rel="stylesheet" href="css/r30-board.css">
+<link rel="stylesheet" href="css/r30-ledger-today.css">
+<link rel="stylesheet" href="css/r30-group.css">
+<link rel="stylesheet" href="css/r32-relay.css">
+<link rel="stylesheet" href="css/r35-claim.css">
+<link rel="stylesheet" href="css/r38-trigger.css">
+<link rel="stylesheet" href="css/r29-polish.css">
+</head><body>
+<div id="app"></div><div id="toast" aria-live="polite"></div>
+<input id="fileinput" type="file" multiple accept="image/*,.pdf,.txt,.md,.docx,.xlsx" hidden>
+<script defer src="js/data.js" onerror="window.Hub?Hub.warn('js/data.js','文件未加载'):console.warn('[Hub] 文件未加载：js/data.js')"></script>
+<script defer src="js/demo-generic.js"></script>
+<script defer src="js/avatar-catalog.js"></script>
+<script defer src="js/pet-motion.js"></script>
+<script defer src="js/core.js" onerror="window.Hub?Hub.warn('js/core.js','文件未加载'):console.warn('[Hub] 文件未加载：js/core.js')"></script>
+<script defer src="js/r29-permissions.js"></script>
+<script defer src="js/r29-lively.js"></script>
+<script defer src="js/assistants.js"></script>
+<script defer src="js/r29-settings.js"></script>
+<script defer src="js/r29-avatars.js"></script>
+<script defer src="js/r30-avatar.js"></script>
+<script defer src="js/views/chat.js" onerror="window.Hub?Hub.warn('js/views/chat.js','文件未加载'):console.warn('[Hub] 文件未加载：js/views/chat.js')"></script>
+<script defer src="js/r29-group.js"></script>
+<script defer src="js/r30-group.js"></script>
+<script defer src="js/views/tasks.js" onerror="window.Hub?Hub.warn('js/views/tasks.js','文件未加载'):console.warn('[Hub] 文件未加载：js/views/tasks.js')"></script>
+<script defer src="js/views/board.js" onerror="window.Hub?Hub.warn('js/views/board.js','文件未加载'):console.warn('[Hub] 文件未加载：js/views/board.js')"></script>
+<script defer src="js/r29-pet/tables.js"></script>
+<script defer src="js/r29-pet/lines.js"></script>
+<script defer src="js/r29-pet/shake.js"></script>
+<script defer src="js/r29-pet/machine.js"></script>
+<script defer src="js/r29-pet/effects.js"></script>
+<script defer src="js/r29-pet/mount.js"></script>
+<script defer src="js/views/stage.js" onerror="window.Hub?Hub.warn('js/views/stage.js','文件未加载'):console.warn('[Hub] 文件未加载：js/views/stage.js')"></script>
+<script defer src="js/stewards.js"></script>
+<script defer src="js/r29-voice.js"></script>
+<script defer src="js/r29-welcome.js"></script>
+<script defer src="js/r30-ledger-today.js"></script>
+<script defer src="js/r31-nav.js"></script>
+<script defer src="js/r32-relay.js"></script>
+<script defer src="js/r35-claim.js"></script>
+<script defer src="js/r38-trigger.js"></script>
+<script defer src="modules/manifest.js" onerror="window.Hub?Hub.warn('modules/manifest.js','文件未加载'):console.warn('[Hub] 文件未加载：modules/manifest.js')"></script>
+<!-- MODULE_BOOT: build.py replaces this with isolated inline module bodies. -->
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+  Hub.loadModules().catch(function(error){Hub.warn('loader',error);}).finally(function(){Hub.start();});
+});
+</script>
+</body></html>

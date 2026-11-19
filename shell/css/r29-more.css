@@ -1,0 +1,30 @@
+.r29-more { display: flex; flex-direction: column; gap: 8px; }
+.r29-more-row { min-height: 48px; width: 100%; text-align: left; }
+.r29-more-assistants { display: flex; flex-direction: column; gap: 8px; }
+.r29-more-assistants h3 { margin: 8px 4px 0; font-size: 13px; }
+.r29-legacy { display: none !important; }
+.r29-permission-choice {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  width: 100%; min-height: 64px; text-align: left;
+  margin: 0 0 10px; padding: 14px 16px;
+  border: 1px solid var(--line, #ddd); border-radius: 16px;
+  background: transparent;
+}
+.r29-permission-choice.on { outline: 2px solid var(--bot, #333); }
+.r29-permission-choice small { display: block; color: var(--muted, #666); line-height: 1.4; }
+.drawer[aria-label="外观"] .full-mode-control,
+.drawer[aria-label="形态"] .full-mode-control,
+.drawer[aria-label="外观"] .more-operations,
+.drawer[aria-label="形态"] .more-operations { display: none !important; }
+html[data-hub-mode="real"] [data-feature-open="memory"],
+html[data-hub-mode="real"] [data-feature-open="devices"],
+html[data-hub-mode="real"] [data-feature-open="connections"],
+html[data-hub-mode="real"] [data-hub-panel-open="appearance"],
+html[data-hub-mode="real"] [data-r29-no-source] { display: none !important; }
+[data-hub-more-item="shell-assistants"] { display: none !important; }
+.drawer[aria-label="权限"] .shell-level-sticker,
+.drawer[aria-label="权限"] [data-level-sticker] { display: none; }
+/* 设置页的三行，和更多里的行一样通栏 */
+#app .r31-settings-row { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 60px; margin: 0 0 8px; text-align: left; }
+#app .r31-settings-row .grow { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; flex: 1 1 auto; }
+#app .r31-settings-row small { color: var(--ink-2); font-size: 13px; }

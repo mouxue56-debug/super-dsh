@@ -1,0 +1,52 @@
+/* Pop magazine shell · 2026-11-13. Legacy names remain supported. */
+:root {
+  color-scheme: light;
+  --font: "DSH Round","DSH Round Ext","Hiragino Maru Gothic ProN",ui-rounded,-apple-system,"PingFang SC",sans-serif;
+  --round: "DSH Round","DSH Round Ext","Hiragino Maru Gothic ProN",ui-rounded,-apple-system,"PingFang SC",sans-serif;
+  --cream: #fff4dc; --white: #fffdf7; --tomato: #ff4b3a; --sky: #2f9bff;
+  --lemon: #ffd43a; --mint: #2fcf9f; --pink: #ff8db4; --violet: #b39af4;
+  --bg: var(--cream); --elev: var(--white); --elev-2: #f8ecd1;
+  --ink: #1c1b22; --ink-2: #6a6259; --ink-3: #817364;
+  --line: #1c1b22; --line-w: 1.5px; --sep: rgba(28,27,34,.16); --fill: rgba(28,27,34,.055);
+  --bot: var(--lemon); --bot-ink: #1c1b22; --bot-strong: #805c00;
+  --bot-soft: #fff0af; --sage: #805c00; --sage-soft: #fff0af;
+  --clay: #986126; --blush: #ffe0ec; --blush-ink: #92365e; --danger: #b42318;
+  --glass: rgba(255,253,247,.80); --glass-stroke: var(--line); --shine: rgba(255,255,255,.9);
+  --glass-blur: 28px; --glass-sat: 140%; --shadow-hard: 3px 3px 0 var(--line);
+  --shadow-glass: inset 0 1px 0 var(--shine),var(--shadow-hard);
+  --dur-press: 80ms; --dur-done: 160ms; --dur-panel: 240ms;
+  --ease-out: cubic-bezier(.2,.8,.2,1); --ease-spring: cubic-bezier(.3,1.4,.5,1);
+  --ease: var(--ease-out); --motion-fast: var(--dur-press); --motion-panel: var(--dur-panel);
+  --r-card: 18px; --r-control: 12px; --r-pill: 999px; --app-h: var(--app-viewport-height,100dvh); --side: 354px; --rail: 288px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px;
+  --text-title: 17px; --text-body: 15px; --text-secondary: 13px; --text-small: 11px;
+  --weight-title: 700; --weight-body: 500; --line-body: 1.45; --card-pad: 12px;
+  --pillow: var(--sep); --shadow-card: 0 2px 0 var(--pillow);
+  --shadow-control: inset 0 0 0 1px color-mix(in srgb,var(--pillow) 60%,transparent);
+  --home-top: 44px; --home-cell: 124px; --home-role: 72px; --home-row: 60px;
+  --home-section: 24px; --home-bottom: 52px; --home-max: 1120px; --dock-fade: 28px;
+}
+:root[data-theme=dark] {
+  color-scheme: dark;
+  --bg: #382451; --elev: #47315f; --elev-2: #543b70;
+  --ink: #fff4dc; --ink-2: #e0cee9; --ink-3: #c3acd1;
+  --line: #eedbff; --sep: rgba(238,219,255,.23); --fill: rgba(238,219,255,.09);
+  --bot-soft: #61503f; --bot-strong: #ffd43a; --sage: #ffd43a; --sage-soft: #61503f;
+  --clay: #ffd087; --blush: #654165; --blush-ink: #ffb9d8; --danger: #ff9e98;
+  --glass: rgba(71,49,95,.84); --shine: rgba(255,245,255,.22);
+}
+
+/* Skins · 2026-11-16. Only the page ground changes; each bot keeps its own main color. */
+:root[data-skin=island] { --bg: #D5EEDD; --elev: #FFFAE6; --elev-2: #F3EBCB; --ink: #4d3b22; --ink-2: #6f5b3d; --ink-3: #7c6a4e; --line: #4d3b22; --sep: rgba(77,59,34,.17); --fill: rgba(77,59,34,.06); --glass: rgba(255,251,233,.82); }
+:root[data-skin=island][data-theme=dark] { --bg: #173A3E; --elev: #24494C; --elev-2: #2E5659; --ink: #fff7da; --ink-2: #cfe6d6; --ink-3: #a9cdbd; --line: #c9f3df; --sep: rgba(201,243,223,.23); --fill: rgba(201,243,223,.09); --glass: rgba(42,89,87,.84); }
+:root[data-skin=ball] { --bg: #ffe7e0; --elev: #fffefb; --elev-2: #ffd6cc; --ink: #222224; --ink-2: #5e5254; --ink-3: #776869; --line: #222224; --sep: rgba(34,34,36,.17); --fill: rgba(34,34,36,.06); --glass: rgba(255,254,251,.82); }
+:root[data-skin=ball][data-theme=dark] { --bg: #232c63; --elev: #303b7c; --elev-2: #3c4892; --ink: #fff9e0; --ink-2: #d5d9f5; --ink-3: #b1b8e6; --line: #ffe48a; --sep: rgba(255,228,138,.23); --fill: rgba(255,228,138,.09); --glass: rgba(48,59,124,.84); }
+:root[data-skin=wild] { --bg: #e9eeda; --elev: #fbf8e8; --elev-2: #dfe4c8; --ink: #29382f; --ink-2: #55655a; --ink-3: #6a776c; --line: #29382f; --sep: rgba(41,56,47,.17); --fill: rgba(41,56,47,.06); --glass: rgba(251,248,232,.82); }
+:root[data-skin=wild][data-theme=dark] { --bg: #182c36; --elev: #223c48; --elev-2: #2c4b59; --ink: #eaf7f2; --ink-2: #c0dcd8; --ink-3: #9cc2c0; --line: #9be8f1; --sep: rgba(155,232,241,.23); --fill: rgba(155,232,241,.09); --glass: rgba(34,60,72,.84); }
+:root[data-skin=pipe] { --bg: #d6e8ff; --elev: #fffdf7; --elev-2: #c2dbfb; --ink: #1c2342; --ink-2: #535b7a; --ink-3: #69708c; --line: #1c2342; --sep: rgba(28,35,66,.17); --fill: rgba(28,35,66,.06); --glass: rgba(255,253,247,.82); }
+:root[data-skin=pipe][data-theme=dark] { --bg: #3b2622; --elev: #4d332d; --elev-2: #5e4038; --ink: #fff1dc; --ink-2: #ecd2bd; --ink-3: #d1b09a; --line: #ffd8a6; --sep: rgba(255,216,166,.23); --fill: rgba(255,216,166,.09); --glass: rgba(77,51,45,.84); }
+:root[data-skin=ink] { --bg: #f1f9c4; --elev: #fffff5; --elev-2: #e3ef9f; --ink: #231a3a; --ink-2: #564b6e; --ink-3: #6b6082; --line: #231a3a; --sep: rgba(35,26,58,.17); --fill: rgba(35,26,58,.06); --glass: rgba(255,255,245,.82); }
+:root[data-skin=ink][data-theme=dark] { --bg: #2b1c50; --elev: #3a2868; --elev-2: #48337e; --ink: #f8ffe0; --ink-2: #dcd2f2; --ink-3: #b9a9dd; --line: #d6ff4d; --sep: rgba(214,255,77,.23); --fill: rgba(214,255,77,.09); --glass: rgba(58,40,104,.84); }
+:root[data-skin=puff] { --bg: #ffdce8; --elev: #fffafc; --elev-2: #ffc9dc; --ink: #3b1f33; --ink-2: #6b4a60; --ink-3: #7f5f74; --line: #3b1f33; --sep: rgba(59,31,51,.17); --fill: rgba(59,31,51,.06); --glass: rgba(255,250,252,.82); }
+:root[data-skin=puff][data-theme=dark] { --bg: #4a2347; --elev: #5c2f58; --elev-2: #6e3a69; --ink: #fff0f6; --ink-2: #f0cfe2; --ink-3: #d6a9c6; --line: #ffc9e0; --sep: rgba(255,201,224,.23); --fill: rgba(255,201,224,.09); --glass: rgba(92,47,88,.84); }
+

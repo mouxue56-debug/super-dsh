@@ -1,0 +1,177 @@
+/* 看板：手机列表、底部操作单、电脑拖动。放在 r29-board-desktop 之后、r29-polish 之前。 */
+.r30-legacy { display: none !important; }
+.r30-phone { overflow: hidden; padding-bottom: 0 !important; }
+.r30-phone .boardbar, #app .r30-phone .boardbar {
+  display: flex !important; flex-wrap: nowrap; align-items: flex-end; gap: 10px; flex: none; padding-right: 16px;
+}
+.r30-phone .boardbar > .grow { flex: 1 1 0; min-width: 0; }
+.r30-new {
+  flex: none; min-height: 44px; padding: 0 16px; border: 0; border-radius: 999px;
+  background: var(--primary, var(--ink)); color: var(--on-primary, var(--bg)); font-size: 14px; font-weight: 700;
+}
+.r30-tabs, .r30-pbar {
+  display: flex; flex: none; gap: 8px; overflow-x: auto; padding: 6px 16px; scrollbar-width: none;
+  overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
+}
+.r30-tabs::-webkit-scrollbar, .r30-pbar::-webkit-scrollbar { display: none; }
+.r30-pbar { padding-top: 2px; padding-bottom: 2px; }
+.r30-tab {
+  display: inline-flex; flex: none; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px;
+  border: var(--line-w, 1px) solid var(--line); border-radius: 999px; background: var(--elev); color: var(--ink);
+  font-size: 14px;
+}
+.r30-tab em { color: var(--ink-2); font-style: normal; font-size: 12px; }
+.r30-tab.is-on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.r30-tab.is-on em { color: inherit; }
+.r30-status { margin: 0; padding: 0 16px; color: var(--ink-2); font-size: 12px; }
+/* 真因所在：这一块自己滚，底部留出安全区，最后一张卡能完整滑上来。 */
+.r30-list {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y;
+  -webkit-overflow-scrolling: touch; padding: 4px 16px calc(32px + env(safe-area-inset-bottom));
+}
+.r30-group h2 {
+  display: flex; align-items: center; justify-content: space-between; margin: 12px 4px 8px; font-size: 14px;
+  color: var(--ink-2);
+}
+.r30-group h2 em { font-style: normal; font-size: 12px; }
+.r30-empty { margin: 16px 4px; color: var(--ink-2); font-size: 15px; }
+.r30-card {
+  display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 100%; margin: 0 0 10px;
+  padding: 10px 12px; border: var(--line-w, 1px) solid var(--line); border-radius: 16px; background: var(--elev);
+  color: var(--ink); text-align: left; cursor: pointer; user-select: none; -webkit-user-select: none;
+}
+.r30-card:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.r30-card-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.r30-card-top .r29-desk-line { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.r30-face, .r30-menu {
+  display: inline-flex; flex: none; align-items: center; justify-content: center; min-width: 44px; min-height: 44px;
+  margin: -6px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--ink);
+}
+#app .r30-face, #app .r30-menu { box-shadow: none !important; border-radius: 50%; background: transparent; }
+.r30-menu { font-size: 22px; line-height: 1; font-weight: 700; margin-right: -8px; }
+.r30-face-empty {
+  display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%;
+  border: 1.5px dashed var(--ink-2); color: var(--ink-2); font-size: 16px; line-height: 1;
+}
+.r30-card .r29-desk-title { font-size: 15px; line-height: 20px; overflow-wrap: anywhere; }
+.r30-card.is-dragging { opacity: .35; }
+.r30-ghost {
+  position: fixed; z-index: 90; left: 0; top: 0; margin: 0; pointer-events: none; opacity: .92;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .25); transform-origin: 0 0;
+}
+body.r30-dragging, body.r30-dragging * { cursor: grabbing !important; user-select: none; }
+.r29-desk-col.is-over {
+  outline: 2px dashed var(--ink); outline-offset: -3px; background: var(--bot-soft, var(--fill));
+}
+
+/* 操作单 */
+#r30-sheet { position: relative; z-index: 60; }
+.r30-back {
+  position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(20, 16, 12, .42);
+}
+.r30-sheet {
+  width: 100%; max-width: 520px; max-height: min(86dvh, calc(100% - 24px - env(safe-area-inset-top)));
+  overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  padding: 8px 18px calc(20px + env(safe-area-inset-bottom)); border-radius: 24px 24px 0 0;
+  background: var(--bg); color: var(--ink); box-shadow: 0 -8px 30px rgba(0, 0, 0, .25);
+}
+.r30-sheet:focus { outline: none; }
+.r30-grab { width: 40px; height: 5px; margin: 4px auto 8px; border-radius: 3px; background: var(--line); }
+.r30-sheet header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.r30-sheet h2 { margin: 0; font-size: 18px; line-height: 24px; overflow-wrap: anywhere; }
+.r30-x {
+  flex: none; width: 44px; height: 44px; border: 0; border-radius: 50%; background: var(--fill, transparent);
+  color: var(--ink); font-size: 16px;
+}
+.r30-line { margin: 2px 0 6px; color: var(--ink-2); font-size: 14px; overflow-wrap: anywhere; }
+.r30-sheet h3, .r30-actions h3 { margin: 14px 0 6px; font-size: 13px; color: var(--ink-2); }
+.r30-cols { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.r30-col {
+  min-height: 48px; padding: 0 2px; border: var(--line-w, 1px) solid var(--line); border-radius: 12px;
+  background: var(--elev); color: var(--ink); font-size: 14px; line-height: 1.15;
+}
+.r30-col.is-on, .r30-who.is-on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.r30-col:disabled, .r30-who:disabled, .r30-edit:disabled { opacity: .45; }
+.r30-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+.r30-who {
+  display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 4px 10px 4px 6px; text-align: left;
+  border: var(--line-w, 1px) solid var(--line); border-radius: 16px; background: var(--elev); color: var(--ink);
+  font-size: 14px;
+}
+.r30-who span:last-child { min-width: 0; overflow-wrap: anywhere; }
+.r30-edit, .r30-row button {
+  min-height: 48px; padding: 0 16px; border: var(--line-w, 1px) solid var(--line); border-radius: 14px;
+  background: var(--elev); color: var(--ink); font-size: 15px;
+}
+.r30-row { display: flex; gap: 10px; margin-top: 12px; }
+.r30-row button { flex: 1 1 0; }
+.r30-row .r30-primary, .r30-primary {
+  background: var(--primary, var(--ink)); color: var(--on-primary, var(--bg)); border-color: transparent;
+  font-weight: 700;
+}
+.r30-form { display: flex; flex-direction: column; gap: 10px; }
+.r30-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-2); }
+.r30-form input, .r30-form textarea {
+  width: 100%; padding: 10px 12px; border: var(--line-w, 1px) solid var(--line); border-radius: 12px;
+  background: var(--elev); color: var(--ink); font: inherit; font-size: 16px; /* 16 防止 iPhone 放大页面 */
+}
+.r30-detail { margin-top: 12px; }
+.r30-detail summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-size: 15px; }
+.r30-detail p { margin: 0 0 6px; font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.r30-note {
+  margin: 6px 0; padding: 8px 10px; border-radius: 12px; background: var(--fill, transparent); font-size: 13px;
+}
+.r30-flash { min-height: 20px; margin: 10px 0 0; color: var(--ink-2); font-size: 13px; }
+.r30-actions .r30-edit { width: 100%; }
+
+/* 删掉这张、一次清掉已完成的（带页面内确认） */
+.r30-del, .r30-clear {
+  min-height: 48px; padding: 0 16px; border: var(--line-w, 1px) solid var(--line); border-radius: 14px;
+  background: transparent; color: var(--ink-2); font-size: 15px;
+}
+.r30-actions .r30-del { width: 100%; margin-top: 18px; }
+.r30-clear { width: 100%; margin: 4px 0 8px; min-height: 44px; font-size: 14px; }
+.r30-del:disabled { opacity: .45; }
+.r30-confirm {
+  margin: 14px 0 4px; padding: 12px; border: var(--line-w, 1px) solid var(--line); border-radius: 14px;
+  background: var(--fill, var(--elev));
+}
+.r30-clear + .r30-confirm, .r30-group > .r30-confirm { margin-top: 4px; }
+.r30-confirm p { margin: 0; font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.r30-row .r30-danger, .r30-danger { background: #b3402e; color: #fff; border-color: transparent; font-weight: 700; }
+
+@media (min-width: 700px) {
+  .r30-back { align-items: center; }
+  .r30-sheet { max-width: 460px; border-radius: 22px; padding-bottom: 20px; max-height: 86dvh; }
+  .r30-grab { display: none; }
+}
+@media (min-width: 1024px) {
+  .r29-desk-bar .r30-new { margin-left: auto; align-self: center; min-height: 40px; }
+  .r29-desk-card.r30-card { cursor: grab; padding: 8px; gap: 2px; }
+  .r29-desk-card.r30-card .r29-desk-title { font-size: 14px; line-height: 18px; }
+  .r29-desk-card .r30-face, .r29-desk-card .r30-menu { min-width: 36px; min-height: 36px; margin: -2px; }
+  .r29-desk-side .r30-cols { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .r29-desk-side .r30-people { grid-template-columns: 1fr; }
+  .r29-desk-side .r30-actions h3 { margin-top: 12px; }
+  .r29-desk-side.is-shut .r30-actions { display: none; }
+  .r29-desk-side { flex-basis: 260px; }
+  .r29-desk-side.is-shut { flex-basis: 64px; }
+}
+@media (min-width: 1024px) {
+  .r29-desk .r30-card-top { flex-wrap: wrap; row-gap: 2px; }
+  .r29-desk .r30-card-top .r29-desk-line { order: 3; flex: 1 0 100%; }
+  .r29-desk .r30-card-top .r30-menu { margin-left: auto; }
+}
+@media (hover: hover) { .r30-card:hover { border-color: var(--ink-2); } }
+
+/* 折起已完成、新建时点人名直接交办 */
+.r30-fold {
+  display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 48px; margin: 8px 0 10px;
+  padding: 0 14px; border: var(--line-w, 1px) solid var(--line); border-radius: 14px; background: transparent;
+  color: var(--ink-2); font-size: 14px;
+}
+.r30-fold em { font-style: normal; font-size: 12px; }
+.r30-opt { margin: 14px 0 6px; color: var(--ink-2); font-size: 13px; }
+.r30-opt summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
+.r30-give:disabled { opacity: .5; }

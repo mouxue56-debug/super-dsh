@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+ "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- 样例，不要安装、不要 launchctl load。每 10 分钟列一次派给我的卡。路径换成自己的。 -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>local.hub-handoff.mine</string>
+  <key>StartInterval</key>
+  <integer>600</integer>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>node</string>
+    <string>/path/to/hub-handoff.mjs</string>
+    <string>mine</string>
+    <string>--json</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HUB_BOARD_CONFIG</key>
+    <string>/path/to/hub-board.json</string>
+    <key>HUB_PANIC_DIR</key>
+    <string>/path/to/panic</string>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/path/to/handoff-mine.log</string>
+  <key>StandardErrorPath</key>
+  <string>/path/to/handoff-mine.log</string>
+</dict>
+</plist>

@@ -1,0 +1,15 @@
+{
+  "name": "hub-bff",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Node built-in HTTP/SSE adapter for the official DSH Remote protocol",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "HUB_BFF_TEST_TMP=\"${HUB_BFF_TEST_TMP:-$PWD/test/.tmp}\" node --test $(find test -maxdepth 1 -type f \\( -name '*.test.mjs' -o -name '*.test.js' \\) ! -name 'live.test.mjs' ! -name 'r24.b3.loopback.test.mjs' | sort)",
+    "test:live": "node --test test/live.test.mjs",
+    "test:b3-loopback": "node --test test/r24.b3.loopback.test.mjs"
+  }
+}
