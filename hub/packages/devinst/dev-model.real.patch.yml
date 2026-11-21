@@ -1,4 +1,5 @@
-# 测试实例专用（真模型）：与主线一样走 OpenCode Go，只用 DeepSeek V4.1 Flash。key 由 start-real.sh 从 0600 文件读进本进程环境。
+# 测试实例专用（真模型）：与主线一样走 OpenCode Go，只用 DeepSeek V4.1 Flash。
+# 内核补丁只认 apiKeyEnv。密钥值由 start-real.sh 用 scripts/model-key.mjs 从 0600 文件读进本进程环境，不写进这个文件。
 - id: agent-default-model
   name: "@deepseek-ai/dsh-agent-default-model"
   config:

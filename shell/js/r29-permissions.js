@@ -108,7 +108,7 @@
     Promise.resolve(result).then(function (data) {
       if (mine !== ticket) return;
       var mode = data && data.permission && data.permission.mode;
-      if (MODES.indexOf(mode) < 0 || mode === memory.mode) return;
+      if (MODES.indexOf(mode) < 0) return;
       memory.mode = mode;
       acked = mode;
       paint();

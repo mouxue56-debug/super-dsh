@@ -6,10 +6,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {createHash, randomBytes} from 'node:crypto';
 import {resolveBot} from '../roster.mjs';
+import {consultEnvelope, handoffRefusal} from '../reply-route.mjs';
 
-// 每个工具的默认级别：查同事与看自己的单只读；派单、回报、验收只动看板，L1 留痕不问。
+// 每个工具的默认级别：查同事、一次性询问只读；整件交接、回报、验收只动看板。
 export const levels = Object.freeze({
   list_bots: 'L0',
+  ask_colleague: 'L0',
   send_to_bot: 'L1',
   board_list: 'L0',
   board_report: 'L1',
@@ -109,7 +111,7 @@ function ticketView(t) {
   };
 }
 
-// 注册 list_bots、send_to_bot、board_list、board_report、board_review。
+// 注册 list_bots、ask_colleague、send_to_bot、board_list、board_report、board_review。
 export function register(ctx, deps) {
   const {board} = deps;
   const cfg = deps.hubConfig.board;
@@ -120,7 +122,8 @@ export function register(ctx, deps) {
 
   ctx.tools.register({
     name: 'list_bots',
-    description: '查同事：列出启用的助理、各自管什么、能不能接单。不归你管的事先查这里再用 send_to_bot 转。',
+    description: '查同事名册：列出启用的助理、各自管什么、能不能接单。'
+      + '自己办不了时先在这里看能力，再用分身或 ask_colleague 询问，仍由你答复。',
     parameters: {type: 'object', properties: {}, required: [], additionalProperties: false},
     async execute(_args, _exec, call) {
       const rows = deps.roster.filter(b => b.status === 'active');
@@ -137,10 +140,50 @@ export function register(ctx, deps) {
   });
 
   ctx.tools.register({
+    name: 'ask_colleague',
+    material: false,
+    description: '向一位同事做一次性询问，不建工单、不交接。先用 list_bots 看职责。结果回来后仍由你答复主人。',
+    parameters: {
+      type: 'object',
+      properties: {to: str(64), question: str(2000)},
+      required: ['to', 'question'],
+      additionalProperties: false,
+    },
+    async execute(args, _exec, call) {
+      const rows = deps.roster;
+      const me = rows.find(b => b.id === call.bot);
+      const target = resolveBot(rows, String(args.to ?? '').trim());
+      if (!target) {
+        throw Error(`名册里没有「${oneLine(args.to, 20)}」，先用 list_bots 查`);
+      }
+      if (me && target.id === me.id) {
+        throw Error('不能问自己');
+      }
+      if (!canReceive(target)) {
+        throw Error(`${target.name} 停用或暂停了，现在不能询问`);
+      }
+      const question = String(args.question ?? '').trim();
+      if (!question) {
+        throw Error('问题不能为空');
+      }
+      let answer = '';
+      if (typeof deps.askColleague === 'function') {
+        answer = await deps.askColleague({from: me, to: target, question, call});
+      }
+      return consultEnvelope({
+        fromName: me?.name || call.bot,
+        toName: target.name,
+        answer: answer == null ? '' : String(answer),
+      });
+    },
+  });
+
+  ctx.tools.register({
     name: 'send_to_bot',
     material: false,
-    description: '把事转给一位同事（id 或名字）：在看板上建一张工单。消息要自包含，对方看不到你的对话；'
-      + '不发感谢、确认。结果回来后由你转告 主人。转交不带走任何审批。',
+    description: '整件交给一位同事前使用：主人已经点头且 owner_ok 为 true 才在看板上建工单。'
+      + '没点头不要调用。自己办不了时先用 ask_colleague 或分身拿结果，仍由你答复。'
+      + '消息要自包含。不发感谢、确认。转交不带走任何审批。',
     parameters: {
       type: 'object',
       properties: {
@@ -148,6 +191,7 @@ export function register(ctx, deps) {
         message: str(2000),
         key: str(128),
         expects_reply: {type: 'boolean'},
+        owner_ok: {type: 'boolean'},
         when: {type: 'string', enum: ['now', 'queue']},
         parent: str(64),
       },
@@ -218,6 +262,9 @@ export function register(ctx, deps) {
       const key = args.key ?? 'auto-' + auto;
       if (!KEY.test(key)) {
         throw Error('key 只能用字母、数字和 _.:-，最长 128');
+      }
+      if (args.owner_ok !== true) {
+        throw Error(handoffRefusal(target.name));
       }
       const readExternal = call.readExternal || deps.state(call.sessionId).readExternal;
       const release = deps.state(call.sessionId).reserveSend(call.turn, cfg.maxSendPerTurn);

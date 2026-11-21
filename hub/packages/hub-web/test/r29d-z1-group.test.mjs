@@ -1,4 +1,4 @@
-// Z1：真壳、假后端、手机宽度。讨论组新页、已读不带 0、状态句。端口 3791、3792。
+// Z1：真壳、假后端、手机宽度。讨论组新页、已读不带 0、状态句。端口由系统分配。
 import { describe, test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -13,8 +13,6 @@ import { buildPresence } from '../../hub-bff/lib/ext/presence.mjs';
 const require = createRequire(import.meta.url);
 const WEB = 'web-r29d-z1';
 const BFF = 'bff-r29d-z1';
-const MOCK_PORT = 3791;
-const WEB_PORT = 3792;
 const shellFile = process.env.HUB_SHELL_DIST || '';
 const NOW = '2026-11-19T08:00:00.000Z';
 
@@ -170,6 +168,7 @@ function startMock(port) {
   return new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(port, '127.0.0.1', () => resolve({
+      port: server.address().port,
       state,
       async close() {
         await new Promise(done => server.close(done));
@@ -185,7 +184,7 @@ describe('Z1 讨论组接上新页面', { concurrency: 1, skip: skipReason() }, 
   let origin;
 
   before(async () => {
-    mock = await startMock(MOCK_PORT);
+    mock = await startMock(0);
     const root = join(tmpdir(), 'r29d-z1');
     await mkdir(root, { recursive: true });
     const dir = await mkdtemp(join(root, 'web-'));
@@ -195,11 +194,11 @@ describe('Z1 讨论组接上新页面', { concurrency: 1, skip: skipReason() }, 
     await writeFile(join(dir, 'web.key'), WEB, { mode: 0o600 });
     await writeFile(join(dir, 'bff.key'), BFF, { mode: 0o600 });
     web = await createHubWeb({
-      HUB_WEB_PORT: String(WEB_PORT), HUB_WEB_HOSTS: '127.0.0.1', HUB_WEB_SHELL_DIR: shell,
+      HUB_WEB_PORT: '0', HUB_WEB_HOSTS: '127.0.0.1', HUB_WEB_SHELL_DIR: shell,
       HUB_WEB_KEY_FILE: join(dir, 'web.key'), BFF_KEY_FILE: join(dir, 'bff.key'),
-      BFF_URL: 'http://127.0.0.1:' + MOCK_PORT,
+      BFF_URL: 'http://127.0.0.1:' + mock.port,
     }, { log() {} });
-    origin = 'http://127.0.0.1:' + WEB_PORT;
+    origin = 'http://127.0.0.1:' + web.servers[0].address().port;
   });
 
   after(async () => {
@@ -220,7 +219,7 @@ describe('Z1 讨论组接上新页面', { concurrency: 1, skip: skipReason() }, 
       page.on('dialog', dialog => dialog.accept());
       await page.route('**/*', route => {
         const target = new URL(route.request().url());
-        if (target.hostname === '127.0.0.1' && target.port === String(WEB_PORT)) return route.continue();
+        if (target.origin === origin) return route.continue();
         return route.abort();
       });
       await page.goto(origin + '/?key=' + WEB, { waitUntil: 'domcontentloaded', timeout: 30000 });

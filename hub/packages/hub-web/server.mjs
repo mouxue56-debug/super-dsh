@@ -12,10 +12,16 @@ import { promisify } from 'node:util';
 // 转给后端扩展的前缀（去掉 /bff）。外包派工 /dispatch/ 故意不在里面：不进网页层。
 export const EXT_PREFIXES = ['board', 'ledger', 'groups', 'meetings', 'models', 'panic', 'routines', 'today'];
 // 只读转发的前缀（规矩页）。只放行 GET/HEAD，别的方法在网页层就 405，不到后端。
-export const READONLY_EXT_PREFIXES = ['rules'];
+export const READONLY_EXT_PREFIXES = ['rules', 'threads'];
+const THREAD_WRITES = {
+  POST: /^\/bff\/threads\/[^/]+\/(?:send|reassign|send\/[^/]+\/(?:hold|cancel)|topics\/[^/]+\/(?:merge|unmerge))$/,
+  PATCH: /^\/bff\/threads\/[^/]+\/topics\/[^/]+$/,
+};
 // 未读、语音、上传、设置。不并进 EXT_PREFIXES（旧测试把那份名单钉死了），
 // 转发时并到同一条已登录、同源的路上。没有设备钥匙的请求到不了这里。
 export const R29_PREFIXES = ['unread', 'voice', 'uploads', 'settings', 'notices', 'presence'];
+// 最近删除要 POST。不并进被旧测试钉死的 EXT_PREFIXES，也不进只读名单。
+export const R43_PREFIXES = ['trash'];
 
 const here = dirname(fileURLToPath(import.meta.url));
 const COOKIE = 'hub_web_session';
@@ -367,21 +373,36 @@ export async function createHubWeb(env = process.env, dependencies = {}) {
       }
       if (req.headers['sec-fetch-site'] === 'cross-site' ||
           (req.headers.origin && req.headers.origin !== expectedOrigin)) return json(res, 403, 'Same-origin requests only');
+      const selfEdit = url.pathname.startsWith('/bff/self-edit/');
+      if (selfEdit) {
+        const log = url.pathname === '/bff/self-edit/log';
+        const restore = /^\/bff\/self-edit\/restore\/[^/]+$/u.test(url.pathname);
+        if (!log && !restore) return json(res, 404, 'Unknown self-edit route');
+        if (log && req.method !== 'GET' || restore && req.method !== 'POST') {
+          return json(res, 405, 'Method not allowed');
+        }
+      }
       const target = new URL(upstream);
       // Assign pathname; new URL(userPath, origin) could turn // into a different host.
       const underPrefix = prefix => url.pathname === `/bff/${prefix}` || url.pathname.startsWith(`/bff/${prefix}/`);
       const readOnlyExt = READONLY_EXT_PREFIXES.some(underPrefix);
-      if (readOnlyExt && !['GET', 'HEAD'].includes(req.method)) {
+      if (readOnlyExt && !['GET', 'HEAD'].includes(req.method) && !THREAD_WRITES[req.method]?.test(url.pathname)) {
         res.setHeader('Allow', 'GET, HEAD');
         return json(res, 405, 'Method not allowed');
       }
       const r29Ext = R29_PREFIXES.some(underPrefix);
-      const extended = readOnlyExt || EXT_PREFIXES.some(underPrefix) || r29Ext;
+      const r43Ext = R43_PREFIXES.some(underPrefix);
+      const extended = readOnlyExt || EXT_PREFIXES.some(underPrefix) || r29Ext || r43Ext || selfEdit;
       target.pathname = extended ? url.pathname.slice(4) : url.pathname;
       target.search = url.search;
       // 只从白名单重建请求头；浏览器伪造的设备头永远不转发。
       const headers = { 'X-Hub-Bff-Key': bffKey,
         'X-Hub-Device': createHash('sha256').update('hub-device-v1:' + session.split('.')[0]).digest('hex').slice(0, 16) };
+      if (authenticated) {
+        const ts=String(Date.now());
+        const data=[headers['X-Hub-Device'],req.method,target.pathname+target.search,ts].join('\n');
+        headers['X-Hub-Owner-Proof']=ts+'.'+createHmac('sha256',webKey).update(data).digest('hex');
+      }
       const headerNames = ['accept', 'content-type', 'last-event-id', 'idempotency-key',
         'content-disposition', 'x-filename', 'x-request-id'];
       for (const name of headerNames) if (req.headers[name]) headers[name] = req.headers[name];

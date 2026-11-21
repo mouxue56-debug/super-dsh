@@ -19,6 +19,19 @@ export async function atomicFile(path,text) {
 const plain = (v,max,empty=false) => typeof v==='string' && (empty || v.length>0) && Array.from(v).length<=max && !/[\u0000-\u001f\u007f]/u.test(v);
 export const absolutePath = v => plain(v,4096) && v.startsWith('/');
 const shape = (v,keys) => v && typeof v==='object' && !Array.isArray(v) && Object.keys(v).length===keys.length && keys.every(k=>Object.hasOwn(v,k));
+const categories = new Set(['pay','publish','destroy','admin']);
+function confirmation(input) {
+  const total = input.confirmationTotal;
+  if (total === undefined) return {};
+  if (![1,2].includes(total) || !plain(input.consequence,500) || !plain(input.rollback,500)) return null;
+  const targets = input.targets ?? [];
+  const targetCount = input.targetCount ?? targets.length;
+  if (!Array.isArray(targets) || targets.length > 100 || !targets.every(v => plain(v,500))
+    || !Number.isSafeInteger(targetCount) || targetCount !== targets.length || (total === 2 && !targetCount)) return null;
+  return {confirmationTotal:total,confirmationStep:1,targets,targetCount,
+    consequence:input.consequence,rollback:input.rollback,
+    ...(categories.has(input.category) ? {category:input.category} : {})};
+}
 export function parseApproval(reason) {
   if (typeof reason !== 'string' || !reason.startsWith('HUBAPPROVAL1 ') || /[\r\n]/u.test(reason)) return null;
   try {
@@ -37,6 +50,7 @@ export function parseApproval(reason) {
       || typeof v.grantable!=='boolean'
       || (v.grantable ? !shape(v.grantKey,['program','dir']) || !plain(v.grantKey.program,128) || !absolutePath(v.grantKey.dir) : v.grantKey!==undefined))) return null;
     if(ROSTER_TOOLS.includes(v.tool) && !validRosterCard(v))return null;
+    if (!confirmation(v)) return null;
     return {...v,preview:cut(v.preview,200),...(v.diff === undefined ? {} : {diff:cut(v.diff,600)})};
   } catch { return null; }
 }
@@ -45,7 +59,7 @@ export class HubRuntime {
     now=Date.now,send,roster,ledger,logger=console}) {
     Object.assign(this,{store,client,configDir,hubHome,now,send,roster,ledger,logger});
     this.grants=new CommandGrants({configDir,now,atomicFile,roster}); this.answering=new Set();
-    this.devices = new Map(); this.waiters = new Map(); this.listeners = new Set(); this.statusWrites = Promise.resolve(); this.logWrites = Promise.resolve();
+    this.devices = new Map(); this.ownerTurns = new Map(); this.waiters = new Map(); this.listeners = new Set(); this.statusWrites = Promise.resolve(); this.logWrites = Promise.resolve();
     this.timer = setInterval(() => { void this.expire().catch(() => logger.error('HUB_APPROVAL_EXPIRY_FAILURE')); },1000); this.timer.unref();
   }
   device(value) {
@@ -61,6 +75,8 @@ export class HubRuntime {
     for (const row of this.store.list()) {
       const v=bots[row.bot];
       if(!v)continue;
+      // 软删除的段不进状态里的未读，也不当作当前正在跑的那段。
+      if (this.isChatHidden?.(row.id) === true) continue;
       if(row.hidden!==true)v.unread+=row.unread;
       if (row.running) { v.running=true; v.runningSessionId ??= row.id; }
     }
@@ -107,6 +123,10 @@ export class HubRuntime {
 
   // 通用确认卡：对界面呈现为一张审批卡（confirm:true），答复后解析为 {id,status,choice,decision,device,by}。
   async ask(input) {
+    return (await this.openConfirmation(input)).result;
+  }
+
+  async openConfirmation(input) {
     const invalid = () => new BffError('INVALID_INPUT','确认卡格式无效',400);
     const validText = (v,max,empty=false) => plain(v,max,empty) && !/[\p{Cc}\p{Zl}\p{Zp}]/u.test(v);
     const clip = (v,max) => typeof v==='string' ? cut(v.replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu,' '),max) : '';
@@ -115,6 +135,8 @@ export class HubRuntime {
       ? cut(v.replace(/\r\n?/gu,'\n').replace(/[^\S\n]*\n[^\S\n]*/gu,'\n')
         .replace(/(?!\n)[\p{Cc}\p{Zl}\p{Zp}]/gu,' '),max) : '';
     if (!input || typeof input!=='object') throw invalid();
+    const staged = confirmation(input);
+    if (!staged) throw invalid();
     const raw = input.choices ?? input.actions;
     const choices = raw===undefined ? [{id:'yes',label:'好'},{id:'no',label:'先不'}] : raw;
     const bot = input.bot ?? this.roster.list().find(b => b.role==='chief')?.id;
@@ -136,7 +158,7 @@ export class HubRuntime {
       bot,sessionId:input.sessionId??'',callId:'',action:input.title,path:'',chars:0,preview:'',
       title:input.title,text,what,where,why,bodyPreview:clipLines(input.bodyPreview,600),
       project:clip(input.project,100),summary:clip(input.summary,200),choices:list,actions:list,
-      kind:input.kind??'',
+      kind:input.kind??'', ...staged,
       ...(input.bodyTruncated===true ? {bodyTruncated:true} : {}),
       // 卡上放不下时带全文校验和，界面用它取「看全文」（GET /bff/fulltext/<校验和>）。
       ...(typeof input.fullText==='string' && /^[a-f0-9]{64}$/u.test(input.fullText) ? {fullText:input.fullText} : {}),
@@ -153,9 +175,10 @@ export class HubRuntime {
       await this.cardChanged(card);
     } catch (error) {
       this.waiters.delete(card.id);
+      card.status='unavailable';
       throw error;
     }
-    return result;
+    return {card:structuredClone(card),result};
   }
 
   async resolveConfirm(card,status,choice,device) {
@@ -189,10 +212,23 @@ export class HubRuntime {
     return null;
   }
 
-  async answerConfirm(id,choice,device) {
+  async stage(card,accept,options) {
+    if (card.confirmationTotal !== 2 || !accept) return false;
+    if (options.step !== card.confirmationStep) {
+      throw new BffError('INVALID_INPUT','请先查看这一步的确认卡',400);
+    }
+    if (card.confirmationStep === 2) return false;
+    card.confirmationStep=2;
+    try { await this.cardChanged(card); }
+    catch (error) { card.confirmationStep=1; throw error; }
+    return true;
+  }
+
+  async answerConfirm(id,choice,device,options={}) {
     const card = this.store.cards.find(c => c.confirm===true && c.id===id);
     if (!card) throw new BffError('NOT_FOUND','确认卡不存在',404);
     if (!device) throw new BffError('INVALID_INPUT','需要已登录设备标识',400);
+    if (card.confirmationTotal && !options.owner) throw new BffError('FORBIDDEN','请从主人设备确认',403);
     if (card.status!=='pending' || this.answering.has(id)) {
       throw new BffError('already-answered','已经答过了',409);
     }
@@ -203,6 +239,9 @@ export class HubRuntime {
         throw new BffError('already-answered','确认卡已超时',409);
       }
       if (!card.choices.some(c => c.id===choice)) throw new BffError('INVALID_INPUT','选项无效',400);
+      if (await this.stage(card,choice==='yes'||choice==='approve'||choice==='approve-always',options)) {
+        return structuredClone(card);
+      }
       return await this.resolveConfirm(card,'answered',choice,device);
     } finally { this.answering.delete(id); }
   }
@@ -214,17 +253,21 @@ export class HubRuntime {
     let context={};
     if (row) { try { context=await this.client.approvalContext(row.id,frame.request); } catch {} }
     const id=context.id, createdAt=new Date(context.ts ?? this.now()).toISOString();
+    const staged = meta ? confirmation(meta) : {};
+    const turn = this.ownerTurns.get(row?.id);
     // 没有审计身份时不伪造内核审批 ID；保留 unavailable 诊断卡，永不开放批准。
     const card={id:id ?? 'unavailable:'+frame.eventId,type:'approval',bot:meta?.bot ?? row?.bot ?? 'chief',sessionId:row?.id ?? '',callId:frame.request?.callId ?? '',
       tool:meta?.tool ?? frame.request?.toolName ?? '',level:'L3',action:meta?.action ?? '无法核验审批',path:meta?.path ?? '',chars:meta?.chars ?? 0,preview:meta?.preview ?? '',
       ...(meta && ROSTER_TOOLS.includes(meta.tool)?{target:meta.target,before:meta.before,after:meta.after}:{}),
       ...(meta?.tool==='bash'?{command:meta.command,cwd:meta.cwd,timeoutMs:meta.timeoutMs,caps:meta.caps,grantable:meta.grantable,...(meta.grantable?{grantKey:meta.grantKey}:{})}:{}),...(meta?.diff===undefined?{}:{diff:meta.diff}),...(context.seq===undefined?{}:{seq:context.seq}),why:meta && (meta.tool==='bash'||ROSTER_TOOLS.includes(meta.tool)) ? meta.why : context.why ?? '',
+      ...staged,
+      ...(turn && staged?.category && staged.confirmationTotal===1 ? {scopeGrantable:true} : {}),
       status:'pending',note:'',createdAt,expiresAt:new Date(Date.parse(createdAt)+600000).toISOString()};
     if (this.store.cards.some(c=>c.id===card.id)) return 'rejected';
     this.store.cards.push(card);
     let resolve;
     const result=new Promise(r=>{resolve=r;});
-    this.waiters.set(card.id,{resolve,signal});
+    this.waiters.set(card.id,{resolve,signal,turn});
     const offline=this.client.interactionHandler && (!this.client.connected || !this.client.eventsReady || !this.client.answering);
     const unavailable = !aligned || !id || signal?.aborted || offline;
     if (unavailable) {
@@ -235,30 +278,38 @@ export class HubRuntime {
     const abort=()=>{ void this.resolve(card,'unavailable',null,'审批连接已结束，这一步没做','dsh-disconnected').catch(()=>{}); };
     signal?.addEventListener('abort',abort,{once:true});
     if(signal?.aborted)abort();
-    try { await this.cardChanged(card); return await result; }
+    try {
+      if (card.scopeGrantable && this.grants.taskAllowed(turn,card.category)) await this.resolve(card,'approved',null);
+      else await this.cardChanged(card);
+      return await result;
+    }
     catch (error) { if(card.status==='pending') { try { await this.resolve(card,'unavailable',null,'审批记录无法保存，这一步没做'); } catch {} } throw error; }
     finally { signal?.removeEventListener('abort',abort); }
   }
-  async resolve(card,status,device,note='',reason) {
+  async resolve(card,status,device,note='',reason,task) {
     if (card.status!=='pending') throw new BffError('already-answered','已经答过了',409);
     // 先同步抢占状态，跨 await 的并发点击只会有一个获胜。
     card.status=status; card.note=note; if(reason)card.reason=reason; card.resolvedAt=new Date(this.now()).toISOString();
     const waiter=this.waiters.get(card.id); this.waiters.delete(card.id);
     let persisted=false;
-    try { await this.audit(card,device); await this.cardChanged(card); persisted=true; }
+    try {
+      await this.audit(card,device); await this.cardChanged(card); persisted=true;
+      if (task && this.ownerTurns.get(card.sessionId)===task) this.grants.allowTask(task,card.category);
+    }
     catch (error) { card.status='unavailable';card.note='审批记录无法保存，这一步没做';try { await this.store.persist(); } catch {} this.emit('card',card);throw error; }
     finally { waiter?.resolve(persisted && status==='approved'?'allowed-once':'rejected'); }
     return structuredClone(card);
   }
-  async answer(id,decision,note,device,remember=false) {
+  async answer(id,decision,note,device,remember=false,options={}) {
     const card=this.store.cards.find(c=>c.type==='approval'&&c.id===id);
     if (!card) throw new BffError('NOT_FOUND','审批不存在',404);
     if (card.confirm===true) {
       const choice=this.confirmChoice(card,decision,remember===true);
       if (!choice) throw new BffError('INVALID_INPUT','这张卡没有这个选项',400);
-      return this.answerConfirm(id,choice,device);
+      return this.answerConfirm(id,choice,device,options);
     }
     if (!device) throw new BffError('INVALID_INPUT','需要已登录设备标识',400);
+    if (card.confirmationTotal && !options.owner) throw new BffError('FORBIDDEN','请从主人设备确认',403);
     if (!['approve','reject','revise'].includes(decision) || typeof remember!=='boolean' || (remember && (decision!=='approve' || card.tool!=='bash' || card.grantable!==true))) throw new BffError('INVALID_INPUT','这张卡不能保存放行规则',400);
     if (card.status!=='pending' || this.answering.has(id)) throw new BffError('already-answered','已经答过了',409);
     this.answering.add(id);
@@ -268,12 +319,17 @@ export class HubRuntime {
       throw new BffError('already-answered','审批连接已结束',409);
     }
     if (this.now()>=Date.parse(card.expiresAt)) { await this.resolve(card,'timeout',null,'没等到你点头，这一步没做'); throw new BffError('already-answered','审批已超时',409); }
+    const turn=this.waiters.get(id)?.turn;
+    if (options.scope && (!card.scopeGrantable || this.ownerTurns.get(card.sessionId)!==turn
+      || decision!=='approve')) throw new BffError('INVALID_INPUT','这张卡不能授权整个任务',400);
+    if (await this.stage(card,decision==='approve',options)) return structuredClone(card);
     if(decision==='approve' && ROSTER_TOOLS.includes(card.tool)) {
       try { const bot=await this.roster.approve(card,device);card.appliedTarget=bot.id; }
       catch(error) {if(card.status!=='pending')return structuredClone(card);card.statusText='没改成';return this.resolve(card,'failed',device,'没改成：'+(error instanceof BffError?error.message:'名册保存失败'),'roster-failed');}
     }
     if (remember) { await this.grants.remember(card,device); card.remembered=true; }
-    const result=await this.resolve(card,{approve:'approved',reject:'rejected',revise:'revised'}[decision],device,note ?? '');
+    const result=await this.resolve(card,{approve:'approved',reject:'rejected',revise:'revised'}[decision],
+      device,note ?? '',undefined,options.scope==='task' ? turn : undefined);
     if (decision==='revise') void this.send(card.sessionId,'（改一下）主人 看了审批卡，要你按这条意见改完重做（重做照常走审批，这不算绕过）：'+(note ?? ''),'revise',true).catch(()=>this.logger.error('HUB_REVISE_QUEUE_FAILURE'));
     return result;
     } finally { this.answering.delete(id); }

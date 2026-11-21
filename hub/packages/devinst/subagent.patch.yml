@@ -1,0 +1,18 @@
+# 第45轮样例：只写不做。不要交给 dsh --patch，不要写进 start-r23.sh / start-real.sh，
+# 也不要改正在用的 profile。hub-chief / hub-bot 预设目前没挂这些包。
+#
+# 启用前先在权限表登记 kernel_tools: ["subagent"]。
+# 没登记就挂上工具，工具清单会把多出来的 subagent 当成异常，全部工具停用。
+# 只挂服务、不挂工具，模型仍然派不了分身。一个工具名只能注册一次。
+#
+# 下面是内核 README 的最小挂载（服务要等投影）。工具名固定 subagent。
+# 换 fork 只改 provider，不要再注册第二个同名工具。maxDepth 用本体默认 1。
+# 外壳另拒：分身再派、cwd、agent_preset。
+- name: '@deepseek-ai/dsh-session-projection'
+- name: '@deepseek-ai/dsh-subagent'
+- name: '@deepseek-ai/dsh-subagent-spawn-in-process'
+# 换成 fork：上一行改为 '@deepseek-ai/dsh-subagent-fork-in-process'，provider 写成 fork。
+- name: '@deepseek-ai/dsh-tool-subagent'
+  config:
+    provider: spawn
+    toolName: subagent

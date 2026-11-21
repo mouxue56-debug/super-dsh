@@ -1,5 +1,5 @@
 // 全家共用的权限档位。插件每次判定现读这个小文件；读不到或内容坏了按「改动前问」。
-// 不改命令判定和沙箱：已经拒绝的保持拒绝。全开只把「先问」收成直接做，四类仍出卡。
+// 全开档的四类确认是固定行为。只有主人交代的回合会扩大普通工具范围。
 import fs from 'node:fs';
 import path from 'node:path';
 import { commandShape, findExecs } from './permission-shape.mjs';
@@ -263,6 +263,129 @@ function shapeHit(shape, cwd) {
   return tokenHit(shape);
 }
 
+const embeddedDelete = /(?:\b(?:rm|rmdir|unlink|shred)\s|\b(?:unlink|rm|rmdir)(?:Sync)?\s*\()/u;
+const embeddedWrites = [
+  /\bwriteFile(?:Sync)?\s*\(\s*(['"])([^'"]+)\1/gu,
+  /\bopen\s*\(\s*(['"])([^'"]+)\1\s*,\s*['"]w/gu,
+  /(?:^|\s)>\s*(?:['"])?([^\s'">&]+)\b/gmu,
+];
+const embeddedAdmin = /\b(?:chmod|chown|launchctl|systemctl|sudo|killall|pkill)\s|\b(?:chmod|chown|kill)(?:Sync)?\s*\(/u;
+const embeddedSend = /\b(?:sendmail|scp|ssh)\s|\b(?:curl|wget)\b[^\n]*(?:--data|--upload-file| -[dFT])|\bgit\s+push\b/u;
+const sensitiveFile = /(?:^|\/)(?:config|runtime|hub-data)(?:\/|$)|(?:^|\/)[^/]*(?:policy|permission|protected-files|tokens?|secrets?|credentials?|grants?)[^/]*$/iu;
+export const sensitiveEditPath = target => sensitiveFile.test(target) ||
+  /(?:^|\/)(?:AGENTS\.md|\.env(?:\.[^/]*)?|[^/]+\.key)$/iu.test(target);
+
+function scriptText(shape,cwd,canRead) {
+  const first=shape.words?.[0];
+  if (shape.inline || (shape.words ?? []).some(word=>/^-(?:c|e)$|^--eval$/u.test(word))) {
+    return (shape.words ?? []).join(' ');
+  }
+  const candidate = shape.scriptPath ?? (shape.opaque && first && !first.startsWith('-') ? first : '');
+  if (!candidate || !cwd) return '';
+  const target=path.resolve(cwd,candidate);
+  try {
+    const physical=fs.realpathSync.native(target);
+    if (!canRead(physical)) return '';
+    const fd=fs.openSync(physical,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW|fs.constants.O_NONBLOCK);
+    try {
+      if (!fs.fstatSync(fd).isFile()) return '';
+      const data=Buffer.alloc(65536);
+      return data.subarray(0,fs.readSync(fd,data,0,data.length,0)).toString();
+    } finally { fs.closeSync(fd); }
+  } catch { return ''; }
+}
+
+function opaqueRisk(shape,cwd,canRead,{includeWrites=false}={}) {
+  const text=scriptText(shape,cwd,canRead);
+  if (embeddedDelete.test(text)) return DELETE_HIT;
+  if (embeddedAdmin.test(text)) return ADMIN_HIT;
+  if (embeddedSend.test(text)) return PUBLISH_HIT;
+  if (includeWrites && embeddedWrites.some(pattern=>[...text.matchAll(pattern)].some(match=>{
+    const target=path.resolve(cwd,match[2] ?? match[1]);
+    return sensitiveEditPath(target) || fileStat(target)?.file;
+  }))) return OVERWRITE_HIT;
+  return null;
+}
+
+function operationTargets(shape,workdir,hit) {
+  const words=shape.operands ?? [];
+  if (hit===OVERWRITE_HIT || hit===LINK_HIT) {
+    const outputs=landingPaths(shape,workdir)?.paths ?? [];
+    if (outputs.length) return outputs;
+  }
+  if (hit.id==='destroy' && DELETE_PROGRAMS.has(shape.program)) {
+    return words.flatMap(word=>{
+      if (/[*?\[]/u.test(word)) {
+        const matches=fs.globSync(word,{cwd:workdir}).map(item=>path.resolve(workdir,item));
+        if (matches.length) return matches;
+      }
+      return [path.resolve(workdir,word)];
+    });
+  }
+  if (shape.program==='find' && (shape.words ?? []).includes('-delete')) {
+    return [path.resolve(workdir,words[0] ?? '.')];
+  }
+  return words.filter(word=>typeof word==='string' && word.trim()).slice(0,25);
+}
+
+export function creatorRisk({tool,args,decision,cwd,tainted=false,owner=true}={}) {
+  const cmd=decision.cmd ?? {};
+  const workdir=cmd.workdir ?? cwd;
+  const writes=cmd.writePaths ?? [];
+  const risks=[];
+  const record=(hit,targets=[],extra=false)=>risks.push({hit,targets,extra});
+  if (tool==='bash') {
+    const shapes=shapesOf(decision,args.command);
+    const paidEndpoint=shapes.some(shape=>shape.sends &&
+      shape.operands.some(value=>/\b(?:payments?|checkout|billing|purchases?)\b/iu.test(value)));
+    if (paidEndpoint) record(PAY_HIT,shapes.filter(shape=>shape.sends).flatMap(shape=>shape.operands),true);
+    for (const shape of shapes) {
+      const hit=shapeHit(shape,workdir);
+      const found=hit!==UNCLEAR_HIT ? hit : null;
+      if (found) record(found,operationTargets(shape,workdir,found),
+        found===OVERWRITE_HIT || found===LINK_HIT || found.id==='admin' &&
+        /^(?:chmod|chown|chgrp|sudo|su|doas|security|dscl)$/u.test(shape.program)
+        || found.id==='destroy' &&
+        (optionNamed(shape,['-r','-R','--recursive']) || (shape.words ?? []).some(v=>/^-[a-z]*r/iu.test(v)))
+        || found.id==='publish' && (/(?:群发|mailing-list|--all|--recursive)/iu.test(args.command)
+          || ['mail','sendmail','mutt','msmtp','ssmtp'].includes(shape.program) && shape.operands.length>1));
+      const opaque=opaqueRisk(shape,workdir,target=>within(target,workdir) && !sensitiveEditPath(target),
+        {includeWrites:true});
+      if (opaque) record(opaque,[],opaque!==PUBLISH_HIT);
+      if (/^(?:chmod|chown|chgrp|chflags)$/u.test(shape.program)) record(ADMIN_HIT,shape.operands,true);
+      if (/^(?:kill|killall|pkill)$/u.test(shape.program)) record(ADMIN_HIT,shape.operands);
+      if (shape.program==='truncate') record(OVERWRITE_HIT,writes.filter(file=>fileStat(file)?.file),true);
+      if (shape.program==='git' && (shape.sub==='restore' || shape.sub==='reset' &&
+        optionNamed(shape,['--hard']))) record(DELETE_HIT,shape.operands,true);
+    }
+    for (const target of [...new Set([...writes,...(cmd.sensitiveWrites ?? [])])]) {
+      if (sensitiveEditPath(target) || cmd.sensitiveWrites?.includes(target)) record(ADMIN_HIT,[target],true);
+      if (fileStat(target)?.symlink) record(LINK_HIT,[target],true);
+    }
+    if (cmd.level==='deny' && !risks.length) record(ADMIN_HIT,[workdir],true);
+  } else if (MGMT_TOOLS.has(tool)) {
+    record(ADMIN_HIT,[decision.management?.target ?? decision.path],true);
+  } else if (['board_handoff','board_answer'].includes(tool)) {
+    record(PUBLISH_HIT,[args.to ?? args.id ?? decision.path],false);
+  } else if (WRITE_TOOLS.has(tool) && decision.path && decision.area!=='self_source'
+    && (sensitiveEditPath(decision.path) || decision.controlled)) {
+    record(ADMIN_HIT,[decision.path],true);
+  }
+  if (!risks.length) return null;
+  const [{hit}]=risks;
+  const targets=[...new Set(risks.flatMap(item=>item.targets ?? []).filter(Boolean))];
+  const safeTargets=(targets.length ? targets : [tool==='bash' ? args.command : decision.path])
+    .map(value=>String(value).replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu,' ').slice(0,500));
+  const multiple=hit.id==='destroy' && targets.length>1;
+  const confirmationTotal=hit.id==='pay' || risks.some(item=>item.extra) || multiple || tainted ? 2 : 1;
+  return {reason:hit.reason,confirmationTotal,targets:safeTargets,targetCount:safeTargets.length,
+    network:risks.some(item=>['publish','pay'].includes(item.hit.id)),
+    consequence:hit.reason.replace(/，要先确认$/u,''),
+    rollback:hit.id==='destroy' || hit.id==='publish' || hit.id==='pay'
+      ? '这一步造成的外部影响或物理删除可能无法撤回。' : '能否撤回取决于目标，请核对操作和现有备份。',
+    ...(owner && !tainted && risks.every(item=>item.hit.id===hit.id) ? {category:hit.id} : {})};
+}
+
 function sandboxHoldsOpaque(decision, hubHome) {
   if (decision.sandboxActive !== true) return false;
   if (decision.cmd?.caps?.network === true) return false;
@@ -308,6 +431,9 @@ export function sensitiveKind({ tool, args = {}, decision = {}, cwd, hubHome } =
       if (shape.opaque) opaque = true;
       const hit = shapeHit(shape, workdir);
       if (hit) return hit;
+      const risk=opaqueRisk(shape,workdir,target=>within(target,decision.roots?.own ?? workdir)
+        && !sensitiveEditPath(target),{includeWrites:true});
+      if (risk) return risk;
     }
     const writes = decision.cmd?.writePaths ?? [];
     for (const target of writes) {
@@ -393,18 +519,28 @@ function readonlyDecision(decision, tool) {
 }
 
 // ask 原样返回（同一对象）。L4 不放宽。全停由入口在调用前处理。
+export function creatorMode(_config, mode) {
+  return mode === 'open';
+}
+
 export function applyPermissionMode(decision, ctx = {}) {
   if (!decision || decision.level === 'L4') return decision;
   const mode = ctx.mode === 'open' || ctx.mode === 'readonly' ? ctx.mode : 'ask';
   if (mode === 'ask') return decision;
-  if (touchesModeFile(decision, ctx.args, ctx.hubHome)) {
+  if (touchesModeFile(decision, ctx.args, ctx.hubHome) && !ctx.ownerTurn) {
     return { ...decision, level: 'L4', reason: '档位只能由主人在设置里改' };
   }
   if (mode === 'readonly') return readonlyDecision(decision, ctx.tool);
+  if (ctx.creatorActive) {
+    const risk=ctx.risk;
+    if (risk) return {...decision,level:'L3',reason:risk.reason,modeHold:risk.reason,risk};
+    return decision;
+  }
   const hit = sensitiveKind({
     tool: ctx.tool, args: ctx.args, decision, cwd: ctx.cwd, hubHome: ctx.hubHome,
   });
   if (hit) return { ...decision, level: 'L3', reason: hit.reason, modeHold: hit.reason };
+  if (decision.cmd?.tainted === true) return decision;
   if (decision.level === 'L3' && decision.area === 'plugin') return decision;
   if (decision.level === 'L3') return { ...decision, level: 'L1' };
   return decision;

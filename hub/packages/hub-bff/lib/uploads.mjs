@@ -435,6 +435,9 @@ export async function withReceipt(dir, key, run) {
       name: produced.name ?? again?.name ?? null,
       body: produced.body,
     };
+    if (Number.isInteger(produced.status) && produced.status >= 100 && produced.status <= 599) {
+      record.status = produced.status;
+    }
     await atomicWrite(file, JSON.stringify(record));
     return record;
   } finally {

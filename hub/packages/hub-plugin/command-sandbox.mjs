@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {isIP} from 'node:net';
 import {PROTECTED_FILES} from './protected-files.mjs';
+import {PRIVATE_NAME} from './creator-policy.mjs';
 
 const STATE=Symbol.for('hub-plugin.command-sandbox');
 const normalize=p=>String(p).normalize('NFKC').normalize('NFC').toLowerCase().replace(/\/$/,'');
@@ -16,6 +17,36 @@ function sensitive(home,hubHome){return ['.secrets','.ssh','.gnupg','Library/Key
 const execDefaults=['/usr/bin/sudo','/bin/launchctl','/sbin/shutdown','/sbin/reboot','/usr/sbin/diskutil','/usr/bin/defaults','/usr/bin/security','/usr/bin/osascript','/usr/bin/open','/bin/kill','/usr/bin/killall','/usr/bin/pkill','/usr/bin/crontab'];
 const reEscape=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 function filter(root){return root.endsWith('*')?'(regex '+quote('^'+reEscape(root.slice(0,-1)))+')':'(subpath '+quote(canonical(root))+')';}
+const secretEnv=/KEY|TOKEN|SECRET|PASS(?:WORD|PHRASE)?|CREDENTIAL|AUTH|COOKIE/iu;
+export function credentialEnv(...maps) {
+ return [...new Set(maps.flatMap(values=>Object.keys(values??{}).filter(key=>secretEnv.test(key))))];
+}
+
+export function creatorProfile({bounds, sourceMutation, risk, sensitiveWrites=[], network=false}) {
+ const privateNames=PRIVATE_NAME.replace(/[a-z]/gi,c=>'['+c.toLowerCase()+c.toUpperCase()+']');
+ const credentials='(regex #'+quote('(^|/)('+privateNames+')(/|$)')+')';
+ const sourceFence=bounds.source ? [filter(sourceMutation ? path.join(bounds.source,'.git') : bounds.source)] : [];
+ const inaccessible=[...bounds.inaccessible.map(filter),filter(path.join(bounds.hubHome,'dev-home*'))];
+ const allowed=risk?.confirmationTotal===2 ? sensitiveWrites : [];
+ const protect = entry => allowed.length
+  ? '(require-all '+entry+' (require-not (require-any '+allowed.map(p=>'(literal '+quote(p)+')').join(' ')+')))'
+  : entry;
+ const controls='[^/]*(policy|permission|protected-files|tokens?|secrets?|credentials?|grants?)[^/]*|agents[.]md'
+  .replace(/[a-z]/g,c=>'['+c+c.toUpperCase()+']');
+ const controlNames='(regex #"/('+controls+')$")';
+ const controlPaths=[...bounds.data,...bounds.control,path.join(bounds.hubHome,'config')];
+ if(bounds.source)controlPaths.push(path.join(bounds.source,'config'));
+ const forms=['(version 1)','(allow default)',
+  '(deny file-read* '+credentials+' '+inaccessible.join(' ')+')',
+  '(deny file-write* '+[credentials,...sourceFence,...inaccessible,
+   ...controlPaths.map(filter).map(protect),
+   protect(controlNames)].join(' ')+')',
+  '(deny network-outbound (remote ip "localhost:3081"))',
+  '(deny signal)','(allow signal (target self) (target children))'];
+ if(bounds.data.length)forms.push('(deny file-write-unlink '+bounds.data.map(filter).join(' ')+')');
+ if(!network)forms.push('(deny network*)');
+ return forms.join('\n')+'\n';
+}
 
 /** Build a Seatbelt policy; extraWrite/network must come from an approved call. */
 export function buildProfile({home=os.homedir(),hubHome=process.env.HUB_HOME||path.join(home,'dsh-work'),own,readable=[],denyRead=[],network=false,extraWrite=[],denyExec=[],selfAddrs=[],protectedNames=[]}={}){
@@ -94,8 +125,10 @@ export function installCommandSandbox(ctx,sandboxService,{getCall}={}){
    if(!['bash','/bin/bash'].includes(argv[start])||argv[start+1]!=='-c'||typeof argv[start+2]!=='string'||argv.length!==start+3)throw Error('无法识别内核 bash argv 形状，拒绝执行');
    const own=canonical(call.own);let tmpdir;
    if(call.tmpdir){tmpdir=canonical(call.tmpdir);if(tmpdir===own||!inside(tmpdir,own))throw Error('TMPDIR 必须位于助理自己的目录下');}
-   const profile=buildProfile({...call,own}),replacement=[...argv];replacement[2]=profile;
-   if(tmpdir)replacement.splice(start,0,'/usr/bin/env','TMPDIR='+tmpdir);
+   const profile=call.creator ? creatorProfile(call) : buildProfile({...call,own});
+   const replacement=[...argv];replacement[2]=profile;
+   const strip=call.creator ? credentialEnv(process.env,call.requestEnv,call.dshEnv).flatMap(key=>['-u',key]) : [];
+   if(tmpdir||strip.length)replacement.splice(start,0,'/usr/bin/env',...strip,...(tmpdir?['TMPDIR='+tmpdir]:[]));
    return {...result,argv:replacement};
   };
   state={original,wrapped,entries};sandboxService[STATE]=state;sandboxService.confine=wrapped;

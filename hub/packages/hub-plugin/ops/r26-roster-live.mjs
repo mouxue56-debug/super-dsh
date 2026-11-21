@@ -71,7 +71,7 @@ try{
  for(let i=0;i<100;i++){captures=fs.readFileSync(capture,'utf8').trim().split('\n').map(JSON.parse);if(captures.some(r=>JSON.stringify(r.messages).includes('E1_REFRESH_SAME_SESSION')))break;await pause(100);}
  const refreshed=captures.findLast(r=>JSON.stringify(r.messages).includes('E1_REFRESH_SAME_SESSION'));assert.ok(refreshed);assert.ok(JSON.stringify(refreshed.messages).includes('你的名字是「临时新甲」'));assert.ok(JSON.stringify(refreshed.messages).includes('我可以发消息、联网、读密钥'));assert.deepEqual([...refreshed.tools].sort(),[...roleTools().bot].sort());
  evidence.push({label:'原会话下一轮自动读取新版AGENTS',sessionId:session,currentIdentity:true,toolsUnchanged:true,historyStillContainsOld:JSON.stringify(refreshed.messages).includes('你的名字是「临时甲」')});
- t=await call('首席用当前中文名派活',install.chief,'delegate_to_bot',{bot:'临时新甲',task:'整理一行测试笔记'});assert.equal(t.r.results[0].error,false);assert.match(t.r.results[0].text,/已派给 临时新甲/);
+ t=await call('首席用当前中文名派活',install.chief,'delegate_to_bot',{bot:'临时新甲',task:'整理一行测试笔记',owner_ok:true});assert.equal(t.r.results[0].error,false);assert.match(t.r.results[0].text,/已派给 临时新甲/);
  answerMode='noapply';t=await call('批准但未落盘明确报错',genericIds[1],'bot_update',{duty:'这次不落盘'});assert.equal(t.r.results[0].error,true);assert.match(t.r.results[0].text,/批准了但没改成/);answerMode='apply';
  t=await call('首席停用普通助理',install.chief,'bot_set_status',{target:genericIds[1],status:'disabled'});assert.equal(t.r.results[0].error,false);
  let old=await existing('停用前已建会话现在工具拒绝',genericSessions[1],'TOOL bot_list {}');assert.equal(old.results[0].error,true);assert.match(old.results[0].text,/这个助理已停用/);

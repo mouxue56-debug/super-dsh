@@ -1,3 +1,4 @@
+import { serviceFor as selfEditService } from './ext/self-edit.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createPriceBook } from './prices.mjs';
@@ -270,7 +271,8 @@ export async function buildToday(deps = {}, { date, routines } = {}) {
     if (typeof deps.configDir !== 'string' || !deps.configDir) throw new Error('no config dir');
     const live = new Set((await listTokenNames(deps.configDir)).map(row => row.name));
     const cfgBoard = deps.hubConfig?.board;
-    const listed = Array.isArray(cfgBoard?.externals) ? new Set(externalNames(cfgBoard)) : null;
+    const raw = cfgBoard?.externals;
+    const listed = raw && typeof raw === 'object' ? new Set(externalNames(cfgBoard)) : null;
     const busy = ['progress', 'blocked', 'waiting-human', 'waiting-timeout', 'uncertain'];
     const items = tickets.filter(t => t.claimedByType === 'external' && busy.includes(t.state) &&
       (!live.has(t.claimedBy) || (listed && !listed.has(t.claimedBy)))).map(t => ({
@@ -375,9 +377,9 @@ export async function buildToday(deps = {}, { date, routines } = {}) {
     const asked = typeof deps.cards?.pending === 'function' ? await deps.cards.pending() : null;
     const live = Array.isArray(asked);
     const list = live ? asked.map(c => ({ id: c.id ?? null, kind: c.kind ?? null,
-      title: clip(c.title ?? c.summary, max), assistant: c.bot ?? null,
+      title: clip(c.title ?? c.summary ?? c.action, max), assistant: c.bot ?? null,
       since: typeof c.createdAt === 'string' ? c.createdAt : '',
-      ask: clip(c.text ?? c.summary ?? '', max) })) : [];
+      ask: clip(c.text ?? c.summary ?? c.consequence ?? '', max) })) : [];
     const drafts = kbDrafts(deps);
     return { cards: list, kbDrafts: drafts, count: list.length + drafts.length,
       cardsSource: live ? 'live' : 'unavailable' };
@@ -395,11 +397,17 @@ export async function buildToday(deps = {}, { date, routines } = {}) {
     }
   }
   const headline = pickHeadline(waiting, cards, checkedResults, arrangements);
+  const mirrorNotice = deps.mirror?.status().message;
+  const selfEdit = await section(async () => {
+    const log = await selfEditService(deps).log();
+    return {available: log.enabled, items: log.changes.slice(-10).reverse()};
+  });
 
   return {
     date: today, yesterday, generatedAt: new Date(nowMs).toISOString(), utcOffsetMinutes: offset,
     note: '数字由代码算好；金额没有价格就是待定价；成果摘要是助理自述。',
-    headline, checkedResults,
+    headline, checkedResults, selfEdit,
+    ...(mirrorNotice ? { mirrorNotice } : {}),
     approvals: cards, waiting, openClaims, externalLost, arrangements, schedules, launchFailed,
     yesterdayDone: done, yesterdayUsage: usage,
     lastEveningMinutes: minutes,

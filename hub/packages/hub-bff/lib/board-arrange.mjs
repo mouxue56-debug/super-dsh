@@ -4,7 +4,7 @@
 import { BoardError } from './board-errors.mjs';
 import { begin, newRelay, parseRoute } from './relay-model.mjs';
 import {
-  ARRANGE_INIT, SCHEDULE_INIT, TIERS, TIER_TAG, approvalNeeds, arrangeNote, checkConclusion, cut,
+  ARRANGE_INIT, SCHEDULE_INIT, TIERS, TIER_TAG, approvalNeeds, arrangeNote, arrangementVersion, checkConclusion, cut,
   isQuiet, whoText,
 } from './arrange-model.mjs';
 
@@ -21,7 +21,12 @@ export function canArrange(ticket) {
     !(ticket.schedule?.state === 'waiting' && ticket.schedule.template);
 }
 
-export function createArrangeOps({ mutate, createWithMeta, guardActor, now, offset = () => 0 }) {
+export function createArrangeOps({ mutate, createWithMeta, guardActor, now, offset = () => 0, isChief = () => false }) {
+  // 名册由服务端现读。调用方没接上，或名册一时读不到，一律不当首席。
+  const chief = (actor) => {
+    try { return actor?.type === 'assistant' && isChief(actor.name) === true; }
+    catch { return false; }
+  };
   const stamp = () => new Date(now()).toISOString();
   const nameOf = (names, id) => names?.[id] ?? id;
 
@@ -110,9 +115,9 @@ export function createArrangeOps({ mutate, createWithMeta, guardActor, now, offs
       return made.ticket;
     },
 
-    // 请首席安排这张卡（按钮、拖动、定时到点没人选）。
+    // 请首席安排这张卡（按钮）。拖到「在做」和定时到点是主人或系统自己走的，不经过这里。
     async arrangeAsk(actor, id, via = 'button') {
-      if (!['owner', 'assistant'].includes(actor?.type)) error('FORBIDDEN', 'Not permitted');
+      if (actor?.type !== 'owner' && !chief(actor)) error('FORBIDDEN', '请首席安排只有主人或首席助理能用');
       return mutate(actor, id, 'arrange_asked', (ticket, ts) => {
         if (!canArrange(ticket)) error('CONFLICT', 'Cannot arrange this ticket');
         ticket.arrange = { state: 'wanted', via, requestedAt: ts, attempts: 0 };
@@ -120,10 +125,10 @@ export function createArrangeOps({ mutate, createWithMeta, guardActor, now, offs
       });
     },
 
-    // 首席给出结论。ctx = { roster, externals, external_approval, names }。结论不合法：记一次、抛 INVALID 把原因还给首席；
+    // 首席给出结论。ctx = { roster, externals, names }。结论不合法：记一次、抛 INVALID 把原因还给首席；
     // 两次都不合法，卡转成「等你」，不再让首席重试。
     async arrangeSet(actor, id, input, ctx = {}) {
-      if (actor?.type !== 'assistant') error('FORBIDDEN', 'Not permitted');
+      if (!chief(actor)) error('FORBIDDEN', '安排结论只有首席助理能给');
       let rejected = null;
       const ticket = await mutate(actor, id, 'arrange_set', (t, ts) => {
         if (t.arrange?.state !== 'wanted') error('CONFLICT', 'Not waiting for an arrangement');
@@ -143,7 +148,7 @@ export function createArrangeOps({ mutate, createWithMeta, guardActor, now, offs
           return { detail: '结论两次不合格，转给主人：' + checked.reason, attention: true, attentionKind: 'waiting-human',
             reason: text };
         }
-        const needs = approvalNeeds({ plan: checked.plan, ticket: t, cfg: { external_approval: ctx.external_approval } });
+        const needs = approvalNeeds({ plan: checked.plan, ticket: t });
         if (needs.length) {
           const note = arrangeNote({ plan: checked.plan, nameOf: id2 => nameOf(ctx.names, id2), offset: offset(), applied: false });
           t.arrange = { ...t.arrange, state: 'proposed', plan: checked.plan, needs, note, proposedAt: ts };
@@ -172,6 +177,9 @@ export function createArrangeOps({ mutate, createWithMeta, guardActor, now, offs
       if (!['ok', 'swap', 'skip'].includes(action)) error('INVALID', 'Invalid decision');
       return mutate(actor, id, 'arrange_' + action, (t, ts) => {
         if (t.arrange?.state !== 'proposed' || t.state !== 'waiting-human') error('CONFLICT', 'Nothing to decide');
+        if (ctx.expectedVersion !== undefined && ctx.expectedVersion !== arrangementVersion(t)) {
+          error('CONFLICT', 'Arrangement changed after confirmation');
+        }
         if (action === 'skip') {
           t.arrange = { ...t.arrange, state: 'declined', decision: 'skip', decidedAt: ts };
           t.state = 'queued';

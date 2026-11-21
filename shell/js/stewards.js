@@ -321,6 +321,13 @@ function simulateBoardMove(){
   }
   function polish(text) {
     var next = String(text);
+    var held = [];
+    /* 看板第三列的系统说法是「等验收」。先整段遮住，免得较短的「验收」把它改成「等看过确认」。用户写的内容另有遮罩。 */
+    next = next.replace(/等验收/g, function () {
+      var mark = '\uE010' + held.length + '\uE011';
+      held.push('等验收');
+      return mark;
+    });
     var i;
     for (i = 0; i < PAIRS.length; i++) {
       if (next.indexOf(PAIRS[i][0]) !== -1) next = next.split(PAIRS[i][0]).join(PAIRS[i][1]);
@@ -338,6 +345,7 @@ function simulateBoardMove(){
     next = next.replace(/（\s*）/g, '').replace(/\(\s*\)/g, '');
     next = next.replace(/(?:\s*·\s*){2,}/g, ' · ');
     next = next.replace(/[ \t]{2,}/g, ' ');
+    if (held.length) next = next.replace(/\uE010(\d+)\uE011/g, function (_, n) { return held[Number(n)] || '等验收'; });
     return next;
   }
   /* 词表只该改系统自己的状态词和固定文案，不改用户输入的内容（群名、卡片标题和说明、

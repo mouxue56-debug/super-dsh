@@ -1,0 +1,215 @@
+/* 轻分隔、可折叠事件，以及长对话的滚动窗口。 */
+.r43-segment {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.r43-segment::before, .r43-segment::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  min-width: 18px;
+  background: currentColor;
+  opacity: .22;
+}
+.r43-segment span { max-width: 85%; }
+.r43-event {
+  margin: 8px 0;
+  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  border-radius: 12px;
+  background: var(--well);
+  overflow: hidden;
+}
+.r43-event-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  padding: 10px 12px;
+  color: var(--ink);
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.r43-event-toggle > span:first-child {
+  flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.r43-event-body {
+  margin: 0 12px 12px;
+  padding: 4px 0 4px 12px;
+  border-left: 2px solid color-mix(in srgb, var(--ink) 20%, transparent);
+  font-size: .9em;
+}
+.r43-event-body .msg { margin: 10px 0; }
+#app .shell .chatview .r43-event-body :is(.bubble, .user-bubble, .m-interact-stream),
+#app .shell .chatview .r43-event-body :is(.bubble, .user-bubble, .m-interact-stream)
+  :is(p, li, .m-interact-streamtext) { font-size: 13px !important; }
+.r43-card-link, .r43-event-body > button {
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 0;
+  color: var(--ink);
+  background: transparent;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.r43-unopened { flex: 0 0 6px; height: 6px; border-radius: 50%; background: var(--ink); }
+.r43-event-group { margin: 10px 0; color: var(--muted); font-size: 13px; }
+.r43-event-group > summary { min-height: 44px; padding: 12px; cursor: pointer; }
+.r43-top-note, .r43-note { text-align: center; color: var(--muted); font-size: 12px; margin: 10px 0; }
+.r43-latest {
+  position: fixed;
+  bottom: calc(var(--r22-composer-height, 150px) + 18px);
+  right: 18px;
+  display: block;
+  margin: 10px auto;
+  min-height: 40px;
+  padding: 8px 16px;
+  border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
+  border-radius: 20px;
+  color: var(--ink);
+  background: var(--paper, #fff);
+  box-shadow: 0 2px 8px #0001;
+  cursor: pointer;
+  z-index: 2;
+}
+.r43-highlight { outline: 2px solid var(--sage, #62a987); outline-offset: 4px; border-radius: 12px; }
+.r29-plus-panel [data-r43-new-topic] { min-height: 44px; }
+[data-theme="dark"] .r43-latest { background: var(--well, #25262a); }
+
+.r43-search-results { display: grid; gap: 6px; margin: 12px 0; }
+.r43-search-results button {
+  display: grid;
+  gap: 4px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 12px;
+  color: var(--ink);
+  background: var(--well);
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.r43-search-results span { font-size: 12px; }
+
+.r43-topic-bar {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  padding: 6px 14px;
+  overflow-x: auto;
+  min-width: 0;
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+  border-bottom: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.r43-topic-bar button {
+  flex: 0 0 auto;
+  max-width: 180px;
+  min-height: 44px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background: var(--well);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.r43-topic-bar button[aria-pressed="true"] {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--ink) 35%, transparent);
+}
+#app .shell .chatview .r43-topic-label {
+  min-height: 44px;
+  min-width: 44px;
+  align-self: flex-end;
+  display: block;
+  max-width: 100%;
+  margin: 0 0 4px auto;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  text-align: right;
+  font: inherit;
+  font-size: 11px;
+  box-shadow: none !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  font-weight: normal !important;
+  color: var(--ink-3, var(--ink)) !important;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.r43-context { display: block; margin-top: 4px; font-size: 11px; font-weight: normal; }
+.r43-topic-search {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px;
+  margin: 8px 0 14px;
+  border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
+  border-radius: 10px;
+  background: var(--well);
+  color: var(--ink);
+  font: inherit;
+}
+.r43-topic-search[hidden] { display: none; }
+.r43-topic-item { padding: 12px 0; border-bottom: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); }
+.r43-topic-title { max-width: 100%; font-weight: 500 !important; text-align: left; overflow-wrap: anywhere; }
+.r43-topic-item button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+.r43-topic-actions { display: flex; flex-wrap: wrap; gap: 4px; font-size: 12px; }
+.r43-topic-actions button:disabled { opacity: .4; cursor: default; }
+.r43-topic-summary { margin: 4px 8px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.r43-system-topics { margin-top: 16px; }
+.r43-system-topics > summary { min-height: 44px; padding: 12px 8px; cursor: pointer; }
+#app .shell .chatview:has(.r43-topic-bar) .m-interact-bottom::after { inset: -6px; }
+#app .shell .chatview .m-interact-bottom-count {
+  position: absolute;
+  top: -6px;
+  right: -2px;
+  z-index: 1;
+  box-sizing: border-box;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+
+#app .shell .chatview .r43-topic-label::before,
+#app .shell .chatview .r43-topic-label::after { display: none !important; }

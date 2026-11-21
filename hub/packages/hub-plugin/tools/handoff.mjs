@@ -1,14 +1,14 @@
 // 看板交接：助理把一件事派给外部身份（Codex、Grok、Claude Code 等在电脑上用命令行读写看板的 agent），
 // 以及回答外部身份卡住时问的问题。外部身份名单来自安装配置的 board.externals，没配就不注册这两个工具。
-// 走现有的插件工具权限：要在权限表 plugin_tools 里点名 handoff，级别 L1（记录在案、不弹卡）。
-// 派给外部不等于对外发送，但正文会被外部 agent 读到，所以像密钥、令牌的内容一律拦下。
+// 走现有的插件工具权限：要在权限表 plugin_tools 里点名 handoff，级别 L3（主人本次确认后执行）。
+// 正文会交给外部 agent，按对外发送先问主人；密钥、令牌值不放进任务书。
 // 注意：本文件不能 import ./index.mjs。
 import {createHash} from 'node:crypto';
 import {buildHandoffInput, oneLine, scanSecrets} from '../../hub-bff/lib/handoff.mjs';
 
 export const levels = Object.freeze({
-  board_handoff: 'L1',
-  board_answer: 'L1',
+  board_handoff: 'L3',
+  board_answer: 'L3',
 });
 
 // 名册里这位能不能派单：启用、没暂停、没被单独关掉派单。
@@ -36,7 +36,13 @@ export function register(ctx, deps) {
     material: false,
     description: '把一件事派给外部成员（在电脑上用命令行领单的 agent）：' + externals.join('、') + '。'
       + '写清目标、完成标准、交回方式；对方看不到你的对话，要自包含。对方交回或卡住时你会被叫醒去验收或回答。'
-      + '正文会被外部成员读到：不要写任何密钥、令牌、口令。',
+      + '主人点头后写卡并当场拉起已配置的接单器。正文不要写密钥、令牌、口令。'
+      + '不要因为不归你管或活复杂就主动外派。',
+    approvalCard: args => ({
+      action: '交给外部成员', preview: `${args.to} · ${args.title || args.goal}`,
+      why: '任务书会交给这位外部成员，点头后启动已配置的接单器。已发送内容和费用无法撤回。',
+      targets: [args.to], targetCount: 1,
+    }),
     parameters: {
       type: 'object',
       properties: {
@@ -95,6 +101,11 @@ export function register(ctx, deps) {
     material: false,
     description: '回答你派出去的单上外部成员卡住时问的问题（工单要处于「等人回答」）。'
       + '要主人拿主意的先问主人，再把主人的答案转给它。回答会被外部成员读到：不要写密钥、令牌。',
+    approvalCard: args => ({
+      action: '回答外部成员', preview: `${args.id} · ${args.text}`,
+      why: '这段回答会写进指定工单，外部成员能读到。已读取的内容无法撤回。',
+      targets: [args.id], targetCount: 1,
+    }),
     parameters: {
       type: 'object',
       properties: {id: str(64), text: str(2000)},

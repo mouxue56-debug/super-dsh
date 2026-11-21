@@ -74,6 +74,7 @@
   }
   var SYMBOL = { CNY: '¥', USD: '$', JPY: 'JP¥', EUR: '€' };
   function money(cur, n) {
+    if (typeof n !== 'number' || !isFinite(n)) return '金额未知';
     var s = SYMBOL[cur] || (cur + ' ');
     if (n > 0 && n < 0.01) return s + '<0.01';
     return s + (n >= 100 ? Math.round(n).toLocaleString('zh-CN') : n.toFixed(2));
@@ -81,11 +82,19 @@
   function costText(cost, calls) {
     if (!cost) return '费用未知';
     var parts = Object.keys(cost.byCur).map(function (cur) { return money(cur, cost.byCur[cur]); });
-    if (parts.length) return parts.join(' + ') + (cost.pending > 0 ? '（有待计价）' : '');
-    if (cost.pending > 0) return '待计价';
+    if (parts.length) return parts.join(' + ');
+    if (cost.pending > 0) return '仅记录用量';
     if (cost.plan > 0) return '套餐内';
-    if (cost.local > 0) return '本地 · 0';
+    if (cost.local > 0) return '本地模型，不计费';
     return calls === 0 ? '¥0.00' : '费用未知';
+  }
+  var TOKEN_LABELS = { input: '输入', cacheRead: '缓存命中', cacheWrite: '缓存写', output: '输出' };
+  function tokenParts(b) {
+    if (!b || !b.tokenParts) return '';
+    return Object.keys(TOKEN_LABELS).map(function (key) {
+      return TOKEN_LABELS[key] + ' ' + (b.tokenParts[key] == null ? '未上报' :
+        b.tokenParts[key].toLocaleString('zh-CN'));
+    }).join(' · ');
   }
   function primaryCurrency(buckets) {
     var sums = {};
@@ -98,34 +107,42 @@
   function amountOf(bucket, cur) { return bucket && bucket.cost && cur ? bucket.cost.byCur[cur] || 0 : 0; }
   function addBuckets(items) {
     var out = { calls: 0, tokens: 0, tokensKnown: false, cost: { byCur: {}, pending: 0, plan: 0, local: 0 } };
+    var parts = {};
     items.forEach(function (b) {
       if (!b) return;
+      Object.keys(b.tokenParts || {}).forEach(function (k) {
+        parts[k] = (parts[k] || 0) + b.tokenParts[k];
+      });
       out.calls += b.calls || 0;
       if (b.tokens != null) { out.tokens += b.tokens; out.tokensKnown = true; }
       Object.keys(b.cost.byCur).forEach(function (c) { out.cost.byCur[c] = (out.cost.byCur[c] || 0) +
         b.cost.byCur[c]; });
       ['pending', 'plan', 'local'].forEach(function (k) { out.cost[k] += b.cost[k] || 0; });
     });
-    return { calls: out.calls, tokens: out.tokensKnown || out.calls === 0 ? out.tokens : null, cost: out.cost };
+    return { calls: out.calls, tokens: out.tokensKnown || out.calls === 0 ? out.tokens : null,
+      tokenParts: Object.keys(parts).length ? parts : null, cost: out.cost };
   }
   /* 后端的一个汇总桶 → 界面用的桶。拿不到就返回 null，不编数字。 */
   function bucket(b) {
     if (!isObj(b)) return null;
     var calls = isInt(b.calls) ? b.calls : null;
     if (calls === null) return null;
-    var keys = ['input', 'cacheRead', 'cacheWrite', 'output', 'reasoning'], sum = 0, any = false;
-    keys.forEach(function (k) {
-      if (isObj(b.tokens) && typeof b.tokens[k] === 'number' &&
-        isFinite(b.tokens[k])) { sum += b.tokens[k]; any = true; }
-    });
+    var keys = Object.keys(TOKEN_LABELS), sum = 0, any = false, parts = {};
     var un = isObj(b.unreportedFields) ? b.unreportedFields : {};
-    var unknown = calls > 0 && (!any || ((+un.input || 0) >= calls && (+un.output || 0) >= calls));
+    keys.forEach(function (k) {
+      if (calls > 0 && (+un[k] || 0) >= calls) return;
+      if (isObj(b.tokens) && typeof b.tokens[k] === 'number' &&
+        isFinite(b.tokens[k]) && b.tokens[k] >= 0) {
+        sum += b.tokens[k]; parts[k] = b.tokens[k]; any = true;
+      }
+    });
+    var unknown = calls > 0 && !any;
     var c = isObj(b.cost) ? b.cost : {}, byCur = {};
     Object.keys(isObj(c.byCurrency) ? c.byCurrency : {}).forEach(function (cur) {
       var v = c.byCurrency[cur] || {}, n = (+v.ok || 0) + (+v.expired || 0);
-      if (n > 0) byCur[cur] = n;
+      if (isFinite(n) && n >= 0 && isObj(v)) byCur[cur] = n;
     });
-    return { calls: calls, tokens: calls === 0 ? 0 : unknown ? null : sum,
+    return { calls: calls, tokens: calls === 0 ? 0 : unknown ? null : sum, tokenParts: any ? parts : null,
       cost: { byCur: byCur, pending: +c.pendingCalls || 0, plan: +c.planCalls || 0, local: +c.localCalls || 0 } };
   }
 
@@ -159,7 +176,8 @@
     var periods = {
       today: bucket(isObj(today) ? today.total : null),
       week: week,
-      month: monthBuckets.length ? addBuckets(monthBuckets) : null
+      month: bucket(isObj(all.thisMonth) ? all.thisMonth.total : null) ||
+        (monthBuckets.length ? addBuckets(monthBuckets) : null)
     };
     var bots = Object.keys(isObj(all.byBot) ? all.byBot : {}).map(function (id) {
       var none = id === '(无助理)';
@@ -169,10 +187,12 @@
     if (Array.isArray(all.recent)) {
       all.recent.slice(0, 60).forEach(function (r) {
         if (!isObj(r)) return;
+        var rowBucket = bucket(isObj(r.bucket) ? r.bucket : r);
+        if (!rowBucket) return;
         rows.push({ bot: typeof r.bot === 'string' ? r.bot : '', botName: r.bot ? name(r.bot) : '未归助理',
           title: line(r.title || r.ticket || r.model || '一次对话', 60),
           time: typeof r.ts === 'string' || typeof r.ts === 'number' ? stampText(r.ts) : '',
-          b: bucket(isObj(r.bucket) ? r.bucket : r) });
+          b: rowBucket });
       });
     } else {
       Object.keys(isObj(all.byTicket) ? all.byTicket : {}).forEach(function (id) {
@@ -181,9 +201,68 @@
         rows.push({ bot: '', botName: '', title: id === '(无工单)' ? '没挂任务单的对话' : '任务单 ' + line(id, 30), time: '', b: b });
       });
     }
-    return { source: 'real', note: '费用按价表折算，不是服务商账单；套餐内的只给折算参考。', periods: periods, days: days,
-      bots: bots, rows: rows, rowsByBot: Array.isArray(all.recent), budgets: null, today: null };
+    var plugins = normalizePlugins(isObj(raw.plugins) ? raw.plugins : isObj(all.plugins) ? all.plugins : null);
+    return { source: 'real', note: '费用按本体价目和每次调用时间折算。', periods: periods, days: days,
+      bots: bots, rows: rows, rowsByBot: Array.isArray(all.recent), budgets: null, today: null,
+      hasRecords: all.total.calls > 0,
+      plugins: plugins,
+      native: isObj(raw.native) ? raw.native : isObj(all.native) ? all.native : null };
   };
+  /* ---------- 插件账（cost-meter / quota-watch） ---------- */
+  function pluginBucket(period) {
+    if (!isObj(period)) return null;
+    var calls = isInt(period.calls) ? period.calls : null;
+    if (calls === null) return null;
+    var usd = typeof period.usd === 'number' && isFinite(period.usd) && period.usd >= 0 ? period.usd : null;
+    return { calls: calls, tokens: null, tokenParts: null, plugin: true,
+      cost: { byCur: usd === null ? {} : { USD: usd }, pending: 0, plan: 0, local: 0 } };
+  }
+  function normalizePlugins(p) {
+    if (!isObj(p) || p.ok !== true) return null;
+    var summary = {};
+    ['today', 'week', 'month'].forEach(function (key) {
+      var b = pluginBucket(isObj(p.summary) ? p.summary[key] : null);
+      if (b) summary[key] = b;
+    });
+    var quota = [];
+    list(p.quota).forEach(function (q) {
+      if (!isObj(q) || typeof q.provider !== 'string') return;
+      var wins = [];
+      list(q.windows).forEach(function (w) {
+        if (!isObj(w) || typeof w.limit !== 'number' || !isFinite(w.limit)) return;
+        if (typeof w.used !== 'number' || !isFinite(w.used)) return;
+        wins.push({ label: line(w.label || w.key, 20), limit: w.limit, used: w.used,
+          remaining: typeof w.remaining === 'number' && isFinite(w.remaining) ? w.remaining : Math.max(0,
+            w.limit - w.used) });
+      });
+      if (!wins.length) return;
+      quota.push({ provider: line(q.provider, 40), label: line(q.label || q.provider, 40),
+        currency: typeof q.currency === 'string' && /^[A-Z]{3}$/.test(q.currency) ? q.currency : 'USD',
+        windows: wins });
+    });
+    var balance = null, b = p.balance;
+    if (isObj(b) && typeof b.total === 'number' && isFinite(b.total)) {
+      balance = { currency: typeof b.currency === 'string' && b.currency ? b.currency : 'CNY', total: b.total };
+    }
+    var phases = {};
+    if (isObj(p.providers)) Object.keys(p.providers).forEach(function (id) {
+      var ph = p.providers[id];
+      if (!isObj(ph) || (ph.phase !== 'peak' && ph.phase !== 'off')) return;
+      phases[id] = { phase: ph.phase, next: typeof ph.next === 'number' && isFinite(ph.next) ? ph.next : null };
+    });
+    var sources = list(p.sources).filter(function (s) {
+      return s === 'cost-meter' || s === 'quota-watch';
+    });
+    if (!sources.length) sources = [p.source === 'quota-watch' ? 'quota-watch' : 'cost-meter'];
+    if (!Object.keys(summary).length && !quota.length && !balance) return null;
+    return { summary: summary, quota: quota, balance: balance, phases: phases, sources: sources };
+  }
+  function pluginSourceName(p) {
+    if (p.sources.indexOf('cost-meter') >= 0 && p.sources.indexOf('quota-watch') >= 0) {
+      return 'cost-meter 与 quota-watch';
+    }
+    return p.sources[0] || '插件';
+  }
   function stampText(ts) {
     var d = new Date(ts);
     if (isNaN(d.getTime())) return '';
@@ -235,8 +314,11 @@
   function ledgerHTML(m) {
     if (!m) {
       return '<div class="r30l r30l-ledger" data-r30l-ledger="empty"><div class="r30l-in">' +
-        emptyLedger('账本暂时读不到', '稍后再点开看看；读到之后这里会出现下面这样的页面。') + '</div></div>';
+        emptyLedger('账本暂时读不到', '暂时无法读取后端账本，请稍后重试。') + '</div></div>';
     }
+    var pluginBuckets = m.plugins ? ['today', 'week', 'month'].map(function (key) {
+      return m.plugins.summary[key];
+    }).filter(Boolean) : [];
     var cur = primaryCurrency([m.periods.month, m.periods.week,
       m.periods.today].concat(m.days.map(function (d) { return d.b; })));
     var hasCost = !!cur;
@@ -244,11 +326,23 @@
       (ledgerUi.metric || 'cost');
     if (!hasCost) metric = 'tokens';
     var total = m.periods.month || m.periods.week || m.periods.today;
-    var nothing = !total || (total.calls === 0 && m.days.every(function (d) { return !d.b || d.b.calls === 0; }));
+    var pluginHasData = pluginBuckets.some(function (b) { return b.calls > 0; });
+    var nothing = m.source === 'real' ? !m.hasRecords && !pluginHasData :
+      !total || (total.calls === 0 && m.days.every(function (d) { return !d.b || d.b.calls === 0; }));
     var out = '<div class="r30l r30l-ledger" data-r30l-ledger="' + esc(m.source) + '"><div class="r30l-in">';
+    if (m.plugins) out += quotaCard(m.plugins);
     out += statCards(m, cur);
-    if (!hasCost && !nothing) out += '<p class="r30l-sub r30l-costnote">费用暂时算不出，先看次数和用量。</p>';
-    if (nothing) { out += emptyLedger('还没有用量记录', '助理开始干活后，这里会出现今天、本周、本月的花费，每天的柱状图，以及谁用得最多。'); }
+    if (m.source === 'real') out += '<p class="r30l-sub r30l-costnote r30l-source">' +
+      esc(ledgerSourceNote(m)) + '</p>';
+    if (!hasCost && total && total.cost.local > 0) out +=
+      '<p class="r30l-sub r30l-costnote">本地模型，不计费</p>';
+    if (nothing) {
+      out += emptyLedger(m.source === 'real' ? '还没有记录' : '还没有用量记录',
+        '助理开始干活后，这里会出现今天、本周、本月的花费，每天的柱状图，以及谁用得最多。');
+    }
+    else if (pluginHasData && !m.hasRecords) {
+      out += '<p class="r30l-sub r30l-costnote">插件的花费和额度已显示在上方；Hub 事件账里还没有逐次明细。</p>';
+    }
     else {
       out += '<section class="r30l-card r30l-chart" aria-label="按天用量">' +
         '<header class="r30l-head"><h3>每天用了多少</h3><div class="r30l-seg" role="group" aria-label="图表设置">' +
@@ -261,10 +355,86 @@
           cur) + '</section>';
       out += detailList(m);
     }
+    if (m.source === 'real' && m.native && !m.plugins) out += nativeLedger(m.native);
     out += '<p class="r30l-foot">' + esc(m.note || '') + (cur && Object.keys((m.periods.month || m.periods.week ||
       {cost: {byCur: {}}}).cost.byCur).length > 1
       ? ' 图里只按 ' + esc(SYMBOL[cur] || cur) + ' 画。' : '') + '</p></div>';
     return out;
+  }
+  function ledgerSourceNote(m) {
+    if (m.plugins) {
+      var hasSummary = Object.keys(m.plugins.summary).length > 0;
+      if (hasSummary) {
+        return '花费和次数来自 ' + pluginSourceName(m.plugins) +
+          (m.plugins.quota.length ? '，额度也来自插件' : '') + '；逐次明细仍按 Hub 事件账。';
+      }
+      return '额度来自 ' + pluginSourceName(m.plugins) + '；花费和次数仍按 Hub 事件账。';
+    }
+    return '按价目估算。价目与 DeepSeek Harness 同一张表（¥1/0.02/4 每百万，峰时 ×2）';
+  }
+  function quotaCard(p) {
+    var out = '<section class="r30l-card r30l-quota" aria-label="额度">' +
+      '<header class="r30l-head"><h3>额度</h3><span class="r30l-sub">来自 ' +
+      esc(pluginSourceName(p)) + '</span></header>';
+    if (!p.quota.length) out += '<p class="r30l-none">插件这次没有给出额度数字。</p>';
+    p.quota.forEach(function (q) {
+      out += '<div class="r30l-qgroup"><b>' + esc(q.label) + '</b>';
+      q.windows.forEach(function (w) {
+        var pct = w.limit > 0 ? Math.min(100, Math.max(0, Math.round(w.used / w.limit * 100))) : 0;
+        out += '<div class="r30l-qrow"><span class="r30l-qk">' + esc(w.label) + '</span>' +
+          '<span class="r30l-qv">已用 ' + esc(money(q.currency, w.used)) + ' · 剩余 ' +
+          esc(money(q.currency, w.remaining)) + ' / ' + esc(money(q.currency, w.limit)) + '</span>' +
+          '<span class="r30l-track"><i style="width:' + pct + '%"></i></span></div>';
+      });
+      var phase = p.phases[q.provider];
+      if (phase) {
+        out += '<p class="r30l-sub">' + esc((phase.phase === 'peak' ? '峰时' : '谷时') +
+          (phase.next ? ' · 下次峰谷切换 ' + stampText(phase.next) : '')) + '</p>';
+      }
+      out += '</div>';
+    });
+    if (p.balance) out += '<p class="r30l-sub">' + esc('DeepSeek 余额 ' +
+      money(p.balance.currency, p.balance.total)) + '</p>';
+    return out + '</section>';
+  }
+  function nativeLedger(native) {
+    var out = '<section class="r30l-card r30l-native" aria-label="与本体核对">' +
+      '<header class="r30l-head"><h3>与本体核对</h3></header>';
+    if (native.ok === false) out += '<p class="r30l-sub">' +
+      esc('读不到 DeepSeek Harness 的账本：' + (native.reason || '原因未知')) + '</p>';
+    var quota = native.quotaWatch;
+    if (isObj(quota)) {
+      out += '<p>' + esc('本体样本 ' + quota.calls + ' 次 · ' + money('USD', quota.totalUsd)) + '</p>';
+      out += '<details><summary>按天和渠道查看</summary><ul class="r30l-native-rows">' +
+        list(quota.days).map(function (day) {
+          return '<li>' + esc(day.day + ' · ' + day.provider + ' · ' + day.calls + ' 次 · ' +
+            money('USD', day.usd)) + '</li>';
+        }).join('') + '</ul></details>';
+    }
+    var meter = native.costMeter;
+    if (isObj(meter)) {
+      var usage = isObj(meter.usage) ? meter.usage : {}, limits = isObj(meter.limits) ? meter.limits : {};
+      var providers = isObj(meter.providers) ? meter.providers : {};
+      var periods = [['h5', '近 5 小时', 'h5'], ['d7', '近 7 天', 'week'], ['d30', '近 30 天', 'month']];
+      out += '<ul class="r30l-native-rows">' + Object.keys(usage).map(function (provider) {
+        var values = isObj(usage[provider]) ? usage[provider] : {};
+        var cap = isObj(limits[provider]) ? limits[provider] : {};
+        var phase = providers[provider] && providers[provider].phase;
+        var title = provider + (phase === 'peak' ? ' · 峰时' : phase === 'off' ? ' · 谷时' : '');
+        var rows = periods.filter(function (period) { return typeof values[period[0]] === 'number'; });
+        return '<li><b>' + esc(title) + '</b><p class="r30l-sub">' + esc(rows.map(function (period) {
+          return period[1] + ' ' + money('USD', values[period[0]]) +
+            (typeof cap[period[2]] === 'number' ? ' / 额度 ' + money('USD', cap[period[2]]) : '');
+        }).join(' · ')) + '</p></li>';
+      }).join('') + '</ul>';
+      var balance = meter.balance;
+      if (isObj(balance) && typeof balance.total === 'number' && isFinite(balance.total)) {
+        out += '<p class="r30l-sub">' + esc('DeepSeek 余额 ' + money(balance.currency || 'CNY', balance.total)) + '</p>';
+      } else if (isObj(balance) && balance.error) {
+        out += '<p class="r30l-sub">' + esc('余额读取失败：' + balance.error) + '</p>';
+      }
+    }
+    return out + '</section>';
   }
   function seg(kind, value, label, current, enabled) {
     return '<button type="button" class="r30l-segbtn' + (current === value ? ' on' : '') + '" data-r30l-act="' + kind +
@@ -276,25 +446,29 @@
     var defs = [['today', '今天', 'var(--sky,#2f9bff)'], ['week', '近 7 天', 'var(--mint,#2fcf9f)'], ['month', '本月',
       'var(--violet,#b39af4)']];
     return '<div class="r30l-stats">' + defs.map(function (def) {
-      var b = m.periods[def[0]], budget = m.budgets && m.budgets[def[0]];
+      var plugin = m.plugins && m.plugins.summary[def[0]];
+      var b = plugin || m.periods[def[0]], budget = m.budgets && m.budgets[def[0]];
+      var cardCur = plugin ? primaryCurrency([b]) : cur;
+      var tokenText = b && b.plugin ? '插件不记 token' : '用量 ' + esc(fmtTokensShort(b && b.tokens));
       var html = '<article class="r30l-card r30l-stat" style="--a:' + def[2] + '"><p class="r30l-k">' + esc(def[1]) +
         '</p>';
       if (!b) {
         return html + '<p class="r30l-big r30l-none">暂无</p><p class="r30l-sub">暂时没有数据</p></article>';
       }
-      /* 有次数先显示次数；没有价格就不写费用，整页只在上面说明一次，不把未知写成零。 */
-      if (cur) {
-        html += '<p class="r30l-big">' + esc(money(cur, amountOf(b, cur))) + '</p><p class="r30l-sub">' + b.calls +
-          ' 次 · 用量 ' + esc(fmtTokensShort(b.tokens)) + '</p>';
+      /* 有金额展示金额，只有用量时保留调用次数。 */
+      if (cardCur) {
+        html += '<p class="r30l-big">' + esc(money(cardCur, amountOf(b, cardCur))) + '</p><p class="r30l-sub">' + b.calls +
+          ' 次 · ' + tokenText + '</p>';
       } else {
-        html += '<p class="r30l-big">' + b.calls + ' 次</p><p class="r30l-sub">用量 ' + esc(fmtTokensShort(b.tokens)) +
-          '</p>';
+        html += '<p class="r30l-big">' + b.calls + ' 次</p><p class="r30l-sub">' + tokenText + '</p>';
       }
-      /* 设了预算但还没有价格，算不出已用多少，不画进度条，只说明一句。 */
-      if (budget && !cur) {
-        html += '<p class="r30l-sub">预算 ' + esc(money(budget.cur, budget.limit)) + ' · 暂时算不出已用多少</p>';
+      if (m.source === 'real' && !plugin && tokenParts(b)) html +=
+        '<p class="r30l-sub r30l-tokenparts">' + esc(tokenParts(b)) + '</p>';
+      /* 预算只跟 Hub 事件账的人民币口径走，插件美元数据不混进预算条。 */
+      if (!plugin && budget && !cur) {
+        html += '<p class="r30l-sub">预算 ' + esc(money(budget.cur, budget.limit)) + ' · 仅记录用量</p>';
       }
-      if (budget && cur === budget.cur) {
+      if (!plugin && budget && cur === budget.cur) {
         var pct = Math.min(100, Math.round(amountOf(b, cur) / budget.limit * 100)), level = pct >= 90 ? 'hot' :
           pct >= 70 ? 'warm' : 'ok';
         html += '<div class="r30l-meter ' + level +
@@ -334,10 +508,10 @@
     });
     return out + '</div><p class="r30l-sub r30l-axis">' + (max > 0 ? '最高一天 ' + esc(show(max)) : '这段时间没有用量') + '</p>';
   }
-  /* 没有价格依据的助理，不在每一行重复写「待计价」，直接写用量；整页只在上面说明一次。 */
+  /* 用量模式保留非计费调用的说明。 */
   function whoCost(r) {
     var text = costText(r.b.cost, r.b.calls);
-    return text === '待计价' || text === '费用未知' ? fmtTokens(r.b.tokens) : text;
+    return text === '仅记录用量' || text === '费用未知' ? fmtTokens(r.b.tokens) : text;
   }
   function whoBars(m, metric, cur) {
     var rows = m.bots.map(function (r) {
@@ -348,7 +522,8 @@
     return '<ol class="r30l-hbars">' + rows.map(function (r) {
       var pct = r.v == null || !max ? 0 : Math.max(r.v > 0 ? 4 : 0, Math.round(r.v / max * 100)),
         color = botColor(r.id);
-      return '<li class="r30l-hrow">' + avatar(r.id, 30, r.name) + '<div class="r30l-hmain"><div class="r30l-hline"><b>' +
+      return '<li class="r30l-hrow">' + avatar(r.id, 30, r.name) + '<div class="r30l-hmain">' +
+        '<div class="r30l-hline"><b>' +
         esc(r.name) +
         '</b><span>' + esc(metric === 'cost' ? whoCost(r) : fmtTokens(r.v)) + '</span></div>' +
         '<span class="r30l-track"><i style="width:' + pct + '%' + (color ? ';--c:' + color : '') + '"></i></span>' +
@@ -382,9 +557,11 @@
       return '<li class="r30l-row">' + (r.bot || m.rowsByBot ? avatar(r.bot, 34, r.botName) :
         '<span class="r30l-dot" style="--s:34px" aria-hidden="true">工</span>') +
         '<div class="r30l-rmain"><b>' + esc(r.title) + '</b><small>' + esc([r.botName, r.time, r.b.calls +
-          ' 次'].filter(Boolean).join(' · ')) +
-        '</small></div><div class="r30l-rside"><b>' + esc(cur2 ? money(cur2, amountOf(r.b, cur2)) : '用量 ' +
-          fmtTokensShort(r.b.tokens)) +
+          ' 次'].filter(Boolean).join(' · ')) + '</small>' +
+        (m.source === 'real' && tokenParts(r.b) ? '<small>' + esc(tokenParts(r.b)) + '</small>' : '') +
+        '</div><div class="r30l-rside"><b>' + esc(cur2 ? money(cur2, amountOf(r.b, cur2)) :
+          r.b.cost.local > 0 ? '本地模型，不计费' :
+          '用量 ' + fmtTokensShort(r.b.tokens)) +
         '</b><small>' + (cur2 ? '用量 ' + esc(fmtTokensShort(r.b.tokens)) : '') + '</small></div></li>';
     }).join('') + '</ul>';
     if (shown.length > slice.length) out += '<button type="button" class="r30l-more" data-r30l-act="more:1">再看 ' +
@@ -450,7 +627,8 @@
       var owner = t.claimedBy || (Array.isArray(t.to) && t.to[0]) || '';
       var prog = list(t.progress), last = prog.length ? prog[prog.length - 1] : null;
       var mine = owner === 'owner' || owner === 'owner';
-      var item = { kind: 'ticket', id: t.id, bot: mine ? '' : owner, name: owner ? who(owner) : '', title: line(t.title, 80) ||
+      var item = { kind: 'ticket', id: t.id, bot: mine ? '' : owner, name: owner ? who(owner) : '',
+        title: line(t.title, 80) ||
         '（无标题）',
         sub: line(last && last.text, 100), steps: prog.length };
       if (t.state === 'progress' && t.review !== 'submitted') doing.items.push(item);
@@ -477,7 +655,8 @@
           tone: st === 'paused' ? 'mute' : ROUTINE_KIND[st] || 'wait' });
       });
     }
-    return { source: 'real', date: line(raw.date, 12), waiting: wait, doing: doing, done: done, routines: rout };
+    return { source: 'real', date: line(raw.date, 12), waiting: wait, doing: doing, done: done, routines: rout,
+      mirrorNotice: typeof raw.mirrorNotice === 'string' ? line(raw.mirrorNotice, 200) : '' };
   };
   NS.demoToday = function () {
     var st = hubState();
@@ -518,7 +697,9 @@
     }) };
     var d = new Date(), date = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' +
       d.getDate()).slice(-2);
-    var recent = list(st.activities).filter(function (a) { return a && !a.cleared && (a.handled || a.kind === 'inform'); })
+    var recent = list(st.activities).filter(function (a) {
+      return a && !a.cleared && (a.handled || a.kind === 'inform');
+    })
       .slice(0, 8).map(function (a) {
         return { bot: a.bot, name: (botInfo(a.bot) || {}).name || '', title: line(a.title, 60), sub: line(a.detail, 80),
           state: a.handled ? '已处理' : '告知', when: String(a.time || '') };
@@ -553,7 +734,8 @@
   function todayRow(block, item, ref) {
     var open = ' data-r30l-open="' + ref + '"';
     var left = item.bot !== undefined && (item.bot || item.name) ? avatar(item.bot, 38, item.name) :
-      '<span class="r30l-dot" style="--s:38px" aria-hidden="true">' + esc(Array.from(item.tag || item.title || '事')[0]) +
+      '<span class="r30l-dot" style="--s:38px" aria-hidden="true">' +
+      esc(Array.from(item.tag || item.title || '事')[0]) +
       '</span>';
     if (block.key === 'routines') {
       return '<li><button type="button" class="r30l-trow r30l-r-' + esc(item.tone) + '"' + open +
@@ -562,11 +744,13 @@
         '<span class="r30l-state">' + esc(item.state) + '</span></button></li>';
     }
     var sub = item.sub ? '<small>' + esc(item.sub) + '</small>' : '';
-    var meta = block.key === 'waiting' || block.key === 'open' ? '<span class="r30l-go">' + esc(item.act || '去处理') + icon('go', 14) + '</span>'
+    var meta = block.key === 'waiting' || block.key === 'open' ? '<span class="r30l-go">' +
+      esc(item.act || '去处理') + icon('go', 14) + '</span>'
       : block.key === 'done' ? '<span class="r30l-tick">' + icon('done', 16) + '</span>' : '';
     var prog = '';
     if (block.key === 'doing') {
-      prog = '<span class="r30l-prog" aria-hidden="true"><i></i></span>' + (item.steps ? '<small class="r30l-steps">已记 ' +
+      prog = '<span class="r30l-prog" aria-hidden="true"><i></i></span>' +
+        (item.steps ? '<small class="r30l-steps">已记 ' +
         item.steps + ' 步进展</small>' : '');
     }
     var head = (item.tag ? '<em class="r30l-tag">' + esc(item.tag) + '</em>' : '') + (item.name ?
@@ -582,10 +766,12 @@
     return '<details class="r30l-card r30l-block r30l-b-recent" data-r30l-recent><summary class="r30l-bhead">' +
       '<span class="r30l-chipico">' + icon('clock', 18) + '</span><h3>刚刚发生的</h3><span class="r30l-count">' +
       items.length + '</span></summary><ul class="r30l-list">' + items.map(function (item) {
-      var left = item.bot ? avatar(item.bot, 38, item.name) : '<span class="r30l-dot" style="--s:38px" aria-hidden="true">' +
+      var left = item.bot ? avatar(item.bot, 38, item.name) :
+        '<span class="r30l-dot" style="--s:38px" aria-hidden="true">' +
         esc(Array.from(item.title || '事')[0]) + '</span>';
       return '<li><div class="r30l-trow r30l-recent-row">' + left + '<span class="r30l-tmain">' +
-        (item.name || item.state ? '<span class="r30l-tline">' + (item.name ? '<span class="r30l-who">' + esc(item.name) +
+        (item.name || item.state ? '<span class="r30l-tline">' +
+          (item.name ? '<span class="r30l-who">' + esc(item.name) +
           '</span>' : '') + (item.state ? '<em class="r30l-tag">' + esc(item.state) + '</em>' : '') + '</span>' : '') +
         '<b>' + esc(item.title) + '</b>' + (item.sub ? '<small>' + esc(item.sub) + '</small>' : '') + '</span>' +
         (item.when ? '<time class="r30l-when">' + esc(item.when) + '</time>' : '') + '</div></li>';
@@ -600,7 +786,8 @@
     /* 删掉重复的三组数字和一句话总结；日期一行，下面直接就是「等你处理」。 */
     var out = '<div class="r30l r30l-today" data-r30l-today="' + esc(m.source) +
       '"><div class="r30l-in"><p class="r30l-k r30l-datehead">' + esc(dateText(m.date)) +
-      '</p><div class="r30l-blocks">';
+      '</p>' + (m.mirrorNotice ? '<p class="r30l-sub" role="status" data-r41-mirror-notice>' +
+        esc(m.mirrorNotice) + '</p>' : '') + '<div class="r30l-blocks">';
     var refs = [];
     TODAY_BLOCKS.forEach(function (block) {
       var data = m[block.key];

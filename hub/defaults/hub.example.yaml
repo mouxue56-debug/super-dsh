@@ -1,0 +1,3 @@
+# 按安装级平面 YAML 格式填写。完整配置见 packages/hub-bff/docs/改自己.md。
+version: 1
+self_edit: {"enabled":false}

@@ -6,14 +6,18 @@ import { Roster } from './lib/roster.mjs';
 import { uploadBody,saveAvatar,avatarMime } from './lib/avatars.mjs';
 import { BffHeartbeat } from './lib/heartbeat.mjs';
 import { createBoard } from './lib/board.mjs';
+import { createMirror } from './lib/board-mirror.mjs';
+import { createInboxDrop } from './lib/board-inbox-drop.mjs';
+import { externalNames } from './lib/handoff.mjs';
 import { createLedger } from './lib/ledger.mjs';
+import { createNativePriceBook } from './lib/prices.mjs';
 import { readHubYaml, configuredPath, utcOffsetMinutes as offsetFor,
   loadPriceBook, loadExtensions } from './lib/ext/index.mjs';
 import { rosterView } from './lib/delegation.mjs';
 import { Delegations } from './lib/delegation.mjs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { DshClient, sessionId } from './lib/dsh-client.mjs';
 import { readSecret } from './lib/secrets.mjs';
 import { BffError, publicError } from './lib/errors.mjs';
@@ -23,6 +27,7 @@ import { SessionStore, CallLog } from './lib/store.mjs';
 import { addChatOnlySession } from './lib/chat-only-list.mjs';
 import { createDiscardList } from './lib/discarded-sessions.mjs';
 import { depsStopped } from './lib/panic-marker.mjs';
+import { assertVoiceStartup } from './lib/voice.mjs';
 import { createOwnerSourceResolver } from './lib/owner-source.mjs';
 import { createBoardInbox } from './lib/board-inbox.mjs';
 import { createClaimWake } from './lib/claim-wake.mjs';
@@ -30,7 +35,9 @@ import { createTriggers } from './lib/triggers.mjs';
 import { createExtLaunch } from './lib/ext-launch.mjs';
 import { createHandoffWake } from './lib/handoff-wake.mjs';
 import { createRelayWake } from './lib/relay-wake.mjs';
+import { createSubagentNotes, readRelaySessions } from './lib/subagent-note.mjs';
 import { createFullTextStore, isDigest } from './lib/fulltext.mjs';
+import { createTrash } from './lib/trash.mjs';
 const DEFAULT_KEY_FILE = fileURLToPath(new URL('./run/bff.key', import.meta.url));
 export async function loadBffKey(path) {
   await mkdir(dirname(path),{recursive:true,mode:0o700});
@@ -64,7 +71,8 @@ const DEFAULT_STORE = fileURLToPath(new URL('./run/store.json', import.meta.url)
 const DEFAULT_CALL_LOG = fileURLToPath(new URL('./run/calls.log', import.meta.url));
 const cut = (text, size) => Array.from(text).slice(0,size).join('');
 const invalid = message => new BffError('INVALID_INPUT',message,400);
-export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join(homedir(),'dsh-work'),storeFile = process.env.HUB_BFF_STORE ?? DEFAULT_STORE,
+export function createHandler({client,key,ownerKey,requireOwnerProof=false,
+  hubHome = process.env.HUB_HOME ?? join(homedir(),'dsh-work'),storeFile = process.env.HUB_BFF_STORE ?? DEFAULT_STORE,
   callLogFile = process.env.HUB_BFF_CALL_LOG ?? DEFAULT_CALL_LOG,
   botsDir = process.env.HUB_BOTS_DIR ?? join(hubHome,'bots'),
   requireBot = Boolean(process.env.HUB_BFF_STORE), store = new SessionStore(storeFile),
@@ -72,7 +80,8 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
   configDir = process.env.HUB_CONFIG_DIR ?? join(hubHome,'config'),
   ticketsDir = process.env.HUB_TICKETS_DIR ?? join(hubHome,'tickets'),
   now = Date.now, interactions = true, reconnectOptions = {}, hubConfig, boardDir, ledgerDir, dataDir,
-  utcOffsetMinutes, priceBook, board, ledger, extDir} = {}) {
+  utcOffsetMinutes, priceBook, board, ledger, extDir, asrLookup, asrProbe,
+  topicModel, topicTimeoutMs, topicDispatchMs} = {}) {
   if (hubConfig===undefined) {
     try {
       hubConfig = readHubYaml(configDir);
@@ -86,7 +95,8 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
   ledgerDir ??= process.env.HUB_LEDGER_DIR ?? pathConfig(hubConfig.ledger_dir) ?? join(hubHome,'ledger');
   dataDir ??= process.env.HUB_DATA_DIR ?? pathConfig(hubConfig.data_dir) ?? join(hubHome,'hub-data');
   utcOffsetMinutes ??= offsetFor(hubConfig.timezone,now());
-  priceBook ??= loadPriceBook(pathConfig(hubConfig.prices) ?? join(configDir,'prices.json'),logger);
+  priceBook ??= createNativePriceBook(
+    loadPriceBook(pathConfig(hubConfig.prices) ?? join(configDir,'prices.json'),logger));
   const integerConfig = (value,fallback) => {
     if (value===undefined) return fallback;
     if (Number.isSafeInteger(value) && value>=0) return value;
@@ -99,6 +109,8 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
   let claimWake;
   let triggers;
   let extLaunch;
+  let subagentNotes;
+  let mirror;
   // 开放认领。首席叫醒；首席把卡派给某位助理后，走原有的「派给内部助理」叫醒那位助理。
   const claimEvent = ev => {
     claimWake?.onEvent(ev);
@@ -108,7 +120,10 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
     if (ev?.type==='open_assigned' && typeof ev.id==='string' && typeof ev.assignedTo==='string') void handoffWake?.assigned(ev.id,ev.assignedTo);
   };
   board ??= createBoard({root:boardDir,legacyDir:ticketsDir,now,
-    onEvent:ev => { runtime.boardEvent(ev); handoffWake?.onEvent(ev); relayWake?.onEvent(ev); claimEvent(ev); },
+    onEvent:ev => {
+      runtime.boardEvent(ev); handoffWake?.onEvent(ev); relayWake?.onEvent(ev); claimEvent(ev);
+      mirror?.onEvent(ev);
+    },
     maxHop:integerConfig(hubConfig.max_hop,4),maxActivePerWorker:integerConfig(hubConfig.max_active_per_worker,0),
     // 外部身份交回的卡由主人点完成（hub.yaml board.external_accept: assistant 才恢复助理可直接验收）。
     ownerAcceptExternal:hubConfig.board?.external_accept!=='assistant',
@@ -116,12 +131,29 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
     arrangeOnDrag:hubConfig.board?.arrange?.enabled!==false && hubConfig.board?.arrange?.on_drag!==false,
     utcOffsetMinutes:() => offsetFor(hubConfig.timezone,now()),
     // 外部令牌不许用名册里助理的编号或名字（防冒充）；名册按需现读。
-    reservedNames:() => ['owner',...roster.list().flatMap(b => [b.id,b.name])]});
+    reservedNames:() => ['owner',...roster.list().flatMap(b => [b.id,b.name])],
+    // 名册在下面才建好；这里先收下函数，真正调用时名册已经在。停用、暂停的首席不算。
+    isChief:name => {
+      const bot = roster.list().find(b => b && b.id === name) || roster.list().find(b => b && b.name === name);
+      return !!(bot && bot.role === 'chief' && bot.status === 'active' && bot.paused !== true);
+    }});
   extDir ??= fileURLToPath(new URL('./lib/ext/',import.meta.url));
   const trusted = new WeakSet();
   const active = new Set(), followers = new Map(), pending = new Set();
   let disposed = false;
   const roster=new Roster({hubHome,configDir,botsDir,now,onChange:value=>{runtime.emit('roster',value);return runtime.publishStatus();}});
+  const mirrorDir = pathConfig(process.env.HUB_BOARD_MIRROR_DIR) ?? pathConfig(hubConfig.board?.mirror_dir) ??
+    join(dirname(boardDir), 'board-mirror');
+  mirror = createMirror({board,dir:mirrorDir,enabled:hubConfig.board?.mirror!==false,now,logger,
+    roster:() => externalNames(hubConfig.board),people:() => roster.list(),
+    protectedDirs:[boardDir,ticketsDir,configDir,ledgerDir,botsDir],dataDir,
+    throttleMs:integerConfig(hubConfig.board?.mirror_throttle_ms,1500)});
+  // 投文件口跟镜像目录走。发现远端后镜像停写，这里也不再改看板。
+  const inboxDrop = createInboxDrop({
+    board, dir: mirrorDir, now, logger,
+    externals: () => hubConfig.board?.externals,
+    enabled: () => mirror.status().state !== 'remote',
+  });
   const bots=()=>roster.presets();
   const requireSession = id => {
     const row = store.get(id);
@@ -137,6 +169,16 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
       const ctx = {sessionId:id,bot:store.get(id)?.bot ?? null,ticket:ticketFor(id)};
       ledger.recordEvent(event,ctx)?.catch(() => logger.error('HUB_LEDGER_FAILURE'));
     } catch { logger.error('HUB_LEDGER_FAILURE'); }
+    try { subagentNotes?.observe(id, event); }
+    catch { logger.error('HUB_SUBAGENT_NOTE_FAILURE'); }
+  }
+  function followOf(id) {
+    return client.follow(id, {
+      cards: () => runtime.cards(id),
+      onRawEvent: event => recordRaw(id, event),
+      onSnapshot: records => subagentNotes?.observeSnapshot(id, records),
+      onEnd: () => subagentNotes?.end(id),
+    });
   }
 
   async function requireBotDir(preset) {
@@ -181,6 +223,7 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
     });
     const tools = new Map();
     const receipt = await sendMessage(id,text,opts.note??'ext',true,{
+      requestId:opts.requestId,onDispatch:opts.onDispatch,ownerTurn:opts.ownerTurn===true,
       onTool:tool => {
         if (tool?.id) tools.set(tool.id,{id:tool.id,name:tool.name ?? null,status:tool.status ?? null});
       },
@@ -217,7 +260,7 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
     const admission = new Promise(resolve => { release = resolve; });
     const follow = {release,closed:false,accepted:false}; followers.set(id,follow);
     try {
-      follow.stream = await client.follow(id,{cards:()=>runtime.cards(id),onRawEvent:event=>recordRaw(id,event)});
+      follow.stream = await followOf(id);
       const first = await follow.stream.next();
       if (first.done || first.value.type !== 'snapshot') throw new BffError('INCOMPATIBLE','Missing DSH follow snapshot');
       if (disposed || follow.closed) throw new BffError('DISCONNECTED','BFF is stopping',503);
@@ -279,6 +322,11 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
         const current = requireSession(id);
         if (pending.has(id) || current.running) throw new BffError('CONFLICT','Session is already running',409);
         pending.add(id); let follow;
+        const previousTurn=runtime.ownerTurns.get(id);
+        const turn=hooks.ownerTurn===true ? randomUUID() : undefined;
+        runtime.grants.endTask(previousTurn);
+        if (turn) runtime.ownerTurns.set(id,turn);
+        else runtime.ownerTurns.delete(id);
         try {
           await callLog.prepare();
           if (!current.title) {
@@ -287,7 +335,8 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
             await client.renameSession(id,title); await store.update(id,{title});
           }
           follow = await openBackground(id,hooks);
-          await store.update(id,{running:true,lastText:cut(text,120),lastRole:'user',updatedAt:now()});
+          await store.update(id,{running:true,lastText:cut(text,120),lastRole:'user',updatedAt:now(),
+            ...(hubConfig.self_edit?.enabled ? {selfEditOwnerTurn:hooks.ownerTurn===true} : {})});
           await runtime.publishStatus();
           hooks.onDispatch?.();
           const receipt = await client.prompt(id,text,hooks.requestId);
@@ -302,7 +351,15 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
             await store.update(id,{running:false,lastRole:'error',lastText:'出错了',updatedAt:Date.now()});
           }
           throw error;
-        } finally { pending.delete(id); }
+        } finally {
+          pending.delete(id);
+          const done=()=>{
+            if (runtime.ownerTurns.get(id)===turn) runtime.ownerTurns.delete(id);
+            runtime.grants.endTask(turn);
+          };
+          if (follow?.accepted) void follow.task.then(done,done);
+          else done();
+        }
 
   }
   const runtime = new HubRuntime({store,client,configDir,hubHome,now,roster,ledger,send:sendMessage,logger});
@@ -331,7 +388,8 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
   const delegations = new Delegations({runtime,ticketsDir,bots,roster,send:sendMessage,client,store,ledger,now,logger,
     isStopped:() => depsStopped({dataDir,hubConfig,hubHome},{whenUnknown:false})});
   if(interactions) client.setInteractionHandler?.((frame,signal)=>runtime.receive(frame,signal),()=>{void runtime.lost().catch(()=>logger.error('HUB_APPROVAL_CLOSE_FAILURE'));});
-  const kernel = {modelCatalog:() => client.modelCatalog(),createSession:args => client.createSession(args)};
+  const kernel = {modelCatalog:() => client.modelCatalog(),createSession:args => client.createSession(args),
+    prompt:(id,text) => client.prompt(id,text),follow:id => client.follow(id),cancel:id => client.cancel(id)};
   // 内核没有删会话的入口；只聊天名单写失败时把会话记进放弃名单，从此不再送话、不进清单，
   // 并尽力取消在跑的回合、改标题提醒。名单内存里当场生效。
   kernel.discardSession = async id => {
@@ -348,8 +406,52 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
     const value = request.headers?.['x-hub-device'];
     return typeof value === 'string' && /^[a-f0-9]{16}$/u.test(value);
   }
-  const deps = {configDir,dataDir,hubHome,hubConfig,roster:rosterView(roster),board,ledger,
-    sessions:{create:createHubSession,send:sendFromExtension,cancel:id => client.cancel(requireSession(id).id),
+  function ownerProof(request) {
+    if (!ownerDeviceHeader(request)) return false;
+    if (!ownerKey) return !requireOwnerProof;
+    const device=request.headers['x-hub-device'];
+    const proof=request.headers['x-hub-owner-proof'];
+    const parts=typeof proof==='string' && /^(\d{13})\.([a-f0-9]{64})$/u.exec(proof);
+    if (!parts || Math.abs(now()-Number(parts[1]))>60000) return false;
+    const data=[device,request.method,request.url,parts[1]].join('\n');
+    return authenticated(parts[2],createHmac('sha256',ownerKey).update(data).digest('hex'));
+  }
+  const trash = createTrash({ file: join(dataDir, 'trash.json'), now, logger });
+  // 状态里的「正在跑的那段」不选已软删除的段。唤醒仍直接读会话清单。
+  runtime.isChatHidden = id => trash.isSegmentDeleted(id);
+  function filterHistory(value, id) {
+    if (!trash.isSegmentDeleted(id) && !trash.hasMessageDeletion(id)) return value;
+    const messages = Array.isArray(value) ? value : value?.messages;
+    if (!Array.isArray(messages)) return value;
+    const filtered = trash.filterMessages(id, messages);
+    return Array.isArray(value) ? filtered : { ...value, messages: filtered };
+  }
+  async function presentSession(row) {
+    if (!trash.hasMessageDeletion(row.id)) return row;
+    try {
+      const value = await client.history(row.id, { cards: () => [] });
+      const raw = Array.isArray(value) ? value : value?.messages;
+      const messages = trash.filterMessages(row.id, Array.isArray(raw) ? raw : []);
+      const last = [...messages].reverse().find(item => typeof item?.text === 'string' && item.text.trim());
+      if (!last) return { ...row, lastText: '', lastRole: null };
+      const lastRole = last.role === 'user' || last.role === 'assistant' ? last.role : null;
+      return { ...row, lastText: cut(last.text, 120), lastRole };
+    } catch {
+      return { ...row, lastText: '', lastRole: null };
+    }
+  }
+  const deps = {configDir,dataDir,hubHome,hubConfig,roster:rosterView(roster),board,ledger,mirror,trash,
+    topicModel,topicTimeoutMs,topicDispatchMs,
+    sessions:{create:createHubSession,
+      createTopic:async (bot,args) => {
+        const fn = handler.extensions.module?.('models')?.createSessionWithModel;
+        if (typeof fn !== 'function') return createHubSession(bot,{title:args.title});
+        roster.enabled(bot);
+        const preset = bots().find(item => item.bot===bot);
+        await requireBotDir(preset);
+        const result = await fn(deps,{bot,title:args.title,model:args.model,cwd:preset.cwd});
+        return deps.sessions.adopt(result.sessionId,bot,args.title);
+      },send:sendFromExtension,cancel:id => client.cancel(requireSession(id).id),
       // 扩展直接经内核建的会话（/models/sessions）登记进会话清单，主人看得见。
       adopt:async (id,bot,title='') => {
         const sid=sessionId(id);roster.enabled(bot);
@@ -358,21 +460,33 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
           lastText:'',lastRole:null,updatedAt:Date.now(),unread:0,running:false});
         await runtime.publishStatus();return row;
       },
-      list:({all=false}={}) => store.list().filter(row => all || row.hidden!==true),
+      // 不带 all 的清单给「当前段」这类选择用，已删整段不出现。all 仍含它们，唤醒逻辑不变。
+      list:({all=false}={}) => store.list().filter(row =>
+        all || (row.hidden !== true && !trash.isSegmentDeleted(row.id))),
       // 未读只读这段投影，不把消息再存一份。
-      history:id => client.history(requireSession(id).id,{cards:() => runtime.cards(id)})},
-    cards:{ask:card => runtime.ask(card),
-      pending:() => runtime.cards().filter(c => c.confirm===true && c.status==='pending'),
+      // 已删的消息在这里滤掉；整段删除由未读调用处跳过。
+      history:async id => filterHistory(await client.history(requireSession(id).id,{cards:() => runtime.cards(id)}),id),
+      historyVersion:id => runtime.cards(id).map(card => [card.id,card.status,card.resolvedAt]),
+      historyConnected:() => client.connected,
+      historyPage:(id,options) => client.historyPage(requireSession(id).id,
+        {...options,cards:() => runtime.cards(id)})},
+    cards:{ask:card => runtime.ask(card),open:card => runtime.openConfirmation(card),
+      pending:() => runtime.cards().filter(c => c.type==='approval' && c.status==='pending'),
       // 已经答过的确认卡和审批卡，只给「今天」页的「刚刚发生的」读，不含待答的。
       recent:() => runtime.cards().filter(c => (c.type==='approval' || c.confirm===true) && c.status!=='pending')},
     notify:event => runtime.notify(event),now,priceBook,
     utcOffsetMinutes,logger,isTrusted:request => trusted.has(request),kernel,botsDir,
-    isOwnerDevice:request => trusted.has(request) && ownerDeviceHeader(request),
+    isOwnerDevice:request => trusted.has(request) && ownerProof(request),
+    enforceOwnerProof:requireOwnerProof||Boolean(ownerKey),
     botCwd:bot => bots().find(item => item.bot===bot)?.cwd,
     resolveOwnerSource:createOwnerSourceResolver({root:dataDir}),
-    fullText:createFullTextStore(join(dataDir,'fulltext'))};
+    fullText:createFullTextStore(join(dataDir,'fulltext')),
+    asrLookup,asrProbe};
   const inbox = createBoardInbox({boardDir,stateFile:join(dataDir,'board-inbox.json'),board,roster,
-    sessions:deps.sessions,logger,onEvent:ev => { runtime.boardEvent(ev); relayWake?.onEvent(ev); claimEvent(ev); },
+    sessions:deps.sessions,logger,onEvent:ev => {
+      runtime.boardEvent(ev); relayWake?.onEvent(ev); claimEvent(ev);
+      mirror?.onEvent(ev);
+    },
     isStopped:() => depsStopped(deps,{whenUnknown:false})});
   handoffWake = createHandoffWake({board,roster,sessions:deps.sessions,stateFile:join(dataDir,'handoff-wake.json'),
     now,utcOffsetMinutes,logger,isStopped:() => depsStopped(deps,{whenUnknown:false})});
@@ -383,6 +497,17 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
     // 超时催办分钟数，配置 relay_stall_minutes（默认 30，0 为关）。
     stallMs:integerConfig(hubConfig.relay_stall_minutes,30)*60000});
   deps.relayWake=relayWake;
+  subagentNotes = createSubagentNotes({
+    board,
+    sessionOf: id => {
+      const row = store.get(id);
+      return row ? { bot: row.bot, purpose: row.purpose } : null;
+    },
+    nameOf: bot => roster.list().find(item => item && item.id === bot)?.name || bot,
+    tickets: () => board.list(),
+    relaySessions: () => readRelaySessions(join(dataDir, 'relay-wake.json')),
+    logger,
+  });
   claimWake = createClaimWake({board,roster,sessions:deps.sessions,stateFile:join(dataDir,'claim-wake.json'),
     now,utcOffsetMinutes,logger,isStopped:() => depsStopped(deps,{whenUnknown:false})});
   deps.claimWake=claimWake;
@@ -396,8 +521,8 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
   deps.triggers=triggers;
   deps.extLaunch=extLaunch;
   const idemFlights = new Map();
-  async function submit(id,text,idem) {
-    if(!idem)return {receipt:await sendMessage(id,text),duplicate:false};
+  async function submit(id,text,idem,ownerTurn) {
+    if(!idem)return {receipt:await sendMessage(id,text,undefined,false,{ownerTurn}),duplicate:false};
     const key=id+'\0'+idem;
     if(idemFlights.has(key))return {receipt:await idemFlights.get(key),duplicate:true};
     const saved=store.idempotency.find(r=>r.sessionId===id&&r.idem===idem&&now()-r.ts<600000);
@@ -408,7 +533,7 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
       // 在上游写入前保留号码，回执丢失也不能换一个 requestId 重发。
       store.idempotency.push({sessionId:id,idem,requestId,ts:now()});await store.persist();
       let dispatched=false;
-      try { return await sendMessage(id,text,undefined,false,{requestId,onDispatch:()=>{dispatched=true;}}); }
+      try { return await sendMessage(id,text,undefined,false,{requestId,ownerTurn,onDispatch:()=>{dispatched=true;}}); }
       catch(error) { if(!dispatched) { store.idempotency=store.idempotency.filter(r=>!(r.sessionId===id&&r.idem===idem));await store.persist(); } throw error; }
     })();
     idemFlights.set(key,job);
@@ -425,7 +550,9 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
     if (authorized) trusted.add(request);
     let publicPath;
     try { publicPath = new URL(request.url,'http://127.0.0.1').pathname; } catch {}
-    if (!disposed && (publicPath==='/board' || publicPath?.startsWith('/board/'))) {
+    if (publicPath?.startsWith('/bff/self-edit/')) request.url=request.url.slice(4);
+    if (!disposed && (publicPath==='/board' || publicPath?.startsWith('/board/') ||
+      /^\/(?:bff\/)?self-edit(?:\/|$)/u.test(publicPath??''))) {
       try { await handler.ready; } catch {}
       if (await handler.extensions.handle(request,response,'public')) return;
     }
@@ -439,7 +566,15 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
       const device=runtime.device(request.headers['x-hub-device']);
       if (device) heartbeat.changed();
       const {pathname,searchParams} = new URL(request.url,'http://127.0.0.1');
-      if (await handler.extensions.handle(request,response,'private')) return;
+      // 扩展挂在 /trash。网页层若没剥掉 /bff，这里临时改路径再交给扩展。
+      const originalUrl = request.url;
+      const trashPath = pathname === '/bff/trash' || pathname.startsWith('/bff/trash/');
+      if (trashPath) request.url = originalUrl.replace('/bff/trash', '/trash');
+      try {
+        if (await handler.extensions.handle(request, response, 'private')) return;
+      } finally {
+        if (trashPath) request.url = originalUrl;
+      }
       if (request.method === 'GET' && pathname === '/bff/health') {
         let model;
         try { await client.connect(); const catalog = await client.modelCatalog(); if (catalog?.default?.provider && catalog?.default?.model) model = catalog.default.provider+'/'+catalog.default.model; } catch {}
@@ -473,15 +608,19 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
       const confirm = /^\/bff\/cards\/([^/]+)\/answer$/.exec(pathname);
       if (confirm && request.method==='POST') {
         const input = await body(request);
-        validateFields(input,['choice']);
+        validateFields(input,['choice','confirmationStep']);
         if (!device) throw invalid('需要已登录设备标识');
+        if ((requireOwnerProof||ownerKey)&&!ownerProof(request)) {
+          throw new BffError('FORBIDDEN','请从主人设备确认',403);
+        }
         let id;
         try {
           id = decodeURIComponent(confirm[1]);
         } catch {
           throw invalid('确认卡编号无效');
         }
-        return json(response,200,{ok:true,card:await runtime.answerConfirm(id,input.choice,device)});
+        return json(response,200,{ok:true,card:await runtime.answerConfirm(id,input.choice,device,
+          {owner:ownerProof(request),step:input.confirmationStep})});
       }
       const fullTextRoute=/^\/bff\/fulltext\/([^/]+)$/.exec(pathname);
       if(fullTextRoute && request.method==='GET') {
@@ -493,10 +632,15 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
       if(request.method==='GET' && pathname==='/bff/approvals')return json(response,200,{approvals:runtime.cards().filter(c=>c.type==='approval'&&c.status==='pending')});
       const approval=/^\/bff\/approvals\/([^/]+)\/answer$/.exec(pathname);
       if(approval && request.method==='POST') {
-        const input=await body(request);validateFields(input,['decision','note','remember']);
+        const input=await body(request);validateFields(input,['decision','note','remember','confirmationStep','scope']);
+        if ((requireOwnerProof||ownerKey)&&!ownerProof(request)) {
+          throw new BffError('FORBIDDEN','请从主人设备确认',403);
+        }
+        if (input.scope!==undefined && input.scope!=='task') throw invalid('授权范围无效');
         if((input.remember!==undefined && typeof input.remember!=='boolean') || (input.remember===true && input.decision!=='approve') || !['approve','reject','revise'].includes(input.decision) || (input.note!==undefined&&(typeof input.note!=='string'||Array.from(input.note).length>500)))throw invalid('Invalid approval answer');
         let approvalId;try{approvalId=decodeURIComponent(approval[1]);}catch{throw invalid('Invalid approval id');}
-        return json(response,200,{ok:true,card:await runtime.answer(approvalId,input.decision,input.note,device,input.remember)});
+        return json(response,200,{ok:true,card:await runtime.answer(approvalId,input.decision,input.note,device,input.remember,
+          {owner:ownerProof(request),step:input.confirmationStep,scope:input.scope})});
       }
       if(request.method==='GET' && pathname==='/bff/grants')return json(response,200,{grants:await runtime.grants.list()});
       const revoke=/^\/bff\/grants\/([^/]+)\/revoke$/.exec(pathname);
@@ -516,7 +660,10 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
         if (request.method === 'GET') {
           const bot = searchParams.has('bot') ? searchParams.get('bot') : undefined;
           if (bot !== undefined && !roster.get(bot)) throw invalid('Invalid bot');
-          return json(response,200,{sessions:store.list(bot).filter(row => row.hidden!==true)});
+          const rows = store.list(bot).filter(row => row.hidden !== true && !trash.isSegmentDeleted(row.id));
+          const sessions = [];
+          for (const row of rows) sessions.push(await presentSession(row));
+          return json(response,200,{sessions});
         }
         if (request.method === 'POST') {
           const input = await body(request);
@@ -567,23 +714,30 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
       let id; try { id = sessionId(decodeURIComponent(match[1])); } catch { throw invalid('Invalid session id'); }
       const row = requireSession(id);
       if(request.method==='GET'&&match[2]==='cards')return json(response,200,{cards:runtime.cards(id)});
-      if (request.method === 'GET' && match[2] === 'history') return json(response,200,await client.history(id,{cards:runtime.cards(id)}));
+      if (request.method === 'GET' && match[2] === 'history') {
+        if (trash.isSegmentDeleted(id)) throw new BffError('NOT_FOUND','Hub session not found',404);
+        return json(response,200,filterHistory(await client.history(id,{cards:runtime.cards(id)}), id));
+      }
       if (request.method === 'POST' && match[2] === 'read') {
         validateFields(await body(request),[]); await store.update(id,{unread:0}); await runtime.publishStatus();
         return json(response,200,{ok:true});
       }
       if (request.method === 'POST' && match[2] === 'messages') {
+        if (trash.isSegmentDeleted(id)) throw new BffError('NOT_FOUND','Hub session not found',404);
+        const owner=ownerProof(request);
+        if ((requireOwnerProof||ownerKey)&&!owner) throw new BffError('FORBIDDEN','请从主人设备发起对话',403);
         roster.enabled(row.bot);
         const input = await body(request); validateFields(input,['text','idem']);
         if (typeof input.text !== 'string' || !input.text.trim() || input.text.length > 100000) throw invalid('Text must contain 1–100000 characters');
         const idem=input.idem ?? request.headers['idempotency-key'];
         if(idem!==undefined&&(typeof idem!=='string'||!idem||Array.from(idem).length>64))throw invalid('Invalid idempotency key');
-        const {receipt,duplicate}=await submit(id,input.text,idem);
+        const {receipt,duplicate}=await submit(id,input.text,idem,owner);
         return json(response,duplicate?200:202,{...receipt,...(duplicate?{duplicate:true}:{})});
       }
       if (request.method === 'POST' && match[2] === 'cancel') { validateFields(await body(request),[]); return json(response,200,await client.cancel(id)); }
       if (request.method === 'GET' && match[2] === 'stream') {
-        const stream = await client.follow(id,{cards:()=>runtime.cards(id),onRawEvent:event=>recordRaw(id,event)});
+        if (trash.isSegmentDeleted(id)) throw new BffError('NOT_FOUND','Hub session not found',404);
+        const stream = await followOf(id);
         response.writeHead(200,{'content-type':'text/event-stream; charset=utf-8','cache-control':'no-store','connection':'keep-alive','x-accel-buffering':'no'});
         response.flushHeaders?.();
         const close = () => stream.dispose(); active.add(close); response.once('close',close);
@@ -620,17 +774,20 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
   };
   handler.extensions = {names:[],handle:async () => false,matches:() => false,module:() => undefined,
     start:async () => {},stop:async () => {}};
-  handler.ready = Promise.all([store.ready,roster.load()]).then(async () => {
+  handler.trash = trash;
+  handler.ready = Promise.all([store.ready,roster.load(),trash.ready]).then(async () => {
     await runtime.grants.readDays();
     await runtime.publishStatus();
     await heartbeat.start();
+    if (!disposed) void mirror.rebuild('启动全量重建');
+    if (!disposed) inboxDrop.start();
     if (hubConfig.models!==undefined) {
       try {
         await lstat(join(configDir,'models.json'));
         logger.log('HUB_MODELS_CONFIG: hub.yaml 与 models.json 都有，以 hub.yaml 为准');
       } catch (error) { if (error.code!=='ENOENT') logger.error('HUB_MODELS_CONFIG_UNREADABLE'); }
     }
-    handler.extensions = await loadExtensions({dir:extDir,deps,logger});
+    handler.extensions = await loadExtensions({dir:extDir,deps,logger,ownAuth:['board','self-edit']});
     if (!disposed) inbox.start();
     if (!disposed) handoffWake.start();
     if (!disposed) { relayWake.start(); void relayWake.resume(); }
@@ -657,6 +814,8 @@ export function createHandler({client,key,hubHome = process.env.HUB_HOME ?? join
   };
   handler.dispose = async () => {
     disposed = true;
+    await inboxDrop.stop();
+    await mirror.dispose();
     await inbox.stop();
     await handoffWake.stop();
     await relayWake.stop();
@@ -693,6 +852,9 @@ export async function startServer({host = process.env.HOST ?? process.env.BFF_HO
   const server = serverFactory((req,res) => { void handler(req,res); });
   server.requestTimeout = 15000; server.headersTimeout = 10000;
   try {
+    await assertVoiceStartup(handler.deps?.hubConfig?.voice, {
+      lookup: handler.deps?.asrLookup, probe: handler.deps?.asrProbe,
+    });
     await new Promise((resolve,reject) => { server.once('error',reject); server.listen(port,host,resolve); });
     await handler.start();
   } catch(error) {
@@ -708,7 +870,13 @@ export function installShutdown(app) {
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    const app = await startServer(); console.log('hub-bff listening on '+app.server.address().address+':'+app.server.address().port);
+    const ownerKeyPath=process.env.HUB_WEB_KEY_FILE ?? fileURLToPath(new URL('../hub-web/run/hub-web.key',import.meta.url));
+    const ownerKey=await lstat(ownerKeyPath).then(()=>readSecret(ownerKeyPath),error=>{
+      if (error.code!=='ENOENT') throw error;
+      return undefined;
+    });
+    const app = await startServer({ownerKey,requireOwnerProof:true});
+    console.log('hub-bff listening on '+app.server.address().address+':'+app.server.address().port);
     installShutdown(app);
   } catch (error) { const safe = publicError(error); console.error(safe.code+': '+safe.message); process.exitCode = 1; }
 }

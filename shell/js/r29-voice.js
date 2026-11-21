@@ -371,9 +371,24 @@
     paint();
   }
 
+  function limitError(result) {
+    return !!(result && (result.error === 'audio-too-large' || result.error === 'audio-too-long'));
+  }
+
   function applyResult(data, result) {
+    if (limitError(result)) {
+      data.kind = 'limit';
+      data.asr = false;
+      data.caption = typeof result.message === 'string' && result.message
+        ? result.message : '这段录音超过了限制，录音已保存';
+      phase = 'sent';
+      paintBubble();
+      finishSent();
+      return;
+    }
     if (result && result.error === 'asr-unavailable') {
       data.kind = 'asr';
+      data.asr = false;
       data.caption = '录音已保存，转文字还没接上';
       phase = 'sent';
       paintBubble();
@@ -382,13 +397,24 @@
     }
     if (result && result.ok) {
       data.kind = 'text';
+      data.asr = result.asr === true;
       data.caption = typeof result.text === 'string' ? result.text : '';
       phase = 'sent';
       paintBubble();
       finishSent();
       return;
     }
+    if (result && result.asr === true) {
+      data.kind = 'retry';
+      data.asr = true;
+      data.caption = '转文字暂时不可用，录音已保存';
+      phase = 'failed';
+      paintBubble();
+      paint();
+      return;
+    }
     data.kind = 'retry';
+    data.asr = false;
     data.caption = '没发出去，录音还在。';
     phase = 'failed';
     paintBubble();
@@ -436,6 +462,11 @@
 
   function beginSend() {
     if (!session || !session.blob || session.posted || phase === 'sending') return;
+    try {
+      document.dispatchEvent(new CustomEvent('r45-voice-sent', {
+        detail: { conversation: session.conversation || '', bot: session.bot || '' }
+      }));
+    } catch (err) { /* 没有事件也不拦发送 */ }
     phase = 'sending';
     session.kind = 'sending';
     session.caption = '正在发送';
@@ -544,7 +575,9 @@
       var fail = document.createElement('span');
       fail.className = 'r29-voice-live';
       fail.setAttribute('aria-live', 'polite');
-      fail.textContent = '没发出去，录音还在。';
+      var failText = session && session.asr
+        ? '转文字暂时不可用，录音已保存' : '没发出去，录音还在。';
+      fail.textContent = failText;
       box.append(fail);
       return;
     }

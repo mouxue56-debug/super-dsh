@@ -27,10 +27,14 @@ cmd_timeout_ms: 60000
 cmd_timeout_max_ms: 600000
 cmd_output_bytes: 4096
 cmd_grant_days: 30
-cmd_deny_paths: ["~/.secrets","~/.ssh","~/.gnupg","~/Library/Keychains","~/.config","~/.codex","~/.grok","~/.claude","~/.local/share/opencode","~/.dsh","~/.agents","$HUB_HOME/config","$HUB_HOME/dev-home*","$HUB_HOME/dsh-hub","/Applications/DeepSeek Harness.app","/Library/LaunchDaemons","/Library/LaunchAgents","~/Library/LaunchAgents","/etc","/System"]
+cmd_deny_paths: ["~/.secrets","~/.ssh","~/.gnupg","~/Library/Keychains","~/.config","~/.codex","~/.grok","~/.claude","~/.local/share/opencode","~/.dsh","~/.agents","$HUB_HOME/config","$HUB_HOME/dev-home*","/Applications/DeepSeek Harness.app","/Library/LaunchDaemons","/Library/LaunchAgents","~/Library/LaunchAgents","/etc","/System"]
 cmd_taint_tools: []
 expected_tools: {"bot":["read","write","edit","list_files","ticket_create","ticket_update","ticket_move","bot_status","bot_list","bot_update","bash"],"chief":["read","write","edit","list_files","ticket_create","ticket_update","ticket_move","bot_status","bot_list","bot_update","bash","bot_create","bot_set_status","delegate_to_bot"]}
+# 第45轮：派分身（工具名 subagent）登记后按 L0，三档都不拦这个动作本身。没挂上本体包时只是「工具缺少」，不会停用别的工具。启用步骤见 packages/devinst/subagent.patch.yml，本样例不启用包。
+kernel_tools: ["subagent"]
 bot_list: "L0"
 bot_create: "L3"
 bot_update: "L3"
 bot_set_status: "L3"
+# 改自己工具默认只给开通说明；hub.yaml 的 self_edit.enabled 默认 false。
+plugin_tools: ["self-edit"]

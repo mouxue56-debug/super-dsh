@@ -374,9 +374,15 @@
   /* ---------- 点击 ---------- */
   function send(kind, id, payload, failText, okText) {
     if (typeof r30Send !== 'function') return Promise.resolve(false);
-    return r30Done(r30Send(kind, id, payload), function () { say(failText); }).then(function (ok) {
-      if (ok && okText) say(okText);
-      return ok;
+    var pending = false;
+    var request = r30Send(kind, id, payload).then(function (ticket) {
+      pending = ticket && ticket.awaitingConfirmation === true;
+      return ticket;
+    });
+    return r30Done(request, function () { say(failText); }).then(function (ok) {
+      if (ok && pending) say('请在今天页的「等你处理」里核对对象，再确认一次');
+      else if (ok && okText) say(okText);
+      return ok && pending ? {awaitingConfirmation: true} : ok;
     });
   }
   function onClick(event) {
@@ -502,7 +508,9 @@
       node.disabled = true;
       if (!real()) { NS.demoDecide(id, tok ? 'ok' : 'skip'); NS.todayDone(node, tok ? '已照首席的意思办' : '先不做，卡回到待领'); return; }
       send('arrange', id, {action: tok ? 'ok' : 'skip'}, '没成，请再试一次', null).then(function (ok) {
-        if (ok) NS.todayDone(node, tok ? '已照首席的意思办' : '先不做，卡回到待领'); else node.disabled = false;
+        if (ok) NS.todayDone(node, ok.awaitingConfirmation ?
+          '请在「等你处理」里核对对象，再确认一次' : tok ? '已照首席的意思办' : '先不做，卡回到待领');
+        else node.disabled = false;
       });
       return;
     }
@@ -524,7 +532,8 @@
       if (!who) return;
       if (!real()) { NS.demoDecide(id, 'swap', who); NS.todayDone(node, '已换成' + who.name); return; }
       send('arrange', id, {action: 'swap', who: who.id}, '没换成，请再试一次', null).then(function (ok) {
-        if (ok) NS.todayDone(node, '已换成' + who.name);
+        if (ok) NS.todayDone(node, ok.awaitingConfirmation ?
+          '请在「等你处理」里核对对象，再确认一次' : '已换成' + who.name);
       });
     }
   }

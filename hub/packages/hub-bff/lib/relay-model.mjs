@@ -61,17 +61,20 @@ export function parseRoute(steps, { min = RELAY_MIN_STEPS, first = true } = {}) 
       if (index === 0 && first) bad('第 1 棒不能是主人，要先有人动手');
       who.name = OWNER_NAME;
     }
+    if (raw.aside === true && who.type !== 'assistant') bad(`第 ${index + 1} 棒「另开一段会话」只适用于助理`);
     return {
       who,
       task,
       doneWhen: flat(raw.doneWhen ?? raw.done_when, 300),
       gate: who.type === 'owner' ? false : raw.gate === true,
+      ...(raw.aside === true ? { aside: true } : {}),
     };
   });
 }
 
 const blankStep = (item) => ({
   who: item.who, task: item.task, doneWhen: item.doneWhen, gate: item.gate,
+  ...(item.aside === true ? { aside: true } : {}),
   status: 'waiting', startedAt: null, deliveredAt: null, note: null, noteBy: null,
   question: null, stuckAt: null, resumedAt: null, gateAt: null, releasedAt: null, returnedNote: null,
   stalledAt: null, nudgedAt: null,
@@ -80,6 +83,21 @@ const blankStep = (item) => ({
 // 把整理好的路线做成卡上的 relay 数据（还没开始）。
 export function newRelay(items) {
   return { v: 1, phase: 'running', current: 0, finalAt: null, steps: items.map(blankStep) };
+}
+
+const CLONE_ID = /^[^\p{Cc}\p{Zl}\p{Zp}]{1,80}$/u;
+function cloneIdsOk(value) {
+  return Array.isArray(value) && value.length <= 32 &&
+    value.every((item) => typeof item === 'string' && CLONE_ID.test(item));
+}
+// 这一棒用过几个分身。缺省当作没有。坏数字或坏编号整段接力作废。
+function clonesOk(step) {
+  const countOk = step.clones == null ||
+    Number.isSafeInteger(step.clones) && step.clones >= 0 && step.clones <= 32;
+  if (!countOk) return false;
+  if (step.cloneCalls != null && !cloneIdsOk(step.cloneCalls)) return false;
+  if (step.cloneBack != null && !cloneIdsOk(step.cloneBack)) return false;
+  return true;
 }
 
 // 结构校验：给 validateTicket 用。没有 relay 的卡不调用。
@@ -94,7 +112,8 @@ export function validRelay(relay) {
     maybeText(step.doneWhen, 600) && typeof step.gate === 'boolean' && STEP_STATUS.includes(step.status) &&
     ['startedAt', 'deliveredAt', 'stuckAt', 'resumedAt', 'gateAt', 'releasedAt', 'stalledAt', 'nudgedAt'].every((key) => iso(step[key])) &&
     maybeText(step.note, 8000) && maybeText(step.noteBy, 64) && maybeText(step.question, 4000) &&
-    maybeText(step.returnedNote, 4000));
+    maybeText(step.returnedNote, 4000) && (step.aside == null || typeof step.aside === 'boolean') &&
+    clonesOk(step));
 }
 
 export const stepOf = (ticket) => ticket.relay?.steps?.[ticket.relay.current] ?? null;
@@ -291,6 +310,7 @@ export function routeLines(ticket) {
   const relay = ticket.relay;
   const word = { waiting: '还没轮到', active: '正在做', gate: '等主人', stuck: '卡住了', done: '已交回', failed: '做不了' };
   return relay.steps.map((step, i) => `第 ${i + 1} 棒 ${step.who.type === 'owner' ? '主人' : step.who.name}`
+    + (step.aside === true ? '（另开一段会话）' : '')
     + `（${word[step.status] ?? step.status}）：${step.task}`);
 }
 

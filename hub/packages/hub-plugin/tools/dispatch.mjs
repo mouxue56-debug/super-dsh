@@ -122,9 +122,9 @@ export function register(ctx, deps) {
   ctx.tools.register({
     name: 'dispatch_prepare',
     material: false,
-    description: '为一件复杂的活建一张外包工单：写清任务书、验收清单、派给哪位外部工人、用哪个模型'
-      + '（按主人口述的派活规则填；规则里没有就先问主人，不要自己猜）。简单的事自己做，不要外包。'
-      + '建好后用 dispatch_external 交出去。',
+    description: '主人点头要把整件交给外部工人时，才建外包工单：任务书、验收、派给谁、用哪个模型'
+      + '（按主人口述的规则填；没有规则就先问主人）。不要因为活复杂就建议外派。'
+      + '建好后仍要主人在确认卡点头，再用 dispatch_external 交出去。',
     parameters: {
       type: 'object',
       properties: {

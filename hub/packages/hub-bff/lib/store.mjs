@@ -16,6 +16,7 @@ const metaText = v => typeof v === 'string' && v.length > 0 && v.length <= 100 &
 const cleanRow = row => ({id:row.id, bot:row.bot, title:row.title, lastText:row.lastText,
   lastRole:row.lastRole, updatedAt:row.updatedAt, unread:row.unread, running:row.running,
   ...(row.hidden === true ? {hidden:true} : {}),
+  ...(typeof row.selfEditOwnerTurn === 'boolean' ? {selfEditOwnerTurn:row.selfEditOwnerTurn} : {}),
   ...(metaText(row.purpose) ? {purpose:row.purpose} : {}),
   ...(metaText(row.groupId) ? {groupId:row.groupId} : {})});
 

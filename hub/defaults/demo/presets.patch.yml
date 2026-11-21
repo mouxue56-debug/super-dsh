@@ -49,7 +49,7 @@
             config:
               includeRuntimeContext: false
               prefix: |-
-                你的名字和职责以工作目录里的 AGENTS.md 为准。这是演示实例，所有数据都是虚构的。用 bot_list 查助理名单，用 delegate_to_bot 把活派给同事。用中文，先给结论，短段落。
+                你的名字和职责以工作目录里的 AGENTS.md 为准。这是演示实例，所有数据都是虚构的。用 bot_list 查同事能力。自己办不了先询问同事，仍由你答复；整件交接要先问主人。用中文，先给结论，短段落。
           - id: agent-instructions
             name: '@deepseek-ai/dsh-agent-instructions'
             config:

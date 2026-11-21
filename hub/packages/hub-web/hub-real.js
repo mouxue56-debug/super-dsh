@@ -178,8 +178,13 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
       for (const t of m.tools) {
         if (!t || typeof t.id !== 'string' || !t.id || typeof t.name !== 'string') continue;
         const entry = { ...t, kind: 'tool', ts: t.ts ?? m.ts, seq: t.seq ?? m.seq };
-        if (tools.has(t.id)) { const old = tools.get(t.id); Object.assign(old, entry, { ts: old.ts ?? entry.ts, seq: old.seq ?? entry.seq }); }
-        else { tools.set(t.id, entry); out.push(entry); }
+        const key = m.session ? m.session + '\n' + t.id : t.id;
+        if (m.session) entry.session = m.session;
+      if (m.topic) entry.topic = m.topic;
+        if (tools.has(key)) {
+          const old = tools.get(key);
+          Object.assign(old, entry, { ts: old.ts ?? entry.ts, seq: old.seq ?? entry.seq });
+        } else { tools.set(key, entry); out.push(entry); }
       }
     }
     return out;
@@ -200,7 +205,8 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     delegate_to_bot: ['派任务', '派了一项任务'], bot_list: ['查看助理名册', '看了助理名册'],
     list_bots: ['查看助理名册', '看了助理名册'], bot_create: ['新建助理', '建了一个助理'],
     bot_update: ['修改助理资料', '改了助理资料'], bot_set_status: ['停用或恢复助理', '改了助理状态'],
-    send_to_bot: ['转给别的助理', '转给了别的助理'], board_list: ['查看看板', '看了看板'],
+    send_to_bot: ['主人点头后转给同事', '转给了同事'], ask_colleague: ['询问同事', '问了同事'],
+    board_list: ['查看看板', '看了看板'],
     board_report: ['在看板上报进度', '在看板上报了进度'], board_review: ['验收工单', '验收了工单'],
     rules_read: ['查看规矩', '看了规矩'], rule_note: ['记一条规矩', '记了一条规矩'],
     rule_propose_shared: ['提议一条共用规矩', '提议了一条共用规矩'], dispatch_prepare: ['准备外派', '写好了外派任务书'],
@@ -299,7 +305,7 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
   const BOARD_COLUMNS = [
     { id: 'queued', label: '待领' },
     { id: 'progress', label: '在做' },
-    { id: 'review', label: '待验收' },
+    { id: 'review', label: '等验收' },
     { id: 'attention', label: '要你看' },
     { id: 'done', label: '完成' },
     { id: 'failed', label: '失败' }
@@ -556,40 +562,45 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
   // 区分已上报的用量和未知用量。
   function bucketTokens(bucket) {
     if (!bucket || typeof bucket !== 'object') return { known: false, total: null, unreported: 0, parts: {} };
-    const keys = ['input', 'cacheRead', 'cacheWrite', 'output', 'reasoning'];
-    const parts = Object.fromEntries(keys.slice(0, 4).map(k => [k,
-      typeof bucket.tokens?.[k] === 'number' && Number.isFinite(bucket.tokens[k]) ? bucket.tokens[k] : null]));
+    const keys = ['input', 'cacheRead', 'cacheWrite', 'output'];
     const counts = keys.map(k => Number.isFinite(bucket.unreportedFields?.[k]) ? bucket.unreportedFields[k] : 0);
+    const parts = Object.fromEntries(keys.map((k, i) => [k,
+      Number.isFinite(bucket.tokens?.[k]) && counts[i] < bucket.calls ? bucket.tokens[k] : null]));
     // 只数缺输入或输出的调用。不少模型从不报缓存写、推理 token，按五项取最大会把每次都算成「没上报」。
     const unreported = Math.max(0, counts[0], counts[3]);
-    const known = Number.isSafeInteger(bucket.calls) && bucket.calls > 0 && !counts.every(n => n >= bucket.calls);
-    const sum = keys.reduce((n, k) => n + (Number.isFinite(bucket.tokens?.[k]) ? bucket.tokens[k] : 0), 0);
+    const known = Number.isSafeInteger(bucket.calls) && bucket.calls > 0 && keys.some(k => parts[k] !== null);
+    const sum = keys.reduce((n, k) => n + (parts[k] ?? 0), 0);
     const total = known ? sum : null;
     return { known, total, unreported, parts };
+  }
+
+  function ledgerMoney(currency, amount) {
+    const symbol = currency === 'CNY' ? '¥' : currency === 'USD' ? '$' : currency + ' ';
+    return symbol + (amount > 0 && amount < 0.01 ? '<0.01' : amount.toFixed(2));
   }
 
   // 将账本费用翻译为可读文本。
   function bucketCost(bucket) {
     if (!bucket || !(bucket.calls > 0)) return [];
     const cost = bucket.cost || {};
-    const amount = (currency, n) => {
-      const symbol = currency === 'CNY' ? '¥' : currency === 'USD' ? '$' : currency + ' ';
-      return symbol + (n > 0 && n < 0.01 ? '<0.01' : Number(n).toFixed(2));
-    };
     const rows = [];
     for (const [currency, value] of Object.entries(cost.byCurrency || {})) {
-      if (value?.ok > 0) rows.push(amount(currency, value.ok));
-      if (value?.expired > 0) rows.push('价表过期 ' + amount(currency, value.expired));
+      if (Number.isFinite(value?.ok) && (value.ok > 0 || value.ok === 0 && !value.expired)) {
+        rows.push(ledgerMoney(currency, value.ok));
+      }
+      if (Number.isFinite(value?.expired) && value.expired > 0) {
+        rows.push('价表过期 ' + ledgerMoney(currency, value.expired));
+      }
     }
-    if (cost.pendingCalls > 0) rows.push(cost.pendingCalls + ' 次待计价');
+    if (cost.pendingCalls > 0) rows.push(cost.pendingCalls + ' 次只有用量记录');
     if (cost.planCalls > 0) {
       rows.push('套餐内 ' + cost.planCalls + ' 次');
       const ref = cost.planReference;
       if (ref && typeof ref.currency === 'string' && Number.isFinite(ref.amount)) {
-        rows.push('折算参考 ' + amount(ref.currency, ref.amount));
+        rows.push('折算参考 ' + ledgerMoney(ref.currency, ref.amount));
       }
     }
-    if (cost.localCalls > 0) rows.push('本地 ' + cost.localCalls + ' 次');
+    if (cost.localCalls > 0) rows.push('本地模型，不计费 · ' + cost.localCalls + ' 次');
     return rows.length ? rows : ['费用未知'];
   }
 
@@ -1079,6 +1090,8 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
   try { coldRoute = JSON.parse(read('hub-real-route-v1', 'null')); } catch {}
   const originals = { post: H.postMessage, conversations: H.conversationsHTML, navigate: H.navigate, capability: H.runCapability };
   const records = new Map(), remoteRecords = new Map(), selected = new Map(), jobs = new Map(), demo = new Map();
+  const threadRecords = new Map();
+  let threadRows = null, threadListPending = null, threadListAt = 0;
   const botPhase = new Map(), epochs = new Map(), turns = [];
   const serverRunning = new Map(), serverUnread = new Map(), serverPending = new Map(), delegated = new Map(), cards = new Map(), phrases = new Map();
   const cardNames = new Map();
@@ -1123,8 +1136,12 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
   };
   function post(r, message) {
     const ts = message.ts ?? Date.now();
-    const optimistic = message.role === 'user' ? { timelineLocal: true, timelineAfterSeq: Math.max(-1, ...r.messages.filter(hasSeq).map(m => m.seq)) } : {};
-    return H.postMessage(r.local, { ...optimistic, ...message, id: uid(), hubReal: true, ts, time: messageDate(ts)?.time || '' });
+    const lastSeq = message.role === 'user' ? r.messages.reduce((max, item) =>
+      (!r.line || item.session === r.remote) && hasSeq(item) ? Math.max(max, item.seq) : max, -1) : -1;
+    const optimistic = message.role === 'user' ? { timelineLocal: true, timelineAfterSeq: lastSeq } : {};
+    return H.postMessage(r.local, { ...optimistic, ...message, id: uid(), hubReal: true, ts,
+      ...(r.line ? { session: r.remote, threadLocal: true, threadOrderAt: Date.now() } : {}),
+      time: messageDate(ts)?.time || '' });
   }
   function assertBot(bot) {
     if (!isBot(bot)) throw new Error('样例隔离断言：名册以外的助理禁止发送');
@@ -1964,7 +1981,19 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
       if (!flatHome) grid.querySelectorAll('[data-bot-tree]').forEach(host=>{if(H.subBots?.(host.dataset.botTree)?.length)host.append(H.h('div',{class:'shell-sub-avatars'},H.h('span',{class:'home-child-count',style:'display:none'})));});
       grid.dataset.realRoster=String(rosterVersion);
     }
-    grid?.querySelectorAll('[data-bot-tree]').forEach(host=>{const id=host.dataset.botTree,b=roster.get(id),caption=host.querySelector('small'),pending=serverPending.get(id)||0,busy=serverRunning.get(id)||delegated.get(id)?.running||delegated.get(id)?.queued>0||[...jobs.values()].some(j=>j.r.bot===id);if(caption)r29ApplyCaption(caption,id,b,pending,busy);const dot=host.querySelector('.bot-unread'),unread=serverUnread.get(id)||0;if(unread && !dot)host.querySelector('.pin').append(H.h('i',{class:'bot-unread home-assistant-unread','aria-label':'未读'}));if(!unread)dot?.remove();});
+    grid?.querySelectorAll('[data-bot-tree]').forEach(host => {
+      const id = host.dataset.botTree, pending = serverPending.get(id) || 0;
+      const busy = serverRunning.get(id) || delegated.get(id)?.running || delegated.get(id)?.queued > 0 ||
+        [...jobs.values()].some(job => job.r.bot === id);
+      const caption = host.querySelector('small');
+      if (caption) r29ApplyCaption(caption, id, roster.get(id), pending, busy);
+      const dot = host.querySelector('.bot-unread');
+      const unread = threadRows ? threadUnread(id) : serverUnread.get(id) || 0;
+      if (unread && !dot) host.querySelector('.pin').append(H.h('i', {
+        class: 'bot-unread home-assistant-unread', 'aria-label': '未读'
+      }));
+      if (!unread) dot?.remove();
+    });
     grid?.querySelectorAll('[data-bot-tree]').forEach(host => r29PaintUnread(host));
     document.querySelectorAll('[data-nameplate-bot]').forEach(n=>{if(!isBot(n.dataset.nameplateBot))return;const b=roster.get(n.dataset.nameplateBot),suffix=n.textContent.includes(' · ')?' · '+n.textContent.split(' · ').slice(1).join(' · '):'';n.textContent=b.name+suffix;n.setAttribute('style',H.botStyle(b.id));});
     document.querySelectorAll('.compact-bots [data-act="bot"]').forEach(n=>{const b=roster.get(n.dataset.id);if(b){n.hidden=b.status!=='active';n.setAttribute('aria-label',b.name);n.replaceChildren(avatarNode(b.avatar,b.id));}else n.hidden=true;});
@@ -2016,7 +2045,7 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
       try { await refreshList(); } catch { /* 名单没刷新时改走今天这一页 */ }
       const meta = sessions.find(item => item && item.id === entry.id);
       if (meta && isBot(meta.bot)) {
-        await open(record(meta.bot, meta.id, meta.title || '会话'));
+        await openThreadSource(meta.bot, meta.id, meta.title || '会话');
         return;
       }
     }
@@ -2130,7 +2159,11 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
       const row=H.h('section',{class:'hub-real-bot-row'+(b.status==='active'?'':' hub-real-disabled'),'data-real-bot-row':b.id});
       row.append(avatarNode(b.avatar,b.id),H.h('div',{class:'grow'},[profiles?H.h('strong',{},b.name):H.h('button',{type:'button',class:'textbutton hub-real-bot-name','data-real-bot-name':b.id,onClick:()=>openProfile(b.id)},b.name),H.h('p',{},b.duty || '还没写职责'),H.h('small',{},b.status==='active'?'可接任务':'已停用 · 旧会话只读')]));
       if(profiles)row.append(H.h('button',{type:'button',class:'ghostbtn',onClick:()=>openProfile(b.id)},'查看资料'));
-      else {const onHome=b.status==='active'&&!!document.querySelector('.sidebar .pinned [data-bot-tree="'+b.id+'"]');if(!onHome)row.append(H.h('button',{type:'button',class:'ghostbtn',disabled:b.status!=='active',onClick:()=>{S.drawer=null;let r=selected.get(b.id);const latest=sessions.find(s=>s.bot===b.id);if(latest && !r.fresh)r=record(b.id,latest.id,latest.title);void open(r);}},'聊天'));}
+      else {
+        const onHome = b.status === 'active' && !!document.querySelector('[data-bot-tree="' + b.id + '"]');
+        if (!onHome) row.append(H.h('button', { type: 'button', class: 'ghostbtn', disabled: b.status !== 'active',
+          onClick: () => { if (threadRows) void openThread(b.id); else void openRecentSession(b.id); } }, '聊天'));
+      }
       host.append(row);
     }
   }
@@ -2236,19 +2269,32 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
   `;document.head.append(rosterCSS);
   if(mode==='real' && typeof window.fetch==='function')void loadRolePack();
   function attachCards(r) {
+    const scopes = r.line && new Map();
+    if (scopes) for (const message of r.messages) {
+      if (!message.session || message.kind === 'segment' || message.hubCard) continue;
+      const t = threadTime(message), range = scopes.get(message.session) || [t, t];
+      range[0] = Math.min(range[0], t); range[1] = Math.max(range[1], t); scopes.set(message.session, range);
+    }
     for (const c of cards.values()) {
-      if (c.sessionId !== r.remote) continue;
+      if (scopes) {
+        const range = scopes.get(c.sessionId), t = threadTime({ ts: c.createdAt });
+        const atTail = c.sessionId === r.remote && !r.line.after;
+        const inRange = range && t >= range[0] && (t <= range[1] || atTail);
+        if (!inRange && !(atTail && jobs.has(r.local))) continue;
+      } else if (c.sessionId !== r.remote) continue;
       const key = c.type + ':' + c.id;
       let m = cardMessages.get(key);
       if (!m) {
-        m = { id: uid(), hubReal: true, ts: c.createdAt, from: r.bot, role: 'bot', status: 'delivered',
+        m = { id: uid(), hubReal: true, hubCard: true, session: c.sessionId, ts: c.createdAt,
+          from: r.bot, role: 'bot', status: 'delivered',
           time: messageDate(c.createdAt)?.time || '', parts: [{ type: 'hub-real-' + c.type, data: c }] };
         cardMessages.set(key, m);
       }
       m.ts = c.createdAt; m.seq = c.seq;
       if (!r.messages.includes(m)) r.messages.push(m);
     }
-    sortTimeline(r.messages);
+    if (scopes) r.messages.sort(compareThread);
+    else sortTimeline(r.messages);
   }
   function upsertCard(value, { render = true } = {}) {
     if (!value || !['approval','delegation'].includes(value.type) || typeof value.id !== 'string' ||
@@ -2283,7 +2329,11 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
         const b = S.bots.find(b => b.id === c.bot); if (b && c.status === 'done') { b.unread = Math.max(1, b.unread || 0); serverUnread.set(c.bot, b.unread); }
       }
     }
-    if (render && active(r)) H.reading.preserve(redraw, { reason: 'real-card' });
+    const line = current();
+    if (line?.line && active(line) && line.bot === owner) {
+      attachCards(line);
+      if (render) threadPaint(line, true);
+    } else if (render && active(r)) H.reading.preserve(redraw, { reason: 'real-card' });
     decorate();
     if (S.drawer === 'hub-real-card' && drawerCard === c.id) {
       const host = document.querySelector('.drawer [data-hub-panel]');
@@ -2291,6 +2341,9 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     }
     if (S.drawer === 'hub-real-activity') {
       const host = document.querySelector('.drawer [data-hub-panel]'); if (host) renderApprovals(host);
+    }
+    if (wasPending && c.status !== 'pending' && S.drawer === 'hub-real-today') {
+      const host = document.querySelector('.drawer [data-hub-panel]'); if (host) void renderToday(host);
     }
   }
   function relativePath(path) { return shortPath(path,hubHomePrefix); }
@@ -2364,6 +2417,18 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     if (c.confirm === true && typeof c.text === 'string' && c.text) {
       root.append(H.h('div', { class: 'hub-real-confirm-text', style: 'white-space: pre-wrap' }, c.text));
     }
+    if (c.confirmationTotal || c.consequence || c.targets) {
+      const confirmation = H.h('section', {'data-confirmation-details': '', style: 'overflow-wrap:anywhere'});
+      if (c.confirmationTotal === 2) confirmation.append(H.h('p', {role: 'status'},
+        c.confirmationStep === 2 ? '再次确认 · 请核对下面的对象和数量' : '先确认这件事 · 下一步核对对象'));
+      for (const value of [c.consequence, c.rollback]) if (value) confirmation.append(H.h('p', {}, String(value)));
+      const targets = Array.isArray(c.targets) ? c.targets : [];
+      const count = Number.isInteger(c.targetCount) ? c.targetCount : targets.length;
+      confirmation.append(H.h('p', {'data-confirmation-count': ''}, '涉及 ' + count + ' 个对象'));
+      confirmation.append(H.h('ul', {'data-confirmation-targets': ''},
+        targets.map(target => H.h('li', {}, String(target)))));
+      root.append(confirmation);
+    }
     // 第三次上线合并：路35 的看全文块（校验码核对）同时覆盖修G 的看全文，所有带全文校验码的卡只画一份。
     { const full = fullTextBlock(c); if (full) root.append(full); }
     if (c.status === 'pending') {
@@ -2376,8 +2441,11 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
       for (const [label, decision, cls] of options) {
         buttons.append(H.h('button', { type: 'button', class: cls, 'data-real-answer': decision, 'data-real-approval': c.id, disabled: answering.has(c.id) }, label));
       }
-      if(c.tool==='bash' && c.grantable===true)buttons.append(H.h('button',{type:'button',class:'ghostbtn','data-real-answer':'remember','data-real-approval':c.id,disabled:answering.has(c.id)},'以后这类不用问'));
-      if (plainCardInfo(c)?.rememberable) buttons.append(H.h('button', { type: 'button', class: 'ghostbtn',
+      if (c.scopeGrantable === true) buttons.append(H.h('button', {type: 'button', class: 'ghostbtn',
+        'data-real-answer': 'approve-task', 'data-real-approval': c.id,
+        disabled: answering.has(c.id)}, '这一次这类都同意'));
+      if(c.scopeGrantable!==true && c.tool==='bash' && c.grantable===true)buttons.append(H.h('button',{type:'button',class:'ghostbtn','data-real-answer':'remember','data-real-approval':c.id,disabled:answering.has(c.id)},'以后这类不用问'));
+      if (c.scopeGrantable !== true && plainCardInfo(c)?.rememberable) buttons.append(H.h('button', { type: 'button', class: 'ghostbtn',
         'data-real-answer': 'remember', 'data-real-approval': c.id,
         disabled: answering.has(c.id) }, '以后这类不用问'));
       root.append(buttons);
@@ -2451,6 +2519,8 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
       if(editor){editor.focus({preventScroll:true});const submit=editor.parentElement.querySelector('[data-real-answer="revise"]');if(submit)revealEditor(submit);}
       return;
     }
+    const taskScope = decision === 'approve-task' && c.scopeGrantable === true;
+    if (decision === 'approve-task') { if (!taskScope) return; decision = 'approve'; }
     const remember=decision==='remember';
     if(remember) {
       if (plainCardInfo(c)?.rememberable) {
@@ -2464,7 +2534,12 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     if (decision === 'revise' && !note) { H.toast('写一句修改意见再提交'); return; }
     answering.add(id); button.disabled = true;
     try {
-      const result = await api('/approvals/' + encodeURIComponent(id) + '/answer', { method: 'POST', body: JSON.stringify({ decision, ...(remember ? {remember:true} : {}), ...(decision === 'revise' ? { note } : {}) }) });
+      const answer = {decision, ...(remember ? {remember: true} : {}),
+        ...(taskScope ? {scope: 'task'} : {}),
+        ...(c.confirmationTotal ? {confirmationStep: c.confirmationStep} : {}),
+        ...(decision === 'revise' ? {note} : {})};
+      const result = await api('/approvals/' + encodeURIComponent(id) + '/answer',
+        {method: 'POST', body: JSON.stringify(answer)});
       if (result.ok !== true || !result.card) throw new Error('审批结果未确认');
       upsertCard(result.card); approvalDrafts.delete(id);
     } catch (error) {
@@ -2473,14 +2548,21 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
         H.toast('这张卡已处理，正在刷新');
         const r = remoteRecords.get(c.sessionId); if (r) await loadCards(r).catch(() => {});
       } else H.toast('没能确认审批结果，请刷新后再看');
-    } finally { answering.delete(id); if (current()?.remote === c.sessionId) redraw(); void refreshStatus().catch(() => {}); }
+    } finally {
+      answering.delete(id);
+      const latest = cards.get('approval:' + id);
+      if (latest) upsertCard(latest);
+      void refreshStatus().catch(() => {});
+    }
   }
   async function loadCards(r) {
     if (!r.remote) return;
     const data = await api(endpoint(r.remote, 'cards'));
     if (mode !== 'real') return;
-    (Array.isArray(data.cards) ? data.cards : []).forEach(c => upsertCard(c, { render: false }));
+    const loaded = Array.isArray(data.cards) ? data.cards : [];
+    loaded.forEach(c => upsertCard(c, { render: false }));
     attachCards(r); if (active(r)) H.reading.preserve(redraw, { reason: 'real-cards' });
+    return loaded.length;
   }
   let drawerCard;
   H.registerPanel('hub-real-card', { title: '要你点头', render: host => {
@@ -2488,7 +2570,7 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     if (card) host.replaceChildren(approvalCard.render(card));
   } });
   async function openCard(c) {
-    if (!c.sessionId && c.type === 'approval') {
+    if (c.type === 'approval' && (!c.sessionId || threadRows)) {
       drawerCard = c.id;
       H.openPanel('hub-real-card');
       return;
@@ -2607,6 +2689,43 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
 
   // 这一块已经画着卡片版就别先清成「正在读取」。
   const r30Painted = (host, selector) => typeof host?.querySelector === 'function' && !!host.querySelector(selector);
+  const ledgerReadFailure = '账本暂无可用数据，读取后端失败，请稍后重试';
+
+  function nativeLedgerSummary(native) {
+    const section = H.h('section', {}, H.h('h3', {}, '与本体核对'));
+    const line = text => section.append(H.h('p', {}, text));
+    if (native.ok === false) {
+      line('读不到 DeepSeek Harness 的账本：' +
+        (typeof native.reason === 'string' ? native.reason : '原因未知'));
+    }
+    const quota = native.quotaWatch;
+    if (Number.isSafeInteger(quota?.calls) && Number.isFinite(quota?.totalUsd)) {
+      line('本体样本 ' + quota.calls + ' 次 · ' + ledgerMoney('USD', quota.totalUsd));
+      const dates = H.h('details', {}, H.h('summary', {}, '按天和渠道查看'));
+      for (const day of Array.isArray(quota.days) ? quota.days : []) {
+        if (!Number.isFinite(day?.usd)) continue;
+        dates.append(H.h('p', {}, [day.day, day.provider, day.calls + ' 次', ledgerMoney('USD', day.usd)].join(' · ')));
+      }
+      section.append(dates);
+    }
+    const meter = native.costMeter;
+    for (const [provider, usage] of Object.entries(meter?.usage ?? {})) {
+      const limits = meter?.limits?.[provider];
+      const phase = meter?.providers?.[provider]?.phase;
+      const periods = [['h5', 'h5', '近 5 小时'], ['d7', 'week', '近 7 天'], ['d30', 'month', '近 30 天']];
+      const parts = [provider, phase === 'peak' ? '峰时' : phase === 'off' ? '谷时' : ''].filter(Boolean);
+      for (const [key, limit, label] of periods) {
+        if (!Number.isFinite(usage?.[key])) continue;
+        const cap = Number.isFinite(limits?.[limit]) ? ' / 额度 ' + ledgerMoney('USD', limits[limit]) : '';
+        parts.push(label + ' ' + ledgerMoney('USD', usage[key]) + cap);
+      }
+      line(parts.join(' · '));
+    }
+    if (Number.isFinite(meter?.balance?.total)) {
+      line('DeepSeek 余额 ' + ledgerMoney(meter.balance.currency || 'CNY', meter.balance.total));
+    }
+    return section;
+  }
 
   async function renderLedger(host) {
     try {
@@ -2618,7 +2737,8 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
         extGet('ledger', '/ledger/today', { force: true, ttl: 0 })
       ]);
       // 界面壳带了结构化账本时交给它画；没有就走下面原来的文字版。
-      if (typeof window.R30LT?.mountLedger === 'function') {
+      if (typeof window.R30LT?.mountLedger === 'function' &&
+          typeof window.R30LT?.normalizeLedger === 'function') {
         const raw = { all: all.data, today: today.ok ? today.data : null };
         const model = all.ok ? window.R30LT.normalizeLedger(raw, displayName) : null;
         // 设了每月预算才给壳，壳才画进度条；没设就没有，不显示。
@@ -2626,39 +2746,43 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
           try {
             const set = typeof window.HubSettings?.get === 'function' ? await window.HubSettings.get() : null;
             const limit = set && set.budget && set.budget.monthly;
-            if (typeof limit === 'number' && limit > 0) model.budgets = { month: { limit, cur: set.budget.currency || 'CNY' } };
+            if (typeof limit === 'number' && limit > 0) {
+              model.budgets = { month: { limit, cur: set.budget.currency || 'CNY' } };
+            }
           } catch { /* 读不到预算就当没设 */ }
         }
         if (host.isConnected !== false) window.R30LT.mountLedger(host, model);
         return;
       }
       if (!all.ok || !all.data?.total || typeof all.data.total !== 'object') {
-        host.replaceChildren(H.h('p', {}, '账本暂时没有数据（暂无）'));
+        host.replaceChildren(H.h('p', { role: 'status' }, ledgerReadFailure));
         return;
       }
       host.replaceChildren();
       const data = all.data;
-      if (today.ok && today.data?.total && typeof today.data.total === 'object') {
-        const t = today.data.total;
-        host.append(H.h('p', {}, '今天 · ' + (t.calls ?? '未知') + ' 次调用 · ' +
-          formatTokenCount(bucketTokens(t).total) + ' token · ' + (bucketCost(t).join(' / ') || '费用未知')));
+      const bucketLine = b => b?.calls > 0 ? [
+        b.calls + ' 次调用', formatTokenCount(bucketTokens(b).total) + ' token', ...bucketCost(b)
+      ].join(' · ') : '还没有记录';
+      if (today.ok && today.data?.total) {
+        host.append(H.h('p', {}, '今天 · ' + bucketLine(today.data.total)));
       }
       const total = data.total;
       const usage = bucketTokens(total);
       host.append(H.h('h3', {}, '总计'));
-      host.append(H.h('p', {}, (total.calls ?? '未知') + ' 次调用 · ' +
-        formatTokenCount(usage.total) + ' token'));
-      host.append(H.h('p', {}, '输入 ' + formatTokenCount(usage.parts.input) + ' · 缓存读 ' +
-        formatTokenCount(usage.parts.cacheRead) + ' · 输出 ' + formatTokenCount(usage.parts.output)));
+      host.append(H.h('p', {}, bucketLine(total)));
+      if (total.calls > 0) {
+        host.append(H.h('p', {}, '输入 ' + formatTokenCount(usage.parts.input) + ' · 缓存命中 ' +
+          formatTokenCount(usage.parts.cacheRead) + ' · 缓存写 ' + formatTokenCount(usage.parts.cacheWrite) +
+          ' · 输出 ' + formatTokenCount(usage.parts.output)));
+      }
       if (usage.unreported > 0) {
         host.append(H.h('p', {}, '有 ' + usage.unreported + ' 次调用没报输入或输出 token，没算进上面的总数'));
       }
-      host.append(H.h('p', {}, bucketCost(total).join(' / ') || '费用未知'));
+      if (data.thisMonth?.total) host.append(H.h('p', {}, '本月 · ' + bucketLine(data.thisMonth.total)));
       host.append(H.h('h3', {}, '近 7 天'));
+      if (data.last7Days?.total) host.append(H.h('p', {}, bucketLine(data.last7Days.total)));
       for (const day of Array.isArray(data.last7Days?.days) ? data.last7Days.days : []) {
-        const bucket = day?.total || day;
-        host.append(H.h('p', {}, (day?.date || '未知') + ' · ' + (bucket?.calls ?? '未知') + ' 次调用 · ' +
-          formatTokenCount(bucketTokens(bucket).total) + ' token'));
+        host.append(H.h('p', {}, (day?.date || '未知') + ' · ' + bucketLine(day?.total || day)));
       }
       for (const [title, rows] of [['按助理', ledgerRows(data.byBot, displayName)],
         ['按工单', ledgerRows(data.byTicket, displayName, 8)]]) {
@@ -2672,10 +2796,11 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
       host.append(H.h('p', {}, '审批 ' + (counts.approvals ?? '未知') + ' · 动作 ' +
         (counts.actions ?? '未知') + ' · 变更 ' + (counts.changes ?? '未知') + ' · 派活 ' +
         (counts.dispatches ?? '未知')));
+      if (data.native && typeof data.native === 'object') host.append(nativeLedgerSummary(data.native));
       host.append(H.h('small', {},
-        '费用按价表折算，不是服务商账单；套餐内的只给折算参考。'));
+        '价目与 DeepSeek Harness 同一张表（¥1/0.02/4 每百万，峰时 ×2）'));
     } catch {
-      try { host.replaceChildren(H.h('p', {}, '账本暂时没有数据（暂无）')); } catch {}
+      try { host.replaceChildren(H.h('p', { role: 'status' }, ledgerReadFailure)); } catch {}
     }
   }
 
@@ -3222,6 +3347,8 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
   }
 
   function approvalButtonsAll(c) {
+    if (c.confirmationTotal === 2) return [[c.confirmationStep === 2 ?
+      '对象和数量已核对，确认执行' : '继续核对对象', 'approve', 'primary'], ['先不做', 'reject', 'ghostbtn']];
     if (c.confirm === true && c.kind === 'dispatch') {
       return [['派出去', 'approve', 'primary'], ['先不', 'reject', 'ghostbtn']];
     }
@@ -3515,6 +3642,7 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
         return;
       }
       if (item.kind === 'bot' && isBot(item.bot)) {
+        if (threadRows) { void openThread(item.bot); return; }
         H.navigate({ view: 'chat', conversation: item.bot + '-013' }, { deferRender: true });
         return;
       }
@@ -3529,6 +3657,8 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
   // 原「活动」并进今天页。本地已读到的待批确认卡，后端汇总里没有的补进「等你处理」（同一张只列一次）；
   // 已经答过的确认卡放进「刚刚发生的」。
   function todayExtras(model, leadId, backendRecent) {
+    model.waiting.items = model.waiting.items.filter(item => item.kind !== 'card' ||
+      !cards.has('approval:' + item.id) || cards.get('approval:' + item.id).status === 'pending');
     const have = new Set(model.waiting.items.filter(i => i.kind === 'card').map(i => i.id));
     const all = [...cards.values()].filter(c => c.type === 'approval');
     const pend = all.filter(c => c.status === 'pending');
@@ -3596,7 +3726,7 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
           if (recent.status === 200 && Array.isArray(recent.data?.items)) backendRecent = recent.data.items;
         }
         if (model) todayExtras(model, lead, backendRecent);
-        window.R30LT.mountToday(host, model, { onOpen: openTodayItem });
+        window.R30LT.mountToday(host, model, { onOpen: openTodayItem, selfEditRequest: extCall });
         return;
       }
       if (!view) { host.replaceChildren(todayMiss()); return; }
@@ -3839,7 +3969,8 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
   async function createRemote(r, bot) {
     const model = r28.pick.get(r.local);
     try {
-      const body = JSON.stringify(model ? { bot, model } : { bot });
+      const body = JSON.stringify({ bot, ...(model ? { model } : {}),
+        ...(r.line?.topic ? { title: '新话题' } : {}) });
       const created = await api('/sessions', { method: 'POST', body });
       if (model) {
         r.modelName = pickedModelName(r);
@@ -4003,6 +4134,415 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
       }).then(() => refreshStatus()).catch(() => {});
     });
   }
+  const threadPath = bot => '/threads/' + encodeURIComponent(bot);
+  const threadTime = item => timeValue(item.ts ?? item.startedAt) || 0;
+  const threadSession = item => item.session || '';
+  const threadKey = item => item.kind === 'segment' ? threadSegmentId(item) : item.kind + ':' + item.id;
+  const threadSegmentId = item => item.id || 'segment:' + item.session;
+  const threadSessionRow = row => !row.hidden && !row.groupId && !['meeting', 'routine'].includes(row.purpose) &&
+    !String(row.purpose || '').startsWith('group-');
+  function threadUnread(bot) {
+    return r29LiveUnread()?.bots?.[bot] ?? threadRows?.find(row => row.bot === bot)?.unread ?? 0;
+  }
+  function compareThread(a, b) {
+    return (a.threadOrderAt ?? threadTime(a)) - (b.threadOrderAt ?? threadTime(b)) ||
+      (threadSession(a) < threadSession(b) ? -1 : threadSession(a) > threadSession(b) ? 1 : 0) ||
+      (a.seq ?? -1) - (b.seq ?? -1);
+  }
+  async function refreshThreads(force = false) {
+    if (!window.R43Thread || (!force && Date.now() - threadListAt < 3500)) return;
+    if (threadListPending) return threadListPending;
+    threadListPending = (async () => {
+      const response = await r29Request('/threads', { signal: AbortSignal.timeout(4000) });
+      if (response.status === 404) { threadRows = null; threadListAt = Date.now(); return; }
+      if (!response.ok) return;
+      const data = await response.json();
+      if (Array.isArray(data.threads) && mode === 'real') {
+        threadRows = data.threads.filter(row => isBot(row.bot));
+        threadListAt = Date.now();
+        for (const row of threadRows) {
+          const r = threadRecords.get(row.bot);
+          if (r && active(r) && r.line.ready && !r.line.after && !r.line.loading &&
+              !jobs.has(r.local) && r.line.activity !== row.updatedAt) {
+            void refreshThreadTail(r).catch(() => {});
+          }
+        }
+      }
+    })().finally(() => { threadListPending = null; });
+    return threadListPending;
+  }
+  function threadRecord(bot) {
+    if (threadRecords.has(bot)) return threadRecords.get(bot);
+    const r = record(bot, null, '长对话');
+    r.line = { entries: new Map(), cards: new Map(), eventMessages: new Map(), unread: new Set(),
+      before: '', after: '', ready: false };
+    threadRecords.set(bot, r);
+    return r;
+  }
+  function threadActivity(bot) {
+    return threadRows?.find(item => item.bot === bot)?.updatedAt;
+  }
+  function threadCurrent(r, row) {
+    if (r.fresh || jobs.has(r.local)) return;
+    if (r.remote !== (row?.id || null)) r.modelName = '';
+    r.remote = row?.id || null;
+    r.ready = true;
+    r.line.current = row;
+  }
+  function resumeThread(r, preferred) {
+    if (r.fresh || jobs.has(r.local)) return;
+    const running = sessions.filter(row => row.bot === r.bot && row.running && !row.purpose &&
+      threadSessionRow(row)).sort((a, b) => timeValue(b.updatedAt) - timeValue(a.updatedAt));
+    const row = running.find(row => row.id === preferred) || running[0];
+    if (!row) return;
+    threadCurrent(r, row);
+    resume(r);
+  }
+  function threadPagePath(r, params = {}) {
+    const topic = r.line.filter;
+    return threadPath(r.bot) + '?' + new URLSearchParams({ ...params, ...(topic ? { topic } : {}) });
+  }
+  function threadContextText(context) {
+    if (typeof context === 'string') return context;
+    if (!context) return '';
+    if (context.text) return context.text;
+    const retained = context.retainedFrom?.text;
+    if (context.compacted && retained) {
+      return '近期原文已核对到「' + retained + '」。更早的话已压成摘要，需要时可以回查。';
+    }
+    const first = context.firstText;
+    return (first && !context.compacted ? '聊天从「' + first + '」开始。' : '') + (context.note || '');
+  }
+  async function threadLoadTopics(r) {
+    const response = await r29Request(threadPath(r.bot) + '/topics', { signal: AbortSignal.timeout(4000) });
+    if (response.status === 404) return;
+    if (!response.ok) throw new Error('暂时读不到话题');
+    const data = await response.json();
+    if (!Array.isArray(data.topics)) throw new Error('话题格式无效');
+    return data.topics.map(topic => {
+      window.r32UserText?.remember?.(topic.title);
+      return { ...topic, contextText: threadContextText(topic.context) };
+    });
+  }
+  async function threadUpdateTopics(r) {
+    try {
+      const topics = await threadLoadTopics(r);
+      if (topics) r.line.topics = topics;
+    } catch { /* 话题列表暂时读不到，保留上次列表。 */ }
+  }
+  function threadTopicOptions(r) {
+    if (!r.line.topics) return { topics: undefined, selectedTopic: null };
+    return {
+      topics: r.line.topics, selectedTopic: r.line.filter || null,
+      onSelectTopic: id => threadSelectTopic(r, id),
+      renameTopic: (id, title) => threadChangeTopic(r, id, '', { title }, 'PATCH'),
+      mergeTopics: (source, target) => threadChangeTopic(r, source, '/merge', { target }),
+      undoMerge: id => threadChangeTopic(r, id, '/unmerge', {}),
+      beginReassign: row => holdThreadSend(r, row),
+      reassignMessage: args => reassignThreadMessage(r, args),
+      deleteTopic: id => window.R43Delete?.deleteTopic?.(id)
+    };
+  }
+  async function threadSelectTopic(r, id) {
+    if (!active(r)) return;
+    const previous = r.line.filter;
+    r.line.filter = id || '';
+    if (!await latestThread(r) && r.line.filter === (id || '')) {
+      r.line.filter = previous;
+      threadPaint(r);
+    }
+  }
+  async function threadChangeTopic(r, id, action, body, method = 'POST') {
+    const path = threadPath(r.bot) + '/topics/' + encodeURIComponent(id) + action;
+    await threadTopicMutation(path, method, body);
+    await threadUpdateTopics(r);
+    if (action === '/merge' && r.line.filter === id) r.line.filter = body.target;
+    if (active(r)) await latestThread(r);
+    void refreshThreads(true).catch(() => {});
+  }
+  async function threadTopicMutation(path, method, body) {
+    try { return await api(path, { method, body: JSON.stringify(body) }); }
+    catch (error) { throw new Error(error.payload?.error?.message || '暂时没改好，请重试'); }
+  }
+  function threadMessages(r, items) {
+    const messages = [];
+    const raw = [];
+    for (const item of items) {
+      if (item.kind === 'segment') messages.push({
+        ...item, id: threadSegmentId(item), contextText: threadContextText(item.context), parts: []
+      });
+      else if (item.kind === 'card' && item.card) upsertCard(item.card, { render: false });
+      else raw.push(item);
+    }
+    messages.push(...historyMessages(r, raw));
+    return messages.sort(compareThread);
+  }
+  function threadResumes(r, messages) {
+    const previous = new Map(), result = [];
+    const topics = new Map(r.line.topics.map(topic => [topic.id, topic]));
+    for (const item of messages) {
+      const id = item.topic;
+      const ts = threadTime(item), last = previous.get(id);
+      const gap = last > 0 && ts > last && (ts - last > 6 * 3600000 ||
+        new Date(ts).toDateString() !== new Date(last).toDateString());
+      const prior = result.at(-1);
+      if (id && item.kind === 'segment' && item.purpose !== 'board') {
+        previous.set(id, ts);
+        result.push(gap ? { ...item, resumed: true } : item);
+        continue;
+      }
+      if (id && item.kind !== 'segment' && !item.hubToolId && ts > 0) {
+        const resumed = item.resumed || item.classification?.resumed || gap;
+        const alreadyMarked = prior?.kind === 'segment' && prior.topic === id && threadTime(prior) === ts;
+        if (item.role === 'user' && !alreadyMarked && (resumed || item.moved && prior?.topic !== id)) {
+          result.push({ id: 'resume:' + item.id, kind: 'segment', session: id, topic: id, resumed,
+            startedAt: item.ts, seq: item.seq - 0.5, topicTitle: item.topicTitle || topics.get(id)?.title,
+            contextText: item.contextNote || topics.get(id)?.contextText, parts: [] });
+        }
+        previous.set(id, ts);
+      }
+      result.push(item);
+    }
+    return result;
+  }
+  function rebuildThread(r, { clearLocal = false } = {}) {
+    const finalized = r.line.finalizing && !r.line.after && !jobs.has(r.local);
+    const local = clearLocal || finalized ? [] : r.messages.filter(message => message.threadLocal);
+    if (finalized) r.line.finalizing = false;
+    const ordered = threadMessages(r, [...r.line.entries.values()]);
+    const messages = r.line.topics ? threadResumes(r, ordered) : ordered;
+    if (!r.line.after && !r.fresh && !jobs.has(r.local) && stoppedSession(r.line.current) &&
+        !local.some(message => message.parts?.[0]?.data?.state === 'stopped')) {
+      const id = 'thread-stopped:' + r.remote;
+      messages.push({ id, hubReal: true, from: r.bot, role: 'bot', session: r.remote, status: 'delivered',
+        ts: r.line.current.updatedAt, parts: [{ type: 'hub-real-response', data: {
+          id, local: r.local, bot: r.bot, text: '', state: 'stopped', status: '已停止'
+        } }] });
+    }
+    if (r.line.topic) messages.push(r.line.topic);
+    r.messages.splice(0, r.messages.length, ...messages, ...local);
+    attachCards(r);
+  }
+  function threadOptions(r) {
+    const line = r.line;
+    window.R43Thread?.setOptions(r.bot, {
+      recent: true, conversation: r.local, loading: line.loading, hasEarlier: !!line.before,
+      hasLater: !!line.after, awayFromLatest: !!line.after || line.away === true,
+      canNewTopic: isEnabled(r.bot), loadEarlier: () => loadThreadPage(r, 'before'),
+      loadLater: () => loadThreadPage(r, 'after'), loadLatest: () => latestThread(r),
+      loadSegment: (session, query) => loadThreadSegment(r, session, query),
+      newTopic: () => newThreadTopic(r), openCard: id => openTodayItem({ kind: 'ticket', id }),
+      ...threadTopicOptions(r)
+    });
+  }
+  function storeThreadPage(r, page, direction) {
+    if (!Array.isArray(page.items)) throw new Error('对话格式无效');
+    const line = r.line;
+    if (direction === 'replace') { line.entries.clear(); line.cards.clear(); }
+    for (const item of page.items) {
+      if (item.kind === 'segment' && item.session === line.topic?.session) line.topic = null;
+      if (item.kind === 'segment' && item.unread > 0) line.unread.add(item.session);
+      const unopened = item.kind === 'segment' && line.unread.has(item.session);
+      line.entries.set(threadKey(item), unopened ? { ...item, unread: true } : item);
+    }
+    if (direction !== 'after' && direction !== 'tail') line.before = page.nextBefore || '';
+    if (direction !== 'before') line.after = page.nextAfter || '';
+    line.ready = true;
+  }
+  function threadPaint(r, preserve = false) {
+    threadOptions(r);
+    if (active(r)) {
+      if (preserve) H.reading.preserve(redraw, { reason: 'thread-page' });
+      else redraw();
+    }
+  }
+  async function threadCards(r, items) {
+    const ids = new Set(items.filter(item => item.kind !== 'segment').map(item => item.session).filter(Boolean));
+    // 当前话题可能还没有正文，审批和派工卡仍需随线读回。
+    if (r.remote) ids.add(r.remote);
+    const results = await Promise.allSettled([...ids].map(async id => {
+      if (r.line.cards.has(id)) return;
+      const request = loadCards(record(r.bot, id));
+      r.line.cards.set(id, request);
+      try { return await request; } catch (error) { r.line.cards.delete(id); throw error; }
+    }));
+    const loadedCards = results.some(result => result.status === 'fulfilled' && result.value > 0);
+    if (!loadedCards || !active(r) || S.r29GroupFocus) return;
+    attachCards(r);
+    threadPaint(r, true);
+  }
+  async function loadThreadPage(r, direction) {
+    const line = r.line, cursor = line[direction];
+    if (!cursor || line.loading || !active(r)) return;
+    const generation = line.generation;
+    line.loading = true; threadOptions(r);
+    try {
+      const page = await api(threadPagePath(r, { [direction]: cursor }));
+      if (mode !== 'real' || line.generation !== generation) return;
+      storeThreadPage(r, page, direction);
+      line.loading = false;
+      rebuildThread(r);
+      threadPaint(r, true);
+      void threadCards(r, page.items);
+    } catch { if (active(r)) H.toast('暂时读不到更多对话，滑动后再试'); }
+    finally {
+      if (line.generation === generation && line.loading) { line.loading = false; threadPaint(r, true); }
+    }
+  }
+  async function loadThreadSegment(r, session, query = {}) {
+    const path = threadPath(r.bot) + '/segment/' + encodeURIComponent(session);
+    const params = new URLSearchParams(Object.entries(query).filter(([, value]) => value != null && value !== ''));
+    const [page] = await Promise.all([
+      api(path + '?' + params), loadCards(record(r.bot, session)).catch(() => {})
+    ]);
+    const messages = threadMessages(r, page.items);
+    const scoped = { bot: r.bot, remote: session, messages };
+    attachCards(scoped);
+    r.line.eventMessages.clear(); r.line.eventMessages.set(session, messages);
+    return { ...page, items: messages };
+  }
+  async function refreshThreadTail(r, clearLocal = false) {
+    const activity = threadActivity(r.bot), generation = r.line.generation;
+    const [page, data] = await Promise.all([
+      api(threadPagePath(r)), api(threadPath(r.bot) + '/current'), threadUpdateTopics(r)
+    ]);
+    if (mode !== 'real' || jobs.has(r.local) || r.line.generation !== generation) return;
+    if (r.line.after) {
+      // 写完一回合时手指可能已滑回去。旧页继续留着，回到最新时再收定稿。
+      return;
+    }
+    const overlaps = page.items.some(item => r.line.entries.has(threadKey(item)));
+    const wasEmpty = !r.line.entries.size;
+    storeThreadPage(r, page, overlaps && !wasEmpty ? 'tail' : 'replace');
+    threadCurrent(r, data.current);
+    r.line.activity = activity;
+    rebuildThread(r, { clearLocal });
+    threadPaint(r, true);
+    void threadCards(r, page.items);
+  }
+  async function latestThread(r) {
+    const line = r.line, generation = line.generation = (line.generation || 0) + 1;
+    line.loading = true; threadOptions(r);
+    try {
+      const [page, data] = await Promise.all([
+        api(threadPagePath(r)), api(threadPath(r.bot) + '/current'), threadUpdateTopics(r)
+      ]);
+      if (mode !== 'real' || line.generation !== generation) return false;
+      storeThreadPage(r, page, 'replace');
+      line.loading = false;
+      threadCurrent(r, data.current);
+      line.away = false; line.activity = threadActivity(r.bot);
+      rebuildThread(r);
+      window.R43Thread?.resetWindow(r.bot);
+      threadPaint(r);
+      if (active(r)) H.reading.toBottom({ reason: 'thread-latest' });
+      void threadCards(r, page.items);
+      return true;
+    } catch { if (active(r)) H.toast('暂时读不到最新对话，请再试一次'); return false; }
+    finally {
+      if (line.generation === generation && line.loading) { line.loading = false; threadPaint(r, true); }
+    }
+  }
+  function threadSeen(r, initial = false) {
+    const bag = r29Hooks?.HubUnread.counts();
+    const ids = sessions.filter(row => row.bot === r.bot && threadSessionRow(row));
+    for (const row of ids) {
+      const n = Number(bag?.conversations[row.id] ?? (initial ? row.unread : 0)) || 0;
+      if (!(n > 0)) continue;
+      if (row.purpose === 'board') r.line.unread.add(row.id);
+      if (initial || r31Allow(row.id, n)) r31SeenNow(row.id);
+    }
+  }
+  async function openThreadSource(bot, session, title, options) {
+    const row = sessions.find(item => item.id === session);
+    if (threadRows && isEnabled(bot) && row && threadSessionRow(row)) {
+      return openThread(bot, '', { ...options, session });
+    }
+    return open(record(bot, session, title), true, options);
+  }
+  async function openThread(bot, around = '', { session, preserveSource = false } = {}) {
+    const epoch = ++opening, origin = routeStamp(), r = threadRecord(bot);
+    const line = r.line, generation = line.generation = (line.generation || 0) + 1;
+    const unread = !around && !session && threadUnread(bot);
+    const params = new URLSearchParams(around ? { around } : session ? { segment: session } : unread ? { unread: 1 } : {});
+    const path = threadPath(bot);
+    line.loading = true;
+    try {
+      const [page, data, topics] = await Promise.all([
+        api(path + '?' + params), api(path + '/current'), threadLoadTopics(r).catch(() => line.topics)
+      ]);
+      if (epoch !== opening || origin !== routeStamp() || mode !== 'real') return;
+      line.filter = '';
+      line.topics = topics;
+      storeThreadPage(r, page, 'replace');
+      line.loading = false;
+      threadCurrent(r, data.current);
+      line.activity = threadActivity(bot);
+      const target = page.around || page.firstUnread || (around ? { id: around } : null);
+      line.away = !!target;
+      rebuildThread(r);
+      S.r29GroupFocus = ''; S.r29GroupHold = false;
+      window.R43Thread?.resetWindow(bot);
+      threadOptions(r);
+      bindMessages(r, { preserveSource });
+      if (target?.segment && !around && !session) void window.R43Thread?.locate('segment:' + target.session);
+      else if (target) void window.R43Thread?.locate(target.id, target.segment ? target.session : undefined);
+      else H.reading.toBottom({ reason: 'thread-open' });
+      threadSeen(r, true);
+      void threadCards(r, page.items);
+      if (data.current?.running && r.remote === data.current.id && !jobs.has(r.local)) resume(r);
+      else resumeThread(r, session);
+    } catch {
+      if (epoch === opening && origin === routeStamp()) H.toast('暂时读不到对话，请重新打开');
+    } finally {
+      if (line.generation === generation) { line.loading = false; if (active(r)) threadOptions(r); }
+    }
+  }
+  async function newThreadTopic(r) {
+    if (!isEnabled(r.bot) || !active(r)) return;
+    if (jobs.has(r.local)) { H.toast('请先等这次回复结束，或点停止'); return; }
+    const voicePhase = document.querySelector('[data-r29-mic]')?.dataset.r29Phase;
+    if (voicePhase && voicePhase !== 'idle') { H.toast('先处理这段录音，再开新话题'); return; }
+    if (r.line.filter) {
+      r.line.filter = '';
+      if (!await latestThread(r)) return;
+    }
+    if (r.line.after && !await latestThread(r)) return;
+    if (!active(r)) return;
+    r.fresh = true; r.remote = null; r.modelName = '';
+    r.line.topic = { kind: 'segment', id: 'new-topic:' + r.local, session: 'new-topic:' + r.local,
+      startedAt: Date.now(), pending: true, parts: [] };
+    rebuildThread(r);
+    threadPaint(r);
+    H.reading.toBottom({ reason: 'new-topic' });
+  }
+  const threadSearch = { query: '', timer: null, controller: null, items: [], state: '' };
+  function searchThreads() {
+    const query = S.search.trim();
+    if (query === threadSearch.query) return;
+    clearTimeout(threadSearch.timer);
+    threadSearch.controller?.abort();
+    Object.assign(threadSearch, { query, items: [], state: query ? '正在搜索…' : '' });
+    if (!query) return;
+    if (query.length > 200) { threadSearch.state = '请缩短搜索内容'; return; }
+    threadSearch.timer = setTimeout(async () => {
+      const controller = new AbortController(); threadSearch.controller = controller;
+      const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(10000)]);
+      const result = await Promise.allSettled((threadRows || []).map(async ({ bot }) => {
+        const params = new URLSearchParams({ q: query, limit: 15 });
+        const response = await r29Request(threadPath(bot) + '/search?' + params, { signal });
+        if (!response.ok) throw new Error('搜索暂时不可用');
+        const data = await response.json();
+        return { items: (data.items || []).map(item => ({ ...item, bot })), truncated: data.truncated };
+      }));
+      if (controller.signal.aborted || mode !== 'real' || query !== threadSearch.query) return;
+      const items = result.flatMap(row => row.status === 'fulfilled' ? row.value.items : []);
+      threadSearch.items = items.sort((a, b) => threadTime(b) - threadTime(a)).slice(0, 50);
+      const partial = result.some(row => row.status === 'rejected' || row.value.truncated);
+      threadSearch.state = partial ? '只查到部分对话，可以换个关键词再试' : items.length ? '' : '没找到这句话';
+      paintRecent();
+    }, 280);
+  }
   function paintRecent() {
     r29WatchRecent();
     const host = document.querySelector('.home-recent-list');
@@ -4011,40 +4551,68 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     if (!real) real = H.h('div', { class: 'hub-real-recents' });
     if (host.children.length !== 1 || host.firstElementChild !== real) host.replaceChildren(real);
     const live = r29LiveUnread();
+    if (threadRows) searchThreads();
     const version = JSON.stringify([rosterVersion, S.search,
-      sessions.map(s => [s.id, s.bot, s.title, s.updatedAt, s.lastText]),
+      threadRows || sessions.map(s => [s.id, s.bot, s.title, s.updatedAt, s.lastText]),
       groups.map(g => [g.id, g.title, g.updatedAt, g.lastText]),
-      live && live.conversations, live && live.groups]);
+      live && live.conversations, live && live.groups, threadSearch.state, threadSearch.items]);
     if (real.dataset.version === version) return;
     real.dataset.version = version;
     real.replaceChildren();
     const needle = String(S.search || '').toLowerCase();
     let painted = 0;
-    for (const s of sessions) {
-      const blob = (botName(s.bot) + (s.title || '') + (s.lastText || '')).toLowerCase();
+    for (const s of threadRows || sessions) {
+      const title = threadRows ? s.topicTitle : s.title;
+      const blob = (botName(s.bot) + (title || '') + (s.lastText || '')).toLowerCase();
       if (needle && !blob.includes(needle)) continue;
       if (!isBot(s.bot)) continue;
       painted += 1;
-      real.append(H.h('button', {
+      const recentButton = H.h('button', {
         type: 'button', class: 'conversation',
         style: typeof H.botStyle === 'function' ? H.botStyle(s.bot) : '',
-        'data-real-open': s.id, 'data-real-updated-at': s.updatedAt || ''
+        ...(threadRows ? { 'data-real-thread': s.bot } : { 'data-real-open': s.id }),
+        'data-real-updated-at': s.updatedAt || ''
       }, [
         r29OneFace(s.bot),
         H.h('div', { class: 'grow' }, [
           H.h('div', { class: 'line' }, H.h('strong', {},
-            r29JoinTitle(botName(s.bot), s.title || '新会话'))),
-          H.h('div', { class: 'preview' }, r29LastLine(s.lastText, '尚无回复'))
+            threadRows ? botName(s.bot) : r29JoinTitle(botName(s.bot), s.title || '新会话'))),
+          H.h('div', { class: 'preview' }, [threadRows && title
+            ? H.h('span', { 'data-real-topic-title': '' }, title + ' · ') : null,
+          r29LastLine(s.lastText, '尚无回复')])
         ]),
         H.h('span', { class: 'home-row-meta' }, [
           H.h('time', {}, messageDate(s.updatedAt)?.time || ''),
-          r29CountNode(r29BagCount(live, 'conversations', s.id))
+          r29CountNode(threadRows ? live?.bots?.[s.bot] ?? s.unread : r29BagCount(live, 'conversations', s.id))
         ])
-      ]));
+      ]);
+      if (!threadRows) real.append(recentButton);
+      else {
+        const homeName = botName(s.bot);
+        real.append(H.h('div', {
+          class: 'r43-home-swipe r22-swipe-row r43-assistant-row', 'data-r22-row': s.bot,
+          'data-r43-home-bot': s.bot, 'data-real-updated-at': s.updatedAt || ''
+        }, [
+          H.h('div', { class: 'r22-row-actions' }, [
+            H.h('button', { type: 'button', 'data-r43-home-action': 'read', 'data-id': s.bot,
+              'aria-label': '把和' + homeName + '的对话标为已读' }, '标已读'),
+            H.h('button', { type: 'button', 'data-r43-home-action': 'delete', 'data-id': s.bot,
+              'aria-label': '删除和' + homeName + '的全部对话' }, '删除')
+          ]),
+          recentButton
+        ]));
+      }
     }
     let grouped = 0;
     try { grouped = recentGroups(real) || 0; } catch { grouped = 0; }
-    if (!painted && !grouped && rosterReady) real.append(H.h('p', {}, '暂无'));
+    if (threadRows && threadSearch.query) {
+      if (threadSearch.state) real.append(H.h('p', { role: 'status' }, threadSearch.state));
+      for (const result of threadSearch.items) real.append(H.h('button', {
+        type: 'button', class: 'conversation r43-search-result', 'data-real-thread-result': result.id,
+        'data-bot': result.bot, 'data-session': result.session
+      }, [r29OneFace(result.bot), H.h('div', { class: 'grow' }, [H.h('strong', {}, botName(result.bot)),
+        H.h('div', { class: 'preview' }, result.snippet)]), H.h('time', {}, messageDate(result.ts)?.time || '')]));
+    } else if (!painted && !grouped && rosterReady) real.append(H.h('p', {}, '暂无'));
   }
   function decorateR24() {
     paintRecent();
@@ -4086,11 +4654,14 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     if (['thinking', 'streaming'].includes(d.state) && !/连接|恢复|失败/.test(d.status || '')) return '···';
     return d.status || '';
   }
-  H.registerCard('hub-real-tool', { title: '工具步骤', quoteLabel: d => toolText(d), render(d) {
-    const r = current(), run = toolRun(r?.messages || [], d.id);
+  H.registerCard('hub-real-tool', { title: '工具步骤', quoteLabel: d => toolText(d), render(d, ctx) {
+    const r = current(), session = ctx.message?.session;
+    const messages = r?.line && session ? r.line.eventMessages.get(session) ||
+      r.messages.filter(message => message.session === session) : r?.messages;
+    const run = toolRun(messages || [], d.id);
     const steps = run.length ? run : [d];
     if (steps[0].id !== d.id) return H.h('span', { hidden: true, 'data-real-tool-continuation': d.id });
-    const key = (r?.local || '') + ':' + d.id;
+    const key = (session || r?.local || '') + ':' + d.id;
     const root = H.h('details', { class: 'r22-tool-call hub-real-tool-trace', 'data-real-tool-group': d.id });
     root.open = openToolRuns.has(key);
     root.addEventListener('toggle', () => { if (root.isConnected) root.open ? openToolRuns.add(key) : openToolRuns.delete(key); });
@@ -4120,12 +4691,14 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
   }
   function upsertTool(r, data) {
     const entry = surfaceEntries([{ role: 'assistant', text: '', tools: [data] }])[0]; if (!entry) return;
-    const old = r.messages.find(m => m.hubToolId === entry.id);
+    const old = r.messages.find(m => m.hubToolId === entry.id && (!r.line || m.session === r.remote));
     if (old) {
       old.ts ??= entry.ts; old.seq ??= entry.seq;
       Object.assign(old.parts[0].data, entry, { ts: old.ts, seq: old.seq });
     }
-    else r.messages.push(toolMessage(r, entry));
+    else r.messages.push({ ...toolMessage(r, entry), ...(r.line ? {
+      session: r.remote, threadLocal: true, threadOrderAt: Date.now()
+    } : {}) });
     attachCards(r); if (active(r)) H.reading.preserve(redraw, { reason: 'real-tool' });
     if (!jobs.has(r.local)) return;
     const label = String(data?.name || data?.tool || entry?.name || '');
@@ -4168,6 +4741,11 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     if (jobs.get(job.r.local) !== job) return;
     jobs.delete(job.r.local); job.controller?.abort(); clearTimeout(job.paintTimer);
     job.data.state = name; job.data.status = status;
+    if (job.userMessage?.topicLabel) {
+      if (job.admitted) job.userMessage.replyState = 'done';
+      else { job.userMessage.topicLabel = ''; job.userMessage.replyState = undefined; }
+    }
+    if (job.r.line && name === 'done') job.r.line.finalizing = true;
     if (name === 'done' && !job.data.text.trim()) {
       const index = job.r.messages.indexOf(job.message); if (index >= 0) job.r.messages.splice(index, 1);
     }
@@ -4180,15 +4758,20 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     if (name === 'done' && !document.hidden && r29Hooks) {
       try { void r29Hooks.onReply(); } catch { /* 未读刷新失败不打断回合 */ }
     }
-    if (active(job.r) && !document.hidden && job.r.remote) void api(endpoint(job.r.remote, 'read'), { method: 'POST', body: '{}' }).catch(() => {});
+    if (active(job.r) && !document.hidden && job.r.remote) {
+      if (job.r.line) r31SeenNow(job.r.remote);
+      else void api(endpoint(job.r.remote, 'read'), { method: 'POST', body: '{}' }).catch(() => {});
+    }
     if (!document.hidden) { void refreshList().catch(() => {}); void refreshStatus().catch(() => {}); }
   }
   function reply(r, text = '', state = 'done', status = '回复完成') {
     const data = { id: uid(), local: r.local, bot: r.bot, ts: Date.now(), text, state, status };
     const message = post(r, { from: r.bot, role: 'bot', timelineLocal: true, status: state === 'done' ? 'delivered' : 'thinking', parts: [{ type: 'hub-real-response', data }] });
-    return { data, message };
+    // 壳在发消息时会规范化卡片，流式状态必须更新气泡实际持有的对象。
+    return { data: message.parts[0].data, message };
   }
   async function history(r, { force = false } = {}) {
+    if (r.line) return refreshThreadTail(r, true);
     if (!r.remote || jobs.has(r.local)) return;
     if (r.loading && !force) return r.loading;
     r.loading = (async () => {
@@ -4207,9 +4790,18 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
   }
   function historyMessages(r, messages) {
     return surfaceEntries(messages).map(m => {
-        if (m.kind === 'tool') return toolMessage(r, m);
+        if (m.kind === 'tool') {
+          const tool = toolMessage(r, m);
+          return r.line ? { ...tool, session: m.session, topic: m.topic, id: 'tool:' + m.session + ':' + m.id } : tool;
+        }
         const assistant = m.role === 'assistant';
-        return { id: uid(), hubReal: true, serverId: m.id, seq: m.seq, ts: m.ts, from: assistant ? r.bot : 'user', role: assistant ? 'bot' : 'user', status: 'delivered', time: messageDate(m.ts)?.time || '',
+        return { id: r.line ? 'message:' + m.id : uid(), hubReal: true, serverId: m.id, messageId: m.messageId,
+          session: m.session,
+          topic: m.topic, topicTitle: m.topicTitle, classification: m.classification,
+          topicLabel: m.classification?.label, resumed: m.resumed, moved: m.moved, contextNote: m.contextNote,
+          replyState: m.replyState || (m.classification ? 'done' : undefined),
+          seq: m.seq, ts: m.ts, from: assistant ? r.bot : 'user', role: assistant ? 'bot' : 'user',
+          status: 'delivered', time: messageDate(m.ts)?.time || '',
           parts: assistant ? [{ type: 'hub-real-response', data: { id: uid(), local: r.local, bot: r.bot, ts: m.ts, text: m.text, state: 'done', status: '' } }] : [{ type: 'text', md: m.text }] };
       });
   }
@@ -4266,15 +4858,24 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
   }
   async function refreshList() {
     if (mode !== 'real') return;
-    const data = await api('/sessions');
+    const [data] = await Promise.all([api('/sessions'), refreshThreads().catch(() => {})]);
     if (mode !== 'real') return;
     sessions = (Array.isArray(data.sessions) ? data.sessions : []).filter(s => isBot(s.bot) && typeof s.id === 'string').sort((a, b) => (Date.parse(b.updatedAt) || Number(b.updatedAt) || 0) - (Date.parse(a.updatedAt) || Number(a.updatedAt) || 0));
     sessions.forEach(s => { const r = record(s.bot, s.id, s.title || '新会话'); r.title = s.title || '新会话'; });
     if (S.drawer === 'hub-real-sessions') { const host = document.querySelector('.drawer [data-hub-panel]'); if (host) renderSessions(host); }
     decorate();
   }
+  function openRecentSession(bot) {
+    const item = r31PickUnread(bot, null) || sessions.find(row => row.bot === bot);
+    return open(item ? record(bot, item.id, item.title) : selected.get(bot));
+  }
   async function enterBot(bot) {
     if (!chatVisible() || S.bot !== bot) return;
+    if (threadRows) {
+      if (S.r29GroupFocus) return;
+      if (current()?.line && active(current())) return;
+      return openThread(bot);
+    }
     let r = selected.get(bot);
     if(!r)return;
     if (!r.remote && !r.messages.length && !r.fresh) {
@@ -4287,18 +4888,19 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     if (S.bot === bot && mode === 'real') await open(r);
   }
   function scheduleEnter() {
-    if (!chatVisible() || queued) return;
+    if (!chatVisible() || queued || threadRows && S.r29GroupFocus) return;
     const existing = current();
     // 首页先完成轮询，再打开助理时，也要把自动草稿接回服务器会话。
     // 用户明确新建的空白草稿（fresh）始终保留。
-    if (existing && (existing.remote || existing.messages.length || existing.fresh || !sessions.some(s => s.bot === S.bot))) return;
+    if (existing?.line || existing && (existing.remote || existing.messages.length || existing.fresh ||
+        !threadRows && !sessions.some(s => s.bot === S.bot))) return;
     // 当前 render 尚未结束，推迟导航，避免嵌套 render。
     if (!existing) S.threads[S.bot] = []; queued = true;
     const bot = S.bot, conversation = S.conversation;
     queueMicrotask(() => {
       queued = false;
       // navigate 在 popstate 恢复 fields 前会先发事件；执行时必须重验最终路由。
-      if (chatVisible() && S.bot === bot && S.conversation === conversation) void enterBot(bot);
+      if (chatVisible() && S.bot === bot && S.conversation === conversation && !S.r29GroupFocus) void enterBot(bot);
     });
   }
   function renderSessions(host) {
@@ -4317,6 +4919,9 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     if (mode !== 'real' || bot && !isBot(bot)) return originals.conversations(bot);
     return '<button class="setting-row" data-real-list>查看服务器会话</button>';
   };
+  window.R43SelfEdit?.connect({request: extCall, nameOf: botName, openApproval(card) {
+    upsertCard(card); drawerCard = card.id; H.openPanel('hub-real-card');
+  }});
   // 设置里的「每月预算」。默认不设；设了，账本页的「本月」才出现预算进度条。
   H.registerSettingsPage('hub-real-budget', { title: '每月预算', icon: 'settings', group: '偏好', order: 60, render(host) {
     if (mode !== 'real') { host.append(H.h('p', { class: 'muted' }, '演示模式下不设预算。')); return; }
@@ -4464,23 +5069,27 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
   }
   function decorateMessages(r) {
     const thread = document.querySelector('.thread-inner'); if (!thread || !r) return;
+    const articles = new Map([...thread.querySelectorAll('[data-message-id]')].map(el => [el.dataset.messageId, el]));
+    const dividers = new Map([...thread.querySelectorAll('[data-real-date-for]')]
+      .map(el => [el.dataset.realDateFor, el]));
     let day = '';
     const wanted = new Set();
-    r.messages.forEach(m => {
-      const article = [...thread.querySelectorAll('[data-message-id]')].find(n => n.dataset.messageId === m.id);
-      if (!article) return;
+    const visible = r.line ? r.messages.filter(m => articles.has(m.id)) : r.messages;
+    visible.forEach(m => {
+      const article = articles.get(m.id);
+      if (!article || m.kind === 'segment') return;
       article.classList.toggle('hub-real-tool-message', !!m.hubToolId);
       article.hidden = !!article.querySelector('[data-real-tool-continuation]');
       if (article.hidden) return;
       const stamp = messageDate(m.ts);
       const meta = article.querySelector('.message-meta'); if (meta) meta.textContent = stamp?.time || '';
-      if (!stamp || stamp.day === day) return;
+      if (r.line || !stamp || stamp.day === day) return;
       day = stamp.day; wanted.add(m.id);
-      let divider = [...thread.querySelectorAll('[data-real-date-for]')].find(n => n.dataset.realDateFor === m.id);
+      let divider = dividers.get(m.id);
       if (!divider) { divider = H.h('p', { class: 'time-stamp hub-real-date', 'data-real-date-for': m.id }); article.before(divider); }
       divider.textContent = day;
     });
-    thread.querySelectorAll('[data-real-date-for]').forEach(n => { if (!wanted.has(n.dataset.realDateFor)) n.remove(); });
+    dividers.forEach((node, id) => { if (!wanted.has(id)) node.remove(); });
     paintEmptyTalk(thread, r);
   }
   function decorate() {
@@ -4497,6 +5106,7 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
       const r = current();
       if (title) {
         if (!title.querySelector('.hub-real-title')) title.replaceChildren(H.h('span', { class: 'hub-real-title' }), H.h('small', { class: 'title-model hub-real-health', role: 'status' }), H.h('button', { type: 'button', class: 'textbutton hub-real-list-link', 'data-real-list': '' }, '会话'));
+        const list = title.querySelector('.hub-real-list-link'); if (list) list.hidden = !!r?.line;
         const label = pickedModelName(r) || modelLabelFor(modelsByBot.get(S.bot), S.bot);
         const caption = (r?.title || '新会话') + ' · ' + (label || 'DeepSeek V4.1 Flash');
         title.querySelector('.hub-real-title').textContent = caption;
@@ -4570,7 +5180,7 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     if (shellStatusAvailable === false) return;
     for (const bot of BOTS) {
       const counts = { running: serverRunning.get(bot) === true || !!delegated.get(bot)?.running || delegated.get(bot)?.queued > 0 || [...jobs.values()].some(j => j.r.bot === bot),
-        unread: serverUnread.get(bot) || 0, pending: serverPending.get(bot) || 0 };
+        unread: threadRows ? threadUnread(bot) : serverUnread.get(bot) || 0, pending: serverPending.get(bot) || 0 };
       const key = JSON.stringify(counts);
       if (shellCounts.get(bot) === key) continue;
       try { H.setBotStatus(bot, counts); shellStatusAvailable = true; shellCounts.set(bot, key); }
@@ -4627,7 +5237,7 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     const output = () => {
       if (job.committed || !job.r.messages.includes(job.message)) {
         const turn = job.data, next = reply(job.r, '', 'thinking', '在想');
-        for (const key of ['prompt','idem','userMessageId','unsent']) next.data[key] = turn[key];
+        for (const key of ['prompt','idem','userMessageId','unsent','topicBody']) next.data[key] = turn[key];
         Object.assign(job, next); job.committed = false;
       }
     };
@@ -4707,29 +5317,136 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
   }
   function resume(r) {
     if (jobs.has(r.local)) return;
-    const existing = r.messages.at(-1);
+    const existing = r.line ? null : r.messages.at(-1);
     const output = existing?.from !== 'user' && existing?.parts?.[0]?.type === 'hub-real-response' ? { message: existing, data: existing.parts[0].data } : reply(r, '', 'thinking', '正在恢复回复');
     const job = { r, ...output, controller: null, admitted: true }; jobs.set(r.local, job); phase(r.bot, 'thinking', r);
     job.task = receive(job).catch(() => finish(job, 'disconnected', '连接断了，回复可能没收全。请重新加载。'));
   }
-  function sendText(bot, text, r = current(), retryData = null) {
+  const threadSendPath = (r, id) => threadPath(r.bot) + '/send/' + encodeURIComponent(id);
+  function applyThreadReceipt(job, receipt, userMessage) {
+    const r = job.r;
+    if (!receipt.session || !receipt.classification || !receipt.requestId) throw new Error('话题发送回执不完整');
+    const requestId = receipt.classification.requestId || receipt.requestId;
+    const pending = receipt.pending === true || receipt.status === 'pending';
+    const awaitingAdmission = pending || receipt.status === 'dispatching';
+    const topic = receipt.topic?.id || receipt.session;
+    const title = receipt.topic?.title || '';
+    const replyState = pending ? 'pending' : 'running';
+    const changed = userMessage.topicLabel !== receipt.classification.label || userMessage.session !== receipt.session ||
+      userMessage.replyState !== replyState;
+    Object.assign(userMessage, { session: receipt.session, topic, topicTitle: title,
+      classification: { ...receipt.classification, requestId }, topicLabel: receipt.classification.label,
+      replyState });
+    Object.assign(job.message, { session: receipt.session, topic });
+    if (!awaitingAdmission) {
+      if (r.remote !== receipt.session) r.modelName = '';
+      r.remote = receipt.session;
+      r.ready = true;
+      r.fresh = false;
+      record(r.bot, r.remote, title);
+      if (receipt.classification.kind === 'new' && r28.pick.has(r.local)) {
+        r.modelName = pickedModelName(r);
+        r28.pick.delete(r.local);
+      }
+    }
+    r.line.topic = null;
+    if (changed) threadPaint(r, true);
+    return awaitingAdmission;
+  }
+  async function admitThreadSend(job, userMessage, body) {
+    const r = job.r;
+    const path = threadPath(r.bot) + '/send';
+    job.topicReceipt = api(path, { method: 'POST', body: JSON.stringify(body) });
+    let receipt = await job.topicReceipt;
+    const id = receipt.classification?.requestId || receipt.requestId;
+    for (const deadline = Date.now() + 20000; jobs.get(r.local) === job;) {
+      if (receipt.status === 'cancelled') {
+        if (!job.stopping) finish(job, 'stopped', '已停止');
+        return;
+      }
+      if (receipt.status === 'failed') {
+        throw Object.assign(new Error('没能发出这句话'), {
+          definitelyUnsent: receipt.canRetry === true, payload: { error: receipt.error },
+        });
+      }
+      if (!receipt.accepted || !applyThreadReceipt(job, receipt, userMessage)) break;
+      if (Date.now() >= deadline) throw new Error('还没有收到发送回执');
+      await new Promise(resolve => setTimeout(resolve, 300));
+      if (jobs.get(r.local) !== job) return;
+      receipt = await api(threadSendPath(r, id));
+    }
+    if (jobs.get(r.local) !== job) return;
+    if (!receipt.accepted || !receipt.requestId) throw new Error('发送回执不完整');
+    job.admitted = true;
+    H.setMessageStatus(r.local, userMessage.id, 'delivered');
+    if (receipt.status === 'done' && !job.stopping) finish(job, 'done', '回复完成');
+    void refreshStatus().catch(() => {});
+  }
+  function holdThreadSend(r, row) {
+    if (row.replyState !== 'pending') return;
+    const id = row.classification?.requestId || row.requestId;
+    if (id) void api(threadSendPath(r, id) + '/hold', { method: 'POST', body: '{}' }).catch(() => {});
+  }
+  async function reassignThreadMessage(r, args) {
+    const path = threadPath(r.bot) + '/reassign';
+    const body = { mode: args.round ? 'turn' : 'message', requestId: args.requestId };
+    if (args.round && !args.messageId?.startsWith('hub-real-')) body.messageId = args.messageId;
+    Object.assign(body, args.newTopic ? { newTopic: true, title: args.title } : { topic: args.target });
+    const result = await threadTopicMutation(path, 'POST', body);
+    const job = jobs.get(r.local);
+    const row = job && r.messages.find(m => m.id === job.data.userMessageId);
+    if (!args.round && row && result.classification) applyThreadReceipt(job, result, row);
+    if (r.line.filter && result.topic?.id && r.line.filter !== result.topic.id) r.line.filter = '';
+    await threadUpdateTopics(r);
+    if (args.round && active(r)) await latestThread(r);
+    else threadPaint(r, true);
+    void refreshThreads(true).catch(() => {});
+    return result;
+  }
+  function threadSendBody(r, text, outgoing, idem, intent) {
+    const picked = intent ? intent.topic : r.line.filter;
+    const topic = r.line.topics.find(item => item.id === picked && !item.system && !item.mergedInto);
+    const model = r28.pick.get(r.local);
+    const manualNew = intent ? intent.newTopic : r.fresh;
+    const body = { text: outgoing, classificationText: intent?.classificationText ?? text, idem };
+    if (intent?.preparedTopic) body.topic = intent.preparedTopic;
+    else if (manualNew || model) body.newTopic = true;
+    else if (topic) body.topic = topic.id;
+    if (model) body.model = model;
+    return body;
+  }
+  function sendText(bot, text, r = current(), retryData = null, intent = null) {
     if(isBot(bot) && !isEnabled(bot)){H.toast('这个助理已停用，只能查看旧会话');return;}
     assertBot(bot); // 必须在创建会话与任何 fetch 之前断言。
     if (mode !== 'real' || sampleRoute || !r || r.bot !== bot) return;
     if (jobs.has(r.local)) { H.toast('助理正在回复，请先停止'); return; }
+    if (r.line && r.line.after && active(r)) {
+      void latestThread(r).then(ok => { if (ok && active(r)) sendText(bot, text, r, retryData, intent); });
+      return;
+    }
+    if (r.line && active(r)) {
+      r.line.away = false; threadOptions(r);
+      window.R43Thread?.resetWindow(r.bot);
+      H.reading.toBottom({ reason: 'thread-send' });
+    }
     // 重试沿用原句。新发送才把还没带走的文件附注接在后面，避免附注被重试吃掉或提前丢掉。
     const outgoing = !retryData && r29Hooks ? r29Hooks.compose(bot, text) : text;
     if (!String(outgoing || '').trim()) return;
     // 先留下用户气泡与回复位。历史失败也不能在发送入口无声拦住。
     const previous = retryData && r.messages.find(m => m.parts?.[0]?.data === retryData);
     const userMessage = previous && r.messages.find(m => m.id === retryData.userMessageId) || post(r, { from: 'user', role: 'user', parts: [{ type: 'text', md: outgoing }] });
-    r.fresh = false;
+    if (!r.line) r.fresh = false;
     const output = previous ? { message: previous, data: retryData } : reply(r, '', 'thinking', '在想');
     Object.assign(output.data, { text: '', state: 'thinking', status: '在想', prompt: outgoing, userMessageId: userMessage.id, unsent: false,
       idem: retryData?.idem || hubIdem() });
-    const job = { r, ...output, controller: null, admitted: false, stopping: false }; jobs.set(r.local, job);
+    if (r.line?.topics) {
+      output.data.topicBody = retryData?.topicBody || threadSendBody(r, text, outgoing, output.data.idem, intent);
+    }
+    const job = { r, ...output, userMessage, controller: null, admitted: false, stopping: false };
+    jobs.set(r.local, job);
     phase(bot, 'thinking', r); paint(job, true);
     job.admission = (async () => {
+      if (output.data.topicBody) return admitThreadSend(job, userMessage, output.data.topicBody);
       if (r.remote && !r.ready) {
         let data;
         try { data = await api(endpoint(r.remote, 'history')); }
@@ -4744,7 +5461,12 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
         try { created = await createRemote(r, bot); }
         catch (error) { error.definitelyUnsent = true; throw error; }
         if (!created.id || created.bot !== bot) throw new Error('会话创建回执不匹配');
-        r.remote = created.id; r.ready = true; remoteRecords.set(r.remote, r);
+        r.remote = created.id; r.ready = true; r.fresh = false;
+        if (r.line) {
+          record(bot, r.remote, created.title);
+          if (r.line.topic) r.line.topic = { ...r.line.topic, session: r.remote, title: '新话题' };
+          userMessage.session = r.remote; output.message.session = r.remote;
+        } else remoteRecords.set(r.remote, r);
       }
       if (job.stopping) return;
       assertBot(bot); const result = await api(endpoint(r.remote, 'messages'), { method: 'POST', body: JSON.stringify({ text: outgoing, idem: job.data.idem }) });
@@ -4753,7 +5475,7 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
       void refreshStatus().catch(() => {});
     })();
     job.task = (async () => {
-      try { await job.admission; if (!job.stopping) await receive(job); }
+      try { await job.admission; if (!job.stopping && job.admitted) await receive(job); }
       catch (error) { if (!job.stopping) { online = false; job.data.unsent = error.definitelyUnsent === true; finish(job, 'error', friendlyError(error)); } }
     })();
   }
@@ -4765,6 +5487,15 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     if (input) input.value = '';
     S.input = '';
     return true;
+  }
+  async function prepareThreadMedia(r) {
+    if (r.remote) return r.remote;
+    const created = await createRemote(r, r.bot);
+    if (!created.id || created.bot !== r.bot) throw new Error('会话创建回执不匹配');
+    r.remote = created.id;
+    r.ready = true;
+    record(r.bot, r.remote, created.title);
+    return r.remote;
   }
   async function sendInput() {
     if (mode === 'real' && S.r29GroupFocus && r29NewGroupPage()) {
@@ -4790,24 +5521,31 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     if (!text && !files.length) return;
     if (jobs.has(S.conversation)) { H.toast('请先停止当前回复'); return; }
     const r = current(); if (!r) { H.toast('请重新打开助理会话'); return; }
+    if (r.line?.after && (r.line.loading || !await latestThread(r) || !active(r))) return;
+    const intent = r.line?.topics ? { topic: r.line.filter, newTopic: r.fresh, classificationText: text } : null;
     let uploaded = 0;
     const failed = [];
     if (files.length) {
       // 按住时附注先留在队列里，等这一句 sendText 一起带走，不另发一条。
       r29HoldSend = true;
       try {
+        if (intent && !r.remote) {
+          await prepareThreadMedia(r);
+          if (r.fresh) intent.preparedTopic = r.remote;
+        }
         for (const entry of files) {
           const file = entry.file || entry;
           let result = null;
           if (typeof window.HubUpload === 'function') {
             try {
-              result = await window.HubUpload(file, { conversation: r.remote || r.local, bot: S.bot });
+              result = await window.HubUpload(file, { conversation: r.remote || r.local, bot: r.bot });
             } catch { result = null; }
           }
           if (result && result.ok) uploaded += 1;
           else failed.push(entry);
         }
-      } finally { r29HoldSend = false; }
+      } catch { H.toast('暂时没法上传，请重试'); return; }
+      finally { r29HoldSend = false; }
       S.attachments = failed;
       if (failed.length) H.toast('没传上去，点这里重试');
     }
@@ -4817,7 +5555,7 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     if (input) input.dispatchEvent(new Event('input', { bubbles: true }));
     // 热修：发完不让输入框失焦，接着打的字直接进框（壳的重绘按 refocus 把焦点放回新输入框）。
     S.refocus = true;
-    sendText(S.bot, body, r);
+    sendText(r.bot, body, r, null, intent);
     keepComposerFocus();
   }
   // 热修：把焦点放回当前输入框；同步一次，下一帧再补一次（重绘换了节点时）。
@@ -4834,7 +5572,14 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     job.stopping = true; job.data.stopping = true; job.data.status = '正在停止'; paint(job, true);
     job.controller?.abort(); clearTimeout(job.retryTimer); job.wake?.();
     try {
-      await job.admission?.catch(() => {});
+      if (job.topicReceipt) {
+        const first = await job.topicReceipt;
+        const id = first.classification?.requestId || first.requestId;
+        const result = await api(threadSendPath(job.r, id) + '/cancel', { method: 'POST', body: '{}' });
+        if (result.status === 'done') { finish(job, 'done', '回复完成'); return; }
+        if (['cancelled', 'failed'].includes(result.status)) { finish(job, 'stopped', '已停止'); return; }
+        await job.admission;
+      } else await job.admission?.catch(() => {});
       if (job.admitted) {
         const result = await api(endpoint(job.r.remote, 'cancel'), { method: 'POST', body: '{}' });
         if (result.ok !== true) throw new Error('停止未获确认');
@@ -4956,11 +5701,22 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     if (forwardingDemoClick) return;
     if (sentGesture?.bot === S.bot && sentGesture.conversation === S.conversation && Date.now() < sentGesture.until && e.detail !== 0 && button.closest('.r22-input-row') && ['send','stop','voice'].includes(button.dataset.act)) { consume(e); return; }
     if (mode === 'real') {
+      if (button.dataset.realThread || button.dataset.realThreadResult) {
+        consume(e);
+        const bot = button.dataset.realThread || button.dataset.bot;
+        if (threadRows && isBot(bot)) void openThread(bot, button.dataset.realThreadResult);
+        return;
+      }
       if (button.dataset.realAnswer) { consume(e); void answerApproval(button.dataset.realApproval, button.dataset.realAnswer, button); return; }
       if (button.dataset.realRevoke) { consume(e); void revokePermission(button.dataset.realRevoke,button); return; }
       if (button.dataset.realPending) { consume(e); const c = cards.get('approval:' + button.dataset.realPending); if (c) void openCard(c); return; }
       if (button.dataset.realContinue) { consume(e); void continueDelegation(button.dataset.realContinue, button); return; }
-      if (button.dataset.realReport) { consume(e); const c = cards.get('delegation:' + button.dataset.realReport); if (c?.toSession) { S.drawer = null; void open(record(c.bot, c.toSession, '派工回报'), true, { preserveSource: true }); } return; }
+      if (button.dataset.realReport) {
+        consume(e);
+        const c = cards.get('delegation:' + button.dataset.realReport);
+        if (c?.toSession) void openThreadSource(c.bot, c.toSession, '派工回报', { preserveSource: true });
+        return;
+      }
       if (button.matches?.('[data-feature-phrase],[data-feature-chat]')) {
         consume(e);
         const bot = H.featureOwner?.(S.featureId)?.id;
@@ -4969,8 +5725,9 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
         const text = button.dataset.featurePhrase || '', latest = sessions.find(s => s.bot === bot);
         S.drawer = null; S.input = text;
         const r = latest ? record(bot, latest.id, latest.title) : selected.get(bot);
-        void open(r).then(() => {
-          if (!active(r)) return;
+        const openingTarget = threadRows ? openThread(bot) : open(r);
+        void openingTarget.then(() => {
+          if (!realChat() || S.bot !== bot) return;
           const input = document.querySelector('[data-focus="composer"]');
           if (input) { input.focus({ preventScroll: true }); input.setSelectionRange(input.value.length, input.value.length); }
         });
@@ -4997,9 +5754,9 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
           // 先确定目标会话，再一次导航；离开原路由或有更新的打开动作就作废。
           void refreshList().catch(() => {}).then(() => {
             if (mode !== 'real' || epoch !== opening || routeStamp() !== origin) return;
+            if (threadRows) return openThread(bot);
             // 这位助理有未读时，落到有未读的那一段（没有就还是最近一段）。
-            const item = r31PickUnread(bot, null) || sessions.find(s => s.bot === bot);
-            return open(item ? record(bot, item.id, item.title) : selected.get(bot));
+            return openRecentSession(bot);
           }); return;
         }
       }
@@ -5066,7 +5823,13 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     const job = jobs.get(r.local);
     if (job && job.admission && !job.admitted) { await job.admission.catch(() => {}); }
     if (job) { job.controller?.abort(); clearTimeout(job.retryTimer); job.wake?.(); clearTimeout(job.paintTimer); jobs.delete(r.local); }
-    try { await refreshList(); await history(r, { force: true }); await loadCards(r); if (sessions.find(s => s.id === r.remote)?.running) resume(r); }
+    try {
+      await refreshList();
+      if (r.line) { await refreshThreadTail(r, true); }
+      else { await history(r, { force: true }); await loadCards(r); }
+      if (r.line) resumeThread(r, r.remote);
+      else if (sessions.find(s => s.id === r.remote)?.running) resume(r);
+    }
     catch (error) { showLoadError(r, error); }
   }
   // 壳的本地会话 id 每次载入都会重建；冷启动用服务器 id 恢复，不能复用旧 local id。
@@ -5088,6 +5851,49 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
   window.addEventListener('focus', () => { r31Nudge(2000); r31ViewingKeep(); });
   window.addEventListener('online', () => { const r = current(); if (mode === 'real' && r?.remote) void reload(r); });
   // 开发期观测与断言：从非助理入口调用 sendText 会在任何网络请求前抛错。
+  function dropDeleted(spec) {
+    const bot = spec.bot || S.bot;
+    const r = threadRecords.get(bot);
+    if (!r?.line?.entries) return;
+    const sessionsHit = new Set(spec.sessions || (spec.session ? [spec.session] : []));
+    for (const [key, item] of [...r.line.entries]) {
+      const session = item.session || '';
+      const messageHit = spec.kind === 'message' && session === spec.session &&
+        (item.messageId === spec.messageId || String(item.seq) === String(spec.messageId));
+      if (spec.kind === 'thread' || messageHit || (spec.kind === 'segment' && sessionsHit.has(session))) {
+        r.line.entries.delete(key);
+      }
+    }
+    if (spec.kind === 'thread') {
+      r.line.topics = (r.line.topics || []).filter(topic => topic.system);
+      r.line.current = null;
+      r.remote = null;
+      r.line.filter = '';
+    } else if (spec.kind === 'segment' && r.line.topics) {
+      r.line.topics = r.line.topics.filter(topic => !sessionsHit.has(topic.id));
+      if (sessionsHit.has(r.line.filter)) r.line.filter = '';
+    }
+    rebuildThread(r);
+    if (active(r)) threadPaint(r, true);
+  }
+  function markThreadRead(bot) {
+    const ids = sessions.filter(row => row.bot === bot && threadSessionRow(row));
+    for (const row of ids) {
+      row.unread = 0;
+      try { r29Hooks?.HubUnread.markRead(row.id, { latest: true }); } catch { /* 下一次再标已读 */ }
+    }
+    const listed = threadRows?.find(row => row.bot === bot);
+    if (listed) listed.unread = 0;
+    paintRecent();
+  }
+  async function reloadDeleted(bot) {
+    try { await refreshThreads(true); } catch { /* 首页列表稍后再对 */ }
+    const r = threadRecords.get(bot);
+    if (r && active(r)) {
+      try { await refreshThreadTail(r); } catch { /* 当前页稍后再对 */ }
+    }
+  }
+  window.HubRealDelete = { drop: dropDeleted, markRead: markThreadRead, reload: reloadDeleted };
   window.HubReal = Object.freeze({ sendText, markdown, state: () => ({ mode, online, sampleRoute, rosterReady, roster: [...roster.values()].map(b=>({...b})), sessions: sessions.map(s => ({ ...s })), jobs: [...jobs.keys()], turns: turns.map(t => ({ ...t })) }) });
   setInterval(() => { if (mode === 'real') document.querySelectorAll('[data-real-countdown]').forEach(el => { const c = cards.get('approval:' + el.dataset.realCountdown); if (c) el.textContent = remaining(c); }); }, 15000);
   fsInit({H, S, mode: () => mode, extGet, extCall, boardColumns, bucketTokens, bucketCost,
@@ -5106,6 +5912,7 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     void poll().then(() => {
       const saved = coldRoute; coldRoute = null;
       if (saved && opening === bootOpening && routeStamp() === bootRoute && S.view === 'chat' && !S.drawer && isBot(saved.bot)) {
+        if (threadRows) { void openThread(saved.bot); return; }
         const item = sessions.find(s => s.bot === saved.bot && s.id === saved.remote) || sessions.find(s => s.bot === saved.bot);
         void open(item ? record(saved.bot, item.id, item.title) : selected.get(saved.bot));
       } else if (chatVisible() && current()?.messages.length === 0) void enterBot(S.bot);
@@ -5121,7 +5928,7 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     let count = 0;
     try {
       const bag = r29Hooks?.HubUnread?.counts?.();
-      count = Number(bag?.bots?.[id]) || 0;
+      count = Number(threadRows ? threadUnread(id) : bag?.bots?.[id]) || 0;
     } catch { count = 0; }
     const text = count > 99 ? '99+' : count > 0 ? '+' + count : '';
     const badge = pin.querySelector('[data-r29-unread]');
@@ -5227,6 +6034,7 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     let max = 0; let any = false;
     for (const message of found.messages || []) {
       if (!message || !message.serverId) continue;
+      if (found.line && message.session !== found.remote) continue;
       if (Number.isSafeInteger(message.seq) && message.seq > max) { max = message.seq; any = true; }
     }
     return any ? max : 0;
@@ -5265,6 +6073,7 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
       return;
     }
     const r = current();
+    if (r?.line) { if (!r.line.loading) threadSeen(r); return; }
     if (r?.remote && r31Allow(r.remote, Number(bag.conversations[r.remote]) || 0)) {
       r29Hooks.HubUnread.markRead(r.remote, { latest: true });
     }
@@ -5279,7 +6088,7 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
   }
   // 这位助理名下，除了正在看的这一段，还有别的段有未读：对话顶上放一条入口，点了就进有未读的那一段。
   function r31OtherUnread() {
-    if (!r29Hooks || !realChat() || S.r29GroupFocus) return null;
+    if (!r29Hooks || !realChat() || S.r29GroupFocus || current()?.line) return null;
     const bag = r29Hooks.HubUnread.counts();
     const here = current();
     const total = Number(bag.bots[S.bot]) || 0;
@@ -5318,7 +6127,8 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
   var r31ExplicitAt = 0;
   var r31OpenedAt = 0;
   function r31Landing() {
-    const key = mode === 'real' && r29Hooks && realChat() && chatVisible() && !S.r29GroupFocus ? S.bot : '';
+    const legacyChat = mode === 'real' && r29Hooks && realChat() && chatVisible() && !S.r29GroupFocus && !threadRows;
+    const key = legacyChat ? S.bot : '';
     if (key === r31ChatKey) return;
     r31ChatKey = key;
     if (!key) return;
@@ -5345,6 +6155,7 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     const thread = node?.closest?.('.thread') || (node?.classList?.contains('thread') ? node : null);
     if (!thread || thread.scrollHeight - thread.scrollTop - thread.clientHeight > 80) return;
     const recordItem = current();
+    if (recordItem?.line) return;
     if (recordItem?.remote) r29Hooks.HubUnread.markRead(recordItem.remote);
   }
   async function r29Request(path, options = {}) {
@@ -5382,13 +6193,23 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     if (!shellId || !bot) return { conversation: shellId, remote: shellId, local: shellId };
     const r = r29VoiceRecord(bot, shellId) || r29VoiceSame(bot, shellId);
     if (!r) return { conversation: shellId, remote: shellId, local: shellId };
+    if (r.line?.topics) {
+      const intent = { topic: r.line.filter, newTopic: r.fresh };
+      const remote = await prepareThreadMedia(r);
+      if (intent.newTopic) intent.preparedTopic = remote;
+      return { conversation: remote, remote, local: r.local, intent };
+    }
     if (!r.remote) {
       assertBot(bot);
       const created = await createRemote(r, bot);
       if (!created || !created.id || created.bot !== bot) throw new Error('会话创建回执不匹配');
       r.remote = created.id;
       r.ready = true;
-      remoteRecords.set(r.remote, r);
+      if (r.line) {
+        r.fresh = false;
+        record(bot, r.remote, created.title);
+        if (r.line.topic) r.line.topic = { ...r.line.topic, session: r.remote, title: '新话题' };
+      } else remoteRecords.set(r.remote, r);
     }
     return { conversation: r.remote, remote: r.remote, local: r.local };
   }
@@ -5399,11 +6220,13 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
     const voiceKey = requestId ? String(bot ?? '') + '\n' + requestId : '';
     if (voiceKey && r29VoiceLanded.has(voiceKey)) return;
     const remoteId = info && typeof info.remote === 'string' ? info.remote : '';
-    const r = r29VoiceRecord(bot, shellId) || r29VoiceRecord(bot, remoteId) ||
+    const line = r29VoiceRecord(bot, shellId) || r29VoiceRecord(bot, remoteId) ||
       r29VoiceSame(bot, shellId) || r29VoiceSame(bot, remoteId);
+    const r = line?.line && !info?.intent && remoteId && line.remote !== remoteId ? remoteRecords.get(remoteId) : line;
     if (!r || r.bot !== bot) return;
     if (voiceKey) r29VoiceRemember(voiceKey);
-    sendText(bot, text, r);
+    if (info?.intent) sendText(bot, text, r, null, info.intent);
+    else sendText(bot, text, r);
   }
   // 看板接口。读全部单、可派给谁，以及主人在界面上挪列、换人、改标题说明、新建。
   function r30BoardHook() {
@@ -5439,7 +6262,7 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
       r29Hooks = null;
       S.r29GroupFocus = '';
       S.r29GroupHold = false;
-      delete window.HubUnread; delete window.HubVoiceSend;
+      delete window.HubUnread; delete window.HubVoiceSend; delete window.HubSpeak;
       delete window.HubUpload; delete window.HubSettings;
       delete window.HubGroups; delete window.HubBoard;
       return;
@@ -5485,9 +6308,13 @@ function hubIdem(){ if (globalThis.crypto && typeof crypto.randomUUID === 'funct
       }
     });
     window.HubUnread = r29Hooks.HubUnread;
-    try { r29Hooks.HubUnread.subscribe(() => { try { r31ViewingKeep(); } catch { /* 补标失败下次再补 */ } }); } catch { /* 订阅不上就靠回前台时补标 */ }
+    r29Hooks.HubUnread.subscribe(() => {
+      if (threadRows) document.querySelectorAll('[data-bot-tree]').forEach(r29PaintUnread);
+      try { r31ViewingKeep(); } catch { /* 补标失败下次再补 */ }
+    });
     if (!r31TapOn) { r31TapOn = true; H.on('render', r31Landing); }
     window.HubVoiceSend = r29Hooks.HubVoiceSend;
+    window.HubSpeak = r29Hooks.HubSpeak;
     window.HubUpload = r29Hooks.HubUpload;
     window.HubSettings = r29Hooks.HubSettings;
     window.HubGroups = {
@@ -5870,9 +6697,11 @@ async function fsRender(c, id, kind, target) {
       const result = await get(kind === 'now' ? '/ledger/today' : '/ledger');
       const bucket = result.data?.total;
       if (!result.ok || !bucket || typeof bucket !== 'object' || Array.isArray(bucket)) throw Error('empty');
-      const cost = c.bucketCost(bucket).join(' / ').replace('费用未知', '待计价');
-      lines.push((kind === 'now' ? '今天' : '累计') + ' · ' + (bucket.calls ?? '未知') + ' 次调用 · ' +
-        c.formatTokenCount(c.bucketTokens(bucket).total) + ' token · ' + (cost || '待计价'));
+      const heading = kind === 'now' ? '今天' : '累计';
+      const cost = c.bucketCost(bucket);
+      lines.push(bucket.calls > 0 ? [heading, bucket.calls + ' 次调用',
+        c.formatTokenCount(c.bucketTokens(bucket).total) + ' token', ...cost].join(' · ') :
+        heading + ' · 还没有记录');
       if (kind === 'now') addButton('打开完整账本', () => c.H.navigate({view: 'ledger'}));
     } else if (id === 'schedule') {
       if (kind === 'now') {
@@ -6007,6 +6836,16 @@ function r29CreateHooks(deps) {
     const response = await deps.request(path, options);
     return { status: response.status, ok: response.ok, data: await readJson(response) };
   }
+  async function mirrorRequest(rebuild = false) {
+    try {
+      const path = '/settings/board-mirror' + (rebuild ? '/rebuild' : '');
+      const options = rebuild ? {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}',
+      } : undefined;
+      const res = await call(path, options);
+      return res.ok && typeof res.data?.state === 'string' ? res.data : null;
+    } catch { return null; }
+  }
   function snapshot() {
     return {
       conversations: { ...counts.conversations },
@@ -6115,18 +6954,6 @@ function r29CreateHooks(deps) {
       readSent.set(id, stamp);
       // 先在本地清掉数字（同步、不等任何网络），再告诉后端。
       const before = snapshot();
-      let restored = false;
-      const putBack = () => {
-        if (restored) return;
-        restored = true;
-        quiet.delete(id);
-        counts = {
-          conversations: { ...before.conversations },
-          bots: { ...before.bots },
-          groups: { ...before.groups }
-        };
-        notify();
-      };
       let taken = 0;
       const convKey = hasKey(counts.conversations, id) ? id : (hasKey(counts.conversations, asked) ? asked : '');
       const groupKey = !convKey && (hasKey(counts.groups, id) ? id : (hasKey(counts.groups, asked) ? asked : ''));
@@ -6148,6 +6975,14 @@ function r29CreateHooks(deps) {
         const left = (Number(counts.bots[bot]) || 0) - taken;
         counts.bots[bot] = left > 0 ? left : 0;
       }
+      const putBack = () => {
+        quiet.delete(id);
+        if (convKey && !counts.conversations[convKey]) {
+          counts.conversations[convKey] = taken;
+          if (bot && hasKey(counts.bots, bot)) counts.bots[bot] = (Number(counts.bots[bot]) || 0) + taken;
+        } else if (groupKey && !counts.groups[groupKey]) counts.groups[groupKey] = before.groups[groupKey];
+        notify();
+      };
       if (convKey || groupKey) quiet.set(id, { settled: 0, bot, key: convKey || groupKey });
       if (JSON.stringify(snapshot()) !== JSON.stringify(before)) notify();
       const send = payload => call('/unread/read', {
@@ -6260,6 +7095,21 @@ function r29CreateHooks(deps) {
     voiceDone.set(key, value);
     while (voiceDone.size > 80) voiceDone.delete(voiceDone.keys().next().value);
   }
+  function voiceErrorPass(res, data) {
+    if (res.ok) return true;
+    return data.error === 'asr-timeout' || data.error === 'asr-failed'
+      || data.error === 'asr-unavailable' || data.error === 'asr-misconfigured'
+      || data.error === 'audio-too-large' || data.error === 'audio-too-long';
+  }
+  function voiceClientError(data) {
+    const error = typeof data.error === 'string' ? data.error : 'failed';
+    const out = { ok: false, error };
+    if (typeof data.id === 'string') out.id = data.id;
+    if (data.asr === true || data.asr === false) out.asr = data.asr;
+    if (data.retryable === true) out.retryable = true;
+    if (typeof data.message === 'string') out.message = data.message;
+    return out;
+  }
   async function r29VoiceOnce(blob, info, requestId, mark) {
     const bot = r29Clip(info.bot, 80);
     const conversation = r29Clip(info.conversation, 80);
@@ -6267,6 +7117,7 @@ function r29CreateHooks(deps) {
     let remoteId = conversation;
     const rawType = typeof blob?.type === 'string' ? blob.type.split(';')[0].trim() : '';
     const type = /^audio\/[a-z0-9.+-]+$/i.test(rawType) ? rawType : 'application/octet-stream';
+    let intent;
     if (typeof deps.bindVoice === 'function' && conversation && bot && !r29SkipKey(bot)) {
       try {
         const bound = await deps.bindVoice(bot, { conversation, requestId });
@@ -6275,6 +7126,7 @@ function r29CreateHooks(deps) {
           uploadId = next;
           remoteId = next;
         }
+        intent = bound?.intent;
       } catch {
         mark(false);
         return { ok: false, error: 'failed' };
@@ -6288,25 +7140,27 @@ function r29CreateHooks(deps) {
     try {
       const res = await call('/voice/' + query, { method: 'POST', headers, body: blob });
       if (res.status === 404) return { ok: false, error: 'not-ready' };
-      if (!res.ok) return { ok: false, error: 'failed' };
-      if (res.data?.ok === false) {
-        const error = typeof res.data.error === 'string' ? res.data.error : 'failed';
-        return { ok: false, error, id: res.data.id };
+      const data = res.data;
+      if (data && typeof data === 'object' && data.ok === false && voiceErrorPass(res, data)) {
+        return voiceClientError(data);
       }
-      if (res.data?.ok !== true) return { ok: false, error: 'failed' };
+      if (!res.ok || data?.ok !== true) return { ok: false, error: 'failed' };
       const text = typeof res.data.text === 'string' ? res.data.text : '';
       const audioUrl = typeof res.data.audioUrl === 'string' ? res.data.audioUrl : '';
+      const asr = res.data.asr === true || res.data.asr === false ? res.data.asr : undefined;
       if (text.trim() && bot && !r29SkipKey(bot)) {
         try {
           if (typeof deps.placeVoice === 'function') {
-            deps.placeVoice(bot, text, { conversation, remote: remoteId, requestId });
+            deps.placeVoice(bot, text, { conversation, remote: remoteId, requestId, ...(intent ? { intent } : {}) });
           } else if (typeof deps.deliver === 'function') {
             deps.deliver(bot, text);
           }
           mark(true);
         } catch { mark(false); }
       }
-      return { ok: true, text, audioUrl };
+      const done = { ok: true, text, audioUrl };
+      if (asr !== undefined) done.asr = asr;
+      return done;
     } catch { return { ok: false, error: 'failed' }; }
   }
   async function HubVoiceSend(blob, meta) {
@@ -6327,6 +7181,18 @@ function r29CreateHooks(deps) {
       job.finally(() => { voiceFlights.delete(voiceKey); });
     }
     return job;
+  }
+  async function HubSpeak(text, id) {
+    const body = { text: String(text ?? '').slice(0, 20000) };
+    if (typeof id === 'string' && /^[A-Za-z0-9_.:-]{1,80}$/u.test(id)) body.id = id;
+    try {
+      const res = await call('/voice/speak', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+      });
+      if (res.status === 404) return { ok: false, error: 'not-ready', message: '还没接上' };
+      if (!res.data || typeof res.data !== 'object') return { ok: false, error: 'failed', message: '这会儿念不出来' };
+      return res.data;
+    } catch { return { ok: false, error: 'failed', message: '这会儿念不出来' }; }
   }
   async function HubUpload(file, meta) {
     const info = meta || {};
@@ -6433,8 +7299,9 @@ function r29CreateHooks(deps) {
     } catch { return { ok: false, error: 'failed' }; }
   }
   return {
-    HubUnread, HubVoiceSend, HubUpload,
-    HubSettings: { get: getSettings, setPermission, setBot, setBudget },
+    HubUnread, HubVoiceSend, HubSpeak, HubUpload,
+    HubSettings: { get: getSettings, setPermission, setBot, setBudget,
+      getMirror: () => mirrorRequest(), rebuildMirror: () => mirrorRequest(true) },
     compose, refresh: () => track(refresh()), idle: () => chain, onReply: () => track(refresh())
   };
 }

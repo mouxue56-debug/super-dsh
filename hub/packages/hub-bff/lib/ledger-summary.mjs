@@ -1,6 +1,7 @@
 import { computeCost } from './prices.mjs';
 const fields = ['input', 'cacheRead', 'cacheWrite', 'output', 'reasoning'];
-const round = (n) => Math.round(n * 1e6) / 1e6;
+// 本体的 ¥0.02 / 百万 token 需要保留到 8 位小数。
+const round = (n) => Math.round(n * 1e8) / 1e8;
 const dateKey = (ms, offset) => new Date(ms + offset * 60000).toISOString().slice(0, 10);
 const bucket = () => ({
   calls: 0,
@@ -19,14 +20,14 @@ const entry = (obj, key, create) => {
   }
   return obj[key];
 };
-function addCall(b, r, book, now) {
+function addCall(b, r, c) {
   b.calls++;
   for (const k of fields) {
     const n = r.tokens?.[k];
     if (n == null) b.unreportedFields[k]++;
     else b.tokens[k] += n;
   }
-  const c = computeCost(r, book, now), cost = b.cost;
+  const cost = b.cost;
   if (c.status === 'pending') cost.pendingCalls++;
   if (c.status === 'expired') cost.expiredCalls++;
   if (c.status === 'plan') cost.planCalls++;
@@ -50,6 +51,10 @@ function addCall(b, r, book, now) {
 export function summarize(rows, { priceBook, nowMs = Date.now(), groupBy, utcOffsetMinutes = 0 } = {}) {
   const total = bucket(), byBot = {}, byDay = {}, bySession = {}, byTicket = {};
   const counts = { approvals: 0, actions: 0, changes: 0, dispatches: 0, dispatchWallMs: null };
+  const today = dateKey(nowMs, utcOffsetMinutes), month = today.slice(0, 7);
+  const weekEnd = Date.parse(`${today}T00:00:00Z`);
+  const weekStart = dateKey(weekEnd - 6 * 86400000, 0);
+  const sevenTotal = bucket(), monthTotal = bucket();
   for (const r of rows) {
     if (r.kind !== 'call') {
       const k =
@@ -60,29 +65,28 @@ export function summarize(rows, { priceBook, nowMs = Date.now(), groupBy, utcOff
       }
       continue;
     }
+    const day = dateKey(r.tsMs, utcOffsetMinutes);
+    const cost = computeCost(r, priceBook, nowMs);
     for (
       const b of [
         total,
         entry(byBot, r.bot ?? '(无助理)', bucket),
-        entry(byDay, dateKey(r.tsMs, utcOffsetMinutes), bucket),
+        entry(byDay, day, bucket),
         entry(bySession, r.sessionId ?? '(无会话)', bucket),
         entry(byTicket, r.ticket ?? '(无工单)', bucket),
       ]
-    ) addCall(b, r, priceBook, nowMs);
+    ) addCall(b, r, cost);
+    if (day >= weekStart && day <= today) addCall(sevenTotal, r, cost);
+    if (day.startsWith(month)) addCall(monthTotal, r, cost);
   }
-  const today = dateKey(nowMs, utcOffsetMinutes), end = Date.parse(`${today}T00:00:00Z`), days = [];
-  const sevenTotal = bucket();
+  const days = [];
   for (let i = 6; i >= 0; i--) {
-    const date = dateKey(end - i * 86400000, 0);
+    const date = dateKey(weekEnd - i * 86400000, 0);
     const day = byDay[date] ?? bucket();
     days.push({ date, ...day });
   }
-  const start = end - 6 * 86400000;
-  for (const r of rows) {
-    if (r.kind === 'call') {
-      const day = Date.parse(`${dateKey(r.tsMs, utcOffsetMinutes)}T00:00:00Z`);
-      if (day >= start && day <= end) addCall(sevenTotal, r, priceBook, nowMs);
-    }
-  }
-  return { total, byBot, byDay, bySession, byTicket, last7Days: { days, total: sevenTotal }, counts };
+  return {
+    total, byBot, byDay, bySession, byTicket, last7Days: { days, total: sevenTotal },
+    thisMonth: { month, total: monthTotal }, counts,
+  };
 }

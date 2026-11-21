@@ -198,6 +198,21 @@ function sectionItems(root, name) {
 function main() {
   const env = boot();
   const api = env.api;
+  const staged = {id: 'owner-sensitive', status: 'pending', tool: 'self_edit_write',
+    title: '修改权限设置', confirmationTotal: 2, confirmationStep: 1,
+    consequence: '修改后会改变工具权限', rollback: '已留还原点，可以退回',
+    targets: ['config/权限.json', '<img src=x onerror=bad()>'], targetCount: 2, scopeGrantable: true};
+  const first = api.renderCard(staged);
+  assert.ok(buttons(first).includes('继续核对对象'));
+  assert.ok(buttons(first).includes('这一次这类都同意'));
+  assert.ok(!buttons(first).includes('以后这类不用问'));
+  const second = api.renderCard({...staged, confirmationStep: 2});
+  assert.ok(buttons(second).includes('对象和数量已核对，确认执行'));
+  assert.equal(second.querySelector('[data-confirmation-count]').textContent, '涉及 2 个对象');
+  assert.ok(second.querySelector('[data-confirmation-targets]').textContent.includes('config/权限.json'));
+  assert.ok(second.querySelector('[data-confirmation-details]').textContent.includes('已留还原点'));
+  assert.equal(second.querySelector('img'), null);
+  assert.equal(second.querySelector('[data-confirmation-details]').parentNode, second);
   const expected = {
     'write-shared': '调研员想把摘要存到共享文件夹',
     'read-file': '资料员想查看摘要',

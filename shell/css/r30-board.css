@@ -175,3 +175,11 @@ body.r30-dragging, body.r30-dragging * { cursor: grabbing !important; user-selec
 .r30-opt { margin: 14px 0 6px; color: var(--ink-2); font-size: 13px; }
 .r30-opt summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
 .r30-give:disabled { opacity: .5; }
+
+/* 进度记录上的来源小标。没有记录时不画这一段。 */
+.r41-logs { margin: 0; padding-left: 1.1em; }
+.r41-logs li { margin: 0 0 6px; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.r41-via {
+  display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 999px;
+  background: var(--fill, transparent); color: var(--ink-2); font-size: 12px;
+}

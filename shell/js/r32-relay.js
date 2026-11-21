@@ -38,6 +38,9 @@
 
   /* ---------- 路线数据 → 界面要用的模型 ---------- */
   var WORD = {waiting: '还没轮到', active: '正在做', gate: '等你', stuck: '卡住了', done: '已交回', failed: '做不了'};
+  function cloneCount(value) {
+    return Number.isInteger(value) && value > 0 && value <= 32 ? value : 0;
+  }
   function personOf(who) {
     if (!who) return null;
     var actor = typeof r29DeskActor === 'function' ? r29DeskActor(who.name, who.type === 'owner' ? 'owner' : who.type) : null;
@@ -56,7 +59,7 @@
       else if (['active', 'stuck'].indexOf(s.status) >= 0 && started != null) spent = now - started;
       return {n: i + 1, person: personOf(s.who), owner: !!s.who && s.who.type === 'owner', task: s.task || '', doneWhen: s.doneWhen || '',
         status: s.status, note: s.note || '', noteBy: s.noteBy || '', question: s.question || '', returned: s.returnedNote || '',
-        gate: !!s.gate, spent: spent, stalled: !!s.stalledAt && ['active'].indexOf(s.status) >= 0, stalledMin: Number(s.stalledMin) > 0 ? Number(s.stalledMin) : 30};
+        gate: !!s.gate, aside: s.aside === true, clones: cloneCount(s.clones), spent: spent, stalled: !!s.stalledAt && ['active'].indexOf(s.status) >= 0, stalledMin: Number(s.stalledMin) > 0 ? Number(s.stalledMin) : 30};
     });
     var phase = relay.phase;
     var current = typeof relay.current === 'number' ? relay.current : 0;
@@ -145,7 +148,10 @@
       if (s.question && s.status !== 'stuck') extra += '<p class="r32-time">问过：' + e(s.question) + '</p>';
       html += '<li class="r32-step ' + cls + '"><span class="r32-rail" aria-hidden="true"><span class="r32-dot" style="--r32-px:30px"><span class="r32-face">' + faceHtml(s, 30) + '</span>' +
         (cls === 'is-done' ? '<b class="r32-tick">' + CHECK + '</b>' : '') + '</span></span>' +
-        '<div class="r32-body"><div class="r32-head"><strong>第 ' + s.n + ' 棒 · ' + e(nameOf(s)) + '</strong><em class="r32-chip">' + e(chip) + '</em></div>' +
+        '<div class="r32-body"><div class="r32-head"><strong>第 ' + s.n + ' 棒 · ' + e(nameOf(s)) + '</strong>' +
+        (s.aside ? '<em class="r32-aside">独立会话</em>' : '') +
+        (s.clones > 0 ? '<em class="r32-clones">用了 ' + s.clones + ' 个分身</em>' : '') +
+        '<em class="r32-chip">' + e(chip) + '</em></div>' +
         '<p class="r32-task">' + e(s.task) + '</p>' + (s.doneWhen ? '<p class="r32-when">做到：' + e(s.doneWhen) + '</p>' : '') +
         (time ? '<p class="r32-time">' + e(time) + '</p>' : '') + extra + note + '</div></li>';
     });
@@ -399,6 +405,16 @@
   NS.templates = TEMPLATES;
   function ownerPerson() { return {id: 'owner', key: 'ext:owner:owner', name: '你', roster: false, type: 'owner'}; }
   function bots() { return (state && state.bots ? state.bots : []).filter(function (b) { return b && b.id && !b.steward && !b.parent && b.enabled !== false; }); }
+  function personFromBot(b) { return {id: b.id, key: b.id, name: b.name || b.id, roster: true, type: 'assistant'}; }
+  /* 另开一段会话不是另一个人：绑当前这位助理；没有就用在任首席，再没有就用第一位能用的助理。 */
+  function asidePerson() {
+    var list = bots();
+    var cur = state && state.bot ? list.filter(function (b) { return b.id === state.bot; })[0] : null;
+    if (cur) return personFromBot(cur);
+    var chief = list.filter(function (b) { return b.role === 'chief'; })[0];
+    if (chief) return personFromBot(chief);
+    return list[0] ? personFromBot(list[0]) : null;
+  }
   function resolveSlot(slot) {
     if (slot.owner) return ownerPerson();
     var list = bots();
@@ -419,6 +435,7 @@
     var face = p ? (p.type === 'owner' ? '<span class="r32-me" style="--r32-px:32px">你</span>' : r29DeskFace(p, 32)) : '<span class="r30-face-empty" aria-hidden="true">？</span>';
     return '<li class="r32-build-row"><span class="r32-n" aria-hidden="true">' + (i + 1) + '</span>' + face +
       '<div class="r32-build-main"><strong>' + e(p ? plainName(p) : '待选') + '</strong>' + (p && p.type === 'external' ? '<em class="r32-ext">外部</em>' : '') +
+      (st.aside ? '<em class="r32-aside">独立会话</em>' : '') +
       '<textarea data-r32-task="' + i + '" rows="2" maxlength="120" placeholder="这一棒要做什么" aria-label="第 ' + (i + 1) + ' 棒要做什么">' + e(st.task) + '</textarea>' +
       (p && p.type !== 'owner' ? '<label class="r32-gate"><input type="checkbox" data-r32-gate="' + i + '"' + (st.gate ? ' checked' : '') + '><span>做完要我看一眼再往下</span></label>' : '') +
       '</div><button type="button" class="r32-del" data-r32-del="' + i + '" aria-label="去掉第 ' + (i + 1) + ' 棒">✕</button></li>';
@@ -441,7 +458,7 @@
     var pick = '<div class="r30-people r32-pick" role="group" aria-label="点谁，谁接下一棒">' + people.map(function (p) {
       return '<button type="button" class="r30-who" data-r32-add="' + e(p.key) + '">' + (p.type === 'owner' ? '<span class="r32-me" style="--r32-px:32px">你</span>' : r29DeskFace(p, 32)) +
         '<span>' + (p.type === 'owner' ? '你来看一眼' : e(plainName(p))) + '</span>' + (p.type === 'external' ? '<em class="r32-ext">外部</em>' : '') + '</button>';
-    }).join('') + '</div>';
+    }).join('') + '<button type="button" class="r30-who" data-r32-aside><span>另开一段会话</span></button></div>';
     var ok = st.steps.length >= 2 && st.steps.every(function (s) { return s.person; });
     var route = st.steps.length ? '<ol class="r32-build">' + st.steps.map(function (s, i) { return stepRowHtml(s, i, st.steps.length); }).join('') + '</ol>' :
       '<p class="r32-hint">还没有人。点下面的一条现成路线，或一位一位点选（最少两位）。</p>';
@@ -479,8 +496,9 @@
     if (st.steps.length < 2) { deny('接力最少要两位'); return; }
     if (st.steps.some(function (s) { return !s.person; })) { deny('有一棒还没选人，点上面的人补上'); return; }
     if (st.steps[0].person.type === 'owner') { deny('第 1 棒要有人先动手，「你来看一眼」放后面'); return; }
+    if (st.steps.some(function (s) { return s.aside && (!s.person || s.person.type !== 'assistant'); })) { deny('另开一段会话只适用于助理'); return; }
     var steps = st.steps.map(function (s) {
-      return {who: s.person.type === 'owner' ? 'owner' : s.person.id, task: clip(s.task, 120).trim() || '按卡上的说明做你这一棒', gate: !!s.gate};
+      return {who: s.person.type === 'owner' ? 'owner' : s.person.id, task: clip(s.task, 120).trim() || '按卡上的说明做你这一棒', gate: !!s.gate, aside: s.aside === true};
     });
     var sheetNow = r30Sheet;
     sheetNow.busy = true;
@@ -491,7 +509,7 @@
       else if (r30Sheet === sheetNow) { r30SheetRender(); r30Flash('没建成，稿子还在，请再试一次'); }
     };
     if (!real()) {
-      NS.demoCreate(title, goal || title, steps.map(function (s, i) { return {person: st.steps[i].person, task: s.task, gate: s.gate}; }));
+      NS.demoCreate(title, goal || title, steps.map(function (s, i) { return {person: st.steps[i].person, task: s.task, gate: s.gate, aside: s.aside === true}; }));
       done(true);
       return;
     }
@@ -502,7 +520,7 @@
   function onClick(event) {
     var t = event.target && event.target.closest ? event.target : null;
     if (!t) return;
-    var node = t.closest('[data-r32-mode],[data-r32-tpl],[data-r32-add],[data-r32-del],[data-r32-go],[data-r32-act],[data-r32-replay]');
+    var node = t.closest('[data-r32-mode],[data-r32-tpl],[data-r32-add],[data-r32-aside],[data-r32-del],[data-r32-go],[data-r32-act],[data-r32-replay]');
     if (!node) return;
     var st;
     if (node.hasAttribute('data-r32-replay')) { NS.replay(); return; }
@@ -529,6 +547,14 @@
     if (!st) return;
     if (node.hasAttribute('data-r32-mode')) { st.on = node.getAttribute('data-r32-mode') === 'relay'; r30SheetRender(); return; }
     if (node.hasAttribute('data-r32-tpl')) { applyTemplate(Number(node.getAttribute('data-r32-tpl'))); return; }
+    if (node.hasAttribute('data-r32-aside')) {
+      var who = asidePerson();
+      if (!who) { deny('现在没有能另开一段会话的助理'); return; }
+      if (st.steps.length >= 8) { deny('最多 8 棒'); return; }
+      st.steps.push({person: who, task: '', gate: false, aside: true});
+      r30SheetRender();
+      return;
+    }
     if (node.hasAttribute('data-r32-add')) {
       var key = node.getAttribute('data-r32-add');
       var list = (typeof r30People === 'function' ? r30People(r29DeskCurrent()) : []).concat([ownerPerson()]);
@@ -572,7 +598,7 @@
     {id: 'r32-demo-dev', title: '功能开发：消息里加「稍后提醒」', goal: '给消息加一个「稍后提醒」：写方案、写代码、检查，最后你验收。', auto: true, stuckAt: 1,
       steps: [
         {bot: 'writer', task: '写方案：要做什么、怎么做、做到什么算完', note: '方案写好了：长按消息出「稍后提醒」，可选 10 分钟、1 小时、明天早上。做到：点了能收到提醒、取消能取消。方案在「提醒方案.md」。'},
-        {bot: 'content', task: '照方案写代码，做出能用的东西', question: '「明天早上」是几点？方案里没写，我先按 9 点做可以吗？', answer: '按 9 点，设置里能改。', note: '做好了：三个时间都能选，提醒到点会弹出。代码放在 reminder 目录。注意：「明天早上」按 9 点算。没做完：设置里改时间的入口还没做。'},
+        {bot: 'content', task: '照方案写代码，做出能用的东西', clones: 3, question: '「明天早上」是几点？方案里没写，我先按 9 点做可以吗？', answer: '按 9 点，设置里能改。', note: '做好了：三个时间都能选，提醒到点会弹出。代码放在 reminder 目录。注意：「明天早上」按 9 点算。没做完：设置里改时间的入口还没做。'},
         {bot: 'research', task: '检查：对照方案逐条查，列出没做到的', note: '逐条查过：长按、三个时间、取消都对。没做到：设置里改时间的入口（上一棒已说明）。另发现：关了通知权限时没有提示。'},
         {owner: true, task: '验收：看过没问题就放行'}]}
   ];
@@ -583,7 +609,7 @@
     var d = {id: seed.id, title: seed.title, goal: seed.goal, auto: !!seed.auto, stuckAt: seed.stuckAt == null ? -1 : seed.stuckAt, stuckDone: false,
       seed: seed, vnow: vnow, fromWill: !seed.auto, created: t0, phase: 'running', current: 0, finalAt: null, steps: []};
     d.steps = seed.steps.map(function (s) {
-      return {who: s.owner ? {name: 'owner', type: 'owner'} : {name: s.bot, type: 'assistant'}, task: s.task, doneWhen: '', gate: false, status: 'waiting',
+      return {who: s.owner ? {name: 'owner', type: 'owner'} : {name: s.bot, type: 'assistant'}, task: s.task, doneWhen: '', gate: false, aside: s.aside === true, clones: cloneCount(s.clones), status: 'waiting',
         startedAt: null, deliveredAt: null, note: null, noteBy: null, question: null, returnedNote: null, _note: s.note || '', _q: s.question || '', _a: s.answer || ''};
     });
     startStep(d, 0);
@@ -600,7 +626,7 @@
   }
   function demoModel(d) {
     var relay = {phase: d.phase, current: d.current, steps: d.steps.map(function (s) {
-      return {who: s.who, task: s.task, doneWhen: s.doneWhen, gate: s.gate, status: s.status, startedAt: s.startedAt, deliveredAt: s.deliveredAt,
+      return {who: s.who, task: s.task, doneWhen: s.doneWhen, gate: s.gate, aside: s.aside === true, clones: s.clones, status: s.status, startedAt: s.startedAt, deliveredAt: s.deliveredAt,
         note: s.note, noteBy: s.noteBy, question: s.question, returnedNote: s.returnedNote};
     })};
     return NS.model(relay, {id: d.id, now: d.vnow + 6 * 60000, fromWill: d.fromWill, initiator: 'chief'});
@@ -667,7 +693,7 @@
     ensureDemo();
     demo = demo || [];
     var seed = {id: 'r32-new-' + (demo.length + 1) + '-' + Date.now(), title: title, goal: goal, auto: false, steps: items.map(function (it) {
-      return it.person.type === 'owner' ? {owner: true, task: it.task} : {bot: it.person.id, task: it.task, note: '做好了，结果放在约定的位置。'};
+      return it.person.type === 'owner' ? {owner: true, task: it.task, aside: it.aside === true} : {bot: it.person.id, task: it.task, aside: it.aside === true, note: '做好了，结果放在约定的位置。'};
     })};
     var d = buildDemo(seed, Date.now() - 600000);
     d.created = Date.now() + 1;

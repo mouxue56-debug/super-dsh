@@ -17,7 +17,7 @@ export const levels = Object.freeze({
 const VIA = {new: '新建时选了交给首席安排', drag: '主人把没负责人的卡拖到了在做', button: '主人点了交给首席安排',
   schedule: '定时到点'};
 const EXTERNAL_NOTE = '电脑上用命令行领单的 agent；档位 simple（简单文字活）/ complex（代码或多步骤）/ image（出图）；'
-  + '派给它默认要主人先点头';
+  + '派给它要主人先点头，点头后当场拉起已配置的接单器';
 const canReceive = row => !!row && row.status === 'active' && row.paused !== true && row.can_receive !== false;
 
 function say(error) {
@@ -97,7 +97,8 @@ export function register(ctx, deps) {
       + 'kind=bot 交给内部助理（who 写助理 id）；kind=external 交给外部身份（who 写名字，tier 选 simple/complex/image）；'
       + 'kind=relay 交给接力路线（steps 写 2 到 8 棒，每棒 who、task、done_when、gate）。'
       + 'when：now 现在做；at 某个时刻（at 写带时区的时刻，必须在未来）；daily 每天（time 写 HH:MM）；weekly 每周（time 加 days，周一为 1）。'
-      + 'ask_owner：这件事要不要主人先点头（true/false），要的话 ask_reason 写一句理由。why：一句为什么这样安排。这件事不要自己做。',
+      + 'ask_owner：这件事要不要主人先点头（true/false），要的话 ask_reason 写一句理由。why：一句为什么这样安排。'
+      + '只用于主人已经放到看板上要你安排的卡，不是对话里自动转单。这件事不要自己做。',
     parameters: {
       type: 'object',
       properties: {
@@ -115,10 +116,9 @@ export function register(ctx, deps) {
     async execute(args, _exec, call) {
       chiefOnly(call);
       const {id, ...input} = args;
-      const approval = deps.hubConfig?.board?.arrange?.external_approval;
       try {
         const t = await board.arrangeSet(actor(call), id, input, {
-          roster: deps.roster, externals: externals(), names: names(), external_approval: approval,
+          roster: deps.roster, externals: externals(), names: names(),
         });
         if (t.arrange?.state === 'proposed') {
           return `工单 ${id} 已记下你的建议，停在「等你」让主人点头（${(t.arrange.needs ?? []).map(n => n.text).join('；')}）；不用再催`;

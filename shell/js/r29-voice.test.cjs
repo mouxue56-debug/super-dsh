@@ -286,6 +286,24 @@ function boot(opt) {
       if (hookMode === 'throw') return Promise.reject(new Error('offline'));
       if (hookMode === 'asr') return Promise.resolve({ ok: false, error: 'asr-unavailable', id: 'kept' });
       if (hookMode === 'bad') return Promise.resolve({ ok: false, error: 'network' });
+      if (hookMode === 'asr-down') {
+        return Promise.resolve({
+          ok: false,
+          error: 'asr-failed',
+          asr: true,
+          retryable: true,
+          message: '转文字暂时不可用，录音已保存'
+        });
+      }
+      if (hookMode === 'long') {
+        return Promise.resolve({
+          ok: false,
+          error: 'audio-too-long',
+          asr: true,
+          message: '<img src=x>超过时长上限，录音已保存'
+        });
+      }
+      if (hookMode === 'ready') return Promise.resolve({ ok: true, text: '转好了', asr: true });
       return Promise.resolve({ ok: true, text: opt.text || '转好了' });
     };
   }
@@ -577,6 +595,42 @@ async function record(api) {
     await flush();
     check(api.calls.length === 1, '取消后再录只发出下一段');
     check(api.calls[0].blob.size === new Blob(['xyz']).size, '下一段不含上一段');
+  }
+  {
+    const api = boot({ hook: 'ready' });
+    await record(api);
+    api.click(api.mic);
+    await flush();
+    check(api.bubbles()[0].textContent.includes('转好了'), '接上引擎后气泡是转写文字');
+    check(!api.bubbles()[0].textContent.includes('还没接上'), '接上引擎后不说还没接上');
+    check(!api.slot.textContent.includes('还没接上'), '接上引擎后状态条也不说还没接上');
+  }
+  {
+    const api = boot({ hook: 'asr-down' });
+    await record(api);
+    api.click(api.mic);
+    await flush();
+    const bubble = api.bubbles()[0];
+    check(bubble.textContent.includes('转文字暂时不可用，录音已保存'), '转写失败时气泡说明录音已保存');
+    check(api.slot.textContent.includes('转文字暂时不可用，录音已保存'), '转写失败时状态条同一句');
+    check(!bubble.textContent.includes('还没接上'), '转写失败不说还没接上');
+    const retry = bubble.querySelector('[data-r29-voice-retry]');
+    check(retry && retry.textContent === '重试', '转写失败给重试');
+    const firstId = api.calls[0].meta.requestId;
+    api.click(retry);
+    await flush();
+    check(api.calls.length === 2 && api.calls[1].meta.requestId === firstId, '转写失败重试沿用同一个请求号');
+    check(api.posts.length === 1 && api.bubbles().length === 1, '转写失败重试不另起一条');
+  }
+  {
+    const api = boot({ hook: 'long' });
+    await record(api);
+    api.click(api.mic);
+    await flush();
+    const bubble = api.bubbles()[0];
+    check(bubble.textContent.includes('<img src=x>超过时长上限，录音已保存'), '超长说明按文字留下');
+    check(!bubble.querySelector('img'), '超长说明不插成图片');
+    check(!bubble.querySelector('[data-r29-voice-retry]'), '超长不再给重试');
   }
   check(source.includes('暂定') && source.includes('5 * 60 * 1000'), '五分钟上限标了暂定');
   check(!/iPhone|\/Users\/|192\.168|10\.\d+\.\d+/.test(source), '新代码不写设备、路径和内网');

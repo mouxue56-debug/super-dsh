@@ -336,6 +336,63 @@
     page.append(section);
   }
 
+  // 全家共用的文件版状态，由真实设置钩子读取和重建。
+  function mountMirror(host) {
+    var section = el('section', 'r29-block');
+    section.setAttribute('data-r41-mirror', '');
+    var line = text('p', 'r29-line', '任务板文件版：读取中');
+    line.setAttribute('role', 'status');
+    var button = text('button', 'ghostbtn', '重建一次');
+    button.type = 'button';
+    button.setAttribute('data-r41-mirror-rebuild', '');
+    button.disabled = true;
+    section.append(line, button);
+    host.append(section);
+    var hook = window.HubSettings;
+    var busy = false;
+
+    function show(value) {
+      var info = value && typeof value === 'object' ? value : {};
+      var stamp = info.lastUpdated == null ? NaN : new Date(info.lastUpdated).getTime();
+      var when = isFinite(stamp) ? new Date(stamp).toLocaleString('zh-CN', {hour12: false}) : '尚未更新';
+      var location = typeof info.dir === 'string' && info.dir ? '在 ' + info.dir + '，' : '';
+      var detail = {
+        disabled: '已关闭', idle: '等待首次更新', ready: '',
+        unavailable: '暂时无法写入', remote: '发现远端配置，已停写'
+      };
+      var known = Object.prototype.hasOwnProperty.call(detail, info.state);
+      line.textContent = '任务板文件版：' + location + '最近更新于 ' + when +
+        (known ? (detail[info.state] ? ' · ' + detail[info.state] : '') : ' · 暂时读不到');
+      button.disabled = busy || info.enabled === false || info.state === 'remote' ||
+        !hook || typeof hook.rebuildMirror !== 'function';
+    }
+
+    function load(rebuild) {
+      if (busy) return;
+      busy = true;
+      button.disabled = true;
+      button.textContent = rebuild ? '正在重建' : '重建一次';
+      Promise.resolve().then(function () {
+        return rebuild ? hook.rebuildMirror() : hook.getMirror();
+      }).then(function (value) {
+        busy = false;
+        button.textContent = '重建一次';
+        show(value);
+      }, function () {
+        busy = false;
+        button.textContent = '重建一次';
+        show(null);
+      });
+    }
+
+    button.addEventListener('click', function () { load(true); });
+    if (!hook || typeof hook.getMirror !== 'function') {
+      line.textContent = '任务板文件版：暂无';
+      return;
+    }
+    load(false);
+  }
+
   function paint(host, botId, forceAnswer) {
     var bot = botNow(botId);
     host.replaceChildren();
@@ -514,6 +571,7 @@
 
   window.R29Settings = {
     open: openSettings,
+    mountMirror: mountMirror,
     profileHTML: function () {
       var host = document.createElement('div');
       paint(host, state.bot, false);

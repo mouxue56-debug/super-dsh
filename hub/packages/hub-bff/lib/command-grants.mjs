@@ -8,6 +8,7 @@ const text = v => typeof v==='string' && v.length>0 && !/[\u0000-\u001f\u007f]/u
 const path = v => text(v) && v.startsWith('/') && v.length<=4096;
 const date = v => typeof v==='string' && /^\d{4}-\d{2}-\d{2}$/u.test(v) && Number.isFinite(Date.parse(v));
 const iso = v => typeof v==='string' && /^\d{4}-\d{2}-\d{2}T/u.test(v) && Number.isFinite(Date.parse(v));
+const taskTTL = 15 * 60 * 1000;
 const valid = g => g && /^G-\d{8}-\d{6}-[a-f0-9]{4}$/u.test(g.id) && BOT_ID.test(g.bot ?? "") && text(g.program) && g.program.length<=128 && path(g.dir)
   && g.caps && Object.keys(g.caps).length===2 && typeof g.caps.network==='boolean' && Array.isArray(g.caps.writeRoots) && g.caps.writeRoots.length<=64 && g.caps.writeRoots.every(path)
   && g.by==='owner' && date(g.on) && date(g.until) && g.tag===`#by/owner #on/${g.on} #until/${g.until}` && iso(g.createdAt) && text(g.cardId) && (g.revokedAt===null || iso(g.revokedAt));
@@ -16,7 +17,16 @@ const local = now => {
   return {on:`${parts.year}-${parts.month}-${parts.day}`,stamp:`${parts.year}${parts.month}${parts.day}-${parts.hour}${parts.minute}${parts.second}`};
 };
 export class CommandGrants {
-  constructor({configDir,now=Date.now,atomicFile,roster}) { Object.assign(this,{configDir,now,atomicFile,roster}); this.days=30; this.writes=Promise.resolve(); }
+  constructor({configDir,now=Date.now,atomicFile,roster}) { Object.assign(this,{configDir,now,atomicFile,roster}); this.days=30; this.writes=Promise.resolve(); this.tasks=new Map(); }
+  taskAllowed(turn,category) {
+    return !!turn && (this.tasks.get(turn)?.get(category) ?? 0)>this.now();
+  }
+  allowTask(turn,category) {
+    const entries=this.tasks.get(turn) ?? new Map();
+    entries.set(category,this.now()+taskTTL);
+    this.tasks.set(turn,entries);
+  }
+  endTask(turn) { this.tasks.delete(turn); }
   get file() { return join(this.configDir,'command-grants.json'); }
   async readSmall(file) {
     let f;

@@ -1,6 +1,6 @@
 {
   "name": "assistant-hub",
-  "version": "0.1.0-beta",
+  "version": "0.2.0-beta",
   "private": true,
   "description": "Unofficial phone-first multi-assistant UI and permission layer for the DSH kernel (working name).",
   "license": "MIT",

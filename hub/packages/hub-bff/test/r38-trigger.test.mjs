@@ -264,7 +264,7 @@ test('审批②：卡片内容命中付款、对外发送、删除、动线上�
   assert.equal(ok.arrange.state, 'applied', '无关的话不会误拦');
 });
 
-test('审批③：派给外部身份（默认要问）；配置 board.arrange.external_approval=false 才放行；接力里有外部身份同样', async () => {
+test('审批③：派给外部身份固定先问；旧配置不能跳过；接力里有外部身份同样', async () => {
   const h = await fixture();
   const ext = { kind: 'external', who: 'codex', tier: 'simple', when: 'now', ask_owner: false, why: '写文件的活' };
   const t = await newCard(h, { arrange: true });
@@ -275,10 +275,25 @@ test('审批③：派给外部身份（默认要问）；配置 board.arrange.ex
     { who: 'research', task: '查', done_when: '有结论' }, { who: 'codex', task: '写' }] });
   assert.deepEqual(pr.arrange.needs.map(n => n.code), ['external']);
   const t2 = await newCard(h, { arrange: true });
-  const free = await h.board.arrangeSet(CHIEF, t2.id, ext, h.view({ external_approval: false }));
+  const pending = await h.board.arrangeSet(CHIEF, t2.id, ext, h.view({ external_approval: false }));
+  assert.equal(pending.arrange.state, 'proposed');
+  assert.deepEqual(pending.to, []);
+  const free = await h.board.arrangeDecide(OWNER, t2.id, { action: 'ok' });
   assert.equal(free.arrange.state, 'applied');
   assert.deepEqual(free.to, ['codex']);
   assert.match(free.goal, /【简单】$/, '档位标签写进说明，接单器按它选模型');
+});
+
+test('全开四类固定先问，旧创造开关与外部确认开关都不能绕过', async () => {
+  const h = await fixture();
+  for (const title of ['付款给供应商三千块', '把名字发到公司对外的公众号上',
+    '删除上周所有的旧资料', '把这个版本部署到线上服务']) {
+    const t = await newCard(h, { title, arrange: true });
+    const pending = await h.board.arrangeSet(CHIEF, t.id, good(),
+      h.view({ fullOpenLikeCreator: true, external_approval: false }));
+    assert.equal(pending.arrange.state, 'proposed', title);
+    assert.deepEqual(pending.to, []);
+  }
 });
 
 test('审批④：首席两次给不出合法结论（见上）；今天页「等你处理」有首席建议，带原因', async () => {
@@ -418,4 +433,51 @@ test('「安排」工具：首席能用，别的助理不行；参数形状固�
   await assert.rejects(() => f.call('arrange', { id: t2.id, ...good({ who: '没有' }) }), /请改正/);
   await assert.rejects(() => f.call('arrange', { id: t2.id, ...good({ who: '没有' }) }), /转给主人/);
   await assert.rejects(() => f.call('arrange', { id: t2.id, ...good() }), /不在「等首席安排」/);
+});
+
+test('高风险首席安排再次列出对象，只有主人设备能开始确认，重复请求合并且只执行一次', async () => {
+  const h = await fixture();
+  const t = await newCard(h, { title: '付款给供应商三千块', arrange: true });
+  await proposedOf(h, t, good());
+  const cards = [], answers = [];
+  h.deps.cards = {open: async input => {
+    cards.push(input);
+    return {card: {id: 'second-1', ...input}, result: new Promise(resolve => answers.push(resolve))};
+  }};
+  h.deps.isOwnerDevice = () => false;
+  const url = `/board/tickets/${t.id}/arrange`;
+  assert.equal((await call(h.handler, url, {action: 'ok'})).status, 403);
+  assert.equal(cards.length, 0);
+  h.deps.isOwnerDevice = () => true;
+  const results = await Promise.all([call(h.handler, url, {action: 'ok'}), call(h.handler, url, {action: 'ok'})]);
+  assert.ok(results.every(r => r.status === 202 && r.body.ticket.awaitingConfirmation));
+  assert.equal(cards.length, 1);
+  assert.equal(cards[0].targetCount, 1);
+  assert.match(cards[0].targets[0], /供应商三千块/);
+  assert.equal((await h.board.get(t.id)).arrange.state, 'proposed');
+  answers[0]({status: 'answered', choice: 'yes', device: 'owner-phone'});
+  for (let i = 0; i < 100 && (await h.board.get(t.id)).arrange.state !== 'applied'; i++) {
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  const applied = await h.board.get(t.id);
+  assert.equal(applied.arrange.state, 'applied');
+  assert.equal(applied.history.filter(item => item.action === 'arrange_ok').length, 1);
+});
+
+test('第二次确认等待期间主人改了对象，旧确认不执行', async () => {
+  const h = await fixture();
+  const t = await newCard(h, {title: '付款给供应商三千块', arrange: true});
+  await proposedOf(h, t, good());
+  let answer;
+  const notices = [];
+  h.deps.isOwnerDevice = () => true;
+  h.deps.notify = value => notices.push(value);
+  h.deps.cards = {open: async input => ({card: {id: 'second-2', ...input},
+    result: new Promise(resolve => { answer = resolve; })})};
+  assert.equal((await call(h.handler, `/board/tickets/${t.id}/arrange`, {action: 'ok'})).status, 202);
+  await h.board.ownerEdit(OWNER, t.id, {title: '付款给另一位供应商六千块'});
+  answer({status: 'answered', choice: 'yes', device: 'owner-phone'});
+  for (let i = 0; i < 100 && !notices.length; i++) await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(notices[0]?.kind, 'arrange-changed');
+  assert.equal((await h.board.get(t.id)).arrange.state, 'proposed');
 });

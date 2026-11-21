@@ -203,7 +203,7 @@ test('每日上限：超过的不拉起，记「到上限了」；一键全停�
   assert.equal(g.log.calls[0].ticket, gt.id);
 });
 
-test('定时到点、主人审批通过、首席直接安排给外部身份：都会拉起；审批没通过之前不拉起', async () => {
+test('定时到点、主人审批通过后拉起外部身份；旧配置也不能跳过确认', async () => {
   const f = await launchFixture({ script: () => 0 });
   const free = await newCard(f.h, { arrange: true });
   const approved = await f.h.board.arrangeSet(CHIEF, free.id, { kind: 'external', who: 'codex', tier: 'simple', when: 'now',
@@ -216,10 +216,13 @@ test('定时到点、主人审批通过、首席直接安排给外部身份：�
   await f.ext.drain();
   assert.equal(f.log.calls.length, 1, '点头后拉起');
   assert.equal(f.log.calls[0].ticket, free.id);
-  // 配置放行外部：首席直接安排
+  // 旧配置不能跳过外部确认。
   const t2 = await newCard(f.h, { arrange: true });
   await f.h.board.arrangeSet(CHIEF, t2.id, { kind: 'external', who: 'codex', when: 'now', ask_owner: false, why: 'x' },
     f.h.view({ external_approval: false }));
+  await f.ext.drain();
+  assert.equal(f.log.calls.length, 1, '旧配置仍等主人点头');
+  assert.equal((await call(f.h.handler, `/board/tickets/${t2.id}/arrange`, { action: 'ok' })).status, 200);
   await f.ext.drain();
   assert.equal(f.log.calls.length, 2);
   // 定时到点

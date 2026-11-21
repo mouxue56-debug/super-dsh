@@ -179,3 +179,62 @@ test('真页面把语音投递接到现有发送，不改成按当前会话', ()
   assert.match(source, /createRemote\(r, bot\)/);
   assert.match(source, /sendText\(bot, text, r\)/);
 });
+
+test('远程转写 502 和 504 把能力和重试交给壳', async () => {
+  function down(status, error, id) {
+    return {
+      status,
+      ok: false,
+      async json() {
+        return {
+          ok: false,
+          error,
+          id,
+          asr: true,
+          retryable: true,
+          message: '转文字暂时不可用，录音已保存',
+        };
+      },
+    };
+  }
+  const failed = r29CreateHooks({
+    async request() { return down(502, 'asr-failed', 'v-down'); },
+  });
+  const voice = await failed.HubVoiceSend(audio(), {
+    conversation: 'a-1', bot: 'b1', requestId: 'req-down',
+  });
+  assert.equal(voice.ok, false);
+  assert.equal(voice.error, 'asr-failed');
+  assert.equal(voice.id, 'v-down');
+  assert.equal(voice.asr, true);
+  assert.equal(voice.retryable, true);
+  assert.equal(voice.message, '转文字暂时不可用，录音已保存');
+  const slow = r29CreateHooks({
+    async request() { return down(504, 'asr-timeout', 'v-slow'); },
+  });
+  const timed = await slow.HubVoiceSend(audio(), {
+    conversation: 'a-1', bot: 'b1', requestId: 'req-slow',
+  });
+  assert.equal(timed.error, 'asr-timeout');
+  assert.equal(timed.asr, true);
+  assert.equal(timed.retryable, true);
+  assert.notEqual(timed.error, 'failed');
+});
+
+test('转写成功时把 asr 能力原样交回', async () => {
+  const hooks = r29CreateHooks({
+    async request() {
+      return {
+        status: 200,
+        ok: true,
+        async json() { return { ok: true, text: '一句', asr: true, audioUrl: '' }; },
+      };
+    },
+  });
+  const voice = await hooks.HubVoiceSend(audio(), {
+    conversation: 'a-1', bot: 'b1', requestId: 'req-asr',
+  });
+  assert.equal(voice.ok, true);
+  assert.equal(voice.text, '一句');
+  assert.equal(voice.asr, true);
+});

@@ -90,13 +90,7 @@ function setup(t, options = {}) {
   const runner = makeRunner();
   t.after(async () => {
     for (const item of runners) item.dispose();
-    for (const pid of pids) {
-      try {
-        process.kill(-pid, 'SIGKILL');
-      } catch (error) {
-        if (error.code !== 'ESRCH') throw error;
-      }
-    }
+    // 假工人会自行退出。等待已登记的 PID，避免结束已退出进程留下的进程组。
     for (const pid of pids) await waitFor(() => !alive(pid), 'process cleanup');
   });
   const create = async (input = {}) => board.create(writer, {

@@ -30,11 +30,12 @@ function inertServer(onHandler, handler) {
 }
 
 const {startServer} = await load('packages/hub-bff/server.mjs');
+const {createHubWeb, keyFile} = await load('packages/hub-web/server.mjs');
+const ownerKey = await keyFile(process.env.HUB_WEB_KEY_FILE, true);
 let bffHandler;
-const bff = await startServer({host: '127.0.0.1', port,
+const bff = await startServer({host: '127.0.0.1', port, ownerKey, requireOwnerProof: true,
   serverFactory: handler => inertServer(h => { bffHandler = h; }, handler)});
 
-const {createHubWeb} = await load('packages/hub-web/server.mjs');
 const web = await createHubWeb({
   ...process.env, HUB_WEB_HOSTS: '127.0.0.1', HUB_WEB_PORT: String(port), BFF_URL: origin,
 });

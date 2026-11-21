@@ -33,7 +33,7 @@ bash 成功派发后的结果追加 L1 或 L3-approved 痕迹。超限输出存�
 
 `hub-bot` 配置 `bot: "*"`，每次从会话 cwd 的 realpath 取得身份，必须正好是 HUB_HOME/bots/<名册id>，名册 preset=hub-bot、role=bot；子目录、越界链接或冒用旧预设全部拒绝。通用助理的知识库白名单固定为空。所有预设 prefix 都把名字职责交给工作目录 AGENTS.md；名单用 bot_list 查询。停用助理的全部工具拒绝。
 
-普通助理有 bot_list 和 bot_update；首席按 role 另有 bot_create、bot_set_status 和 delegate_to_bot。派活接受 id 或当前名字，停用助理和首席不能作为派活目标。资料文字不会改变工具或可读写目录。
+普通助理有 bot_list 和 bot_update；首席按 role 另有 bot_create、bot_set_status 和 delegate_to_bot。整件交接接受 id 或当前名字，并须主人点头（owner_ok）。停用助理和首席不能作为交接目标。自己办不了时用 ask_colleague 或分身，仍由原助理答复。资料文字不会改变工具或可读写目录。
 
 管理工具先校验名字、重名（含停用）、12个启用上限、职责60字、不管120字、恰好3条各20字的短语、形象与颜色清单；同值不出卡。形象清单从 config/avatar-kinds.json 读，读不到就用插件 avatar-defaults.json 的图形和颜色，禁止角色及上传形象。新建的名牌色取图形颜色或清单首色。why 用模型提出的职责或改动项组成一句原因，不新增隐藏参数。
 

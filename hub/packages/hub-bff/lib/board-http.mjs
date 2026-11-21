@@ -1,6 +1,10 @@
 import { BoardError } from './board-errors.mjs';
 import { ID_PATTERN } from './ticket.mjs';
 import { verifyToken, scopeAllows } from './board-tokens.mjs';
+import {
+  EXTERNAL_HINT_CANT_TAKE, EXTERNAL_HINT_NOT_YOURS, externalActor, externalInvolved, externalOnRoute,
+  externalOpenWaiting, externalReadable,
+} from './board-external.mjs';
 const messages = {
   INVALID: 'Invalid request',
   UNAUTHORIZED: 'Authentication required',
@@ -13,16 +17,13 @@ const problem = code => {
   throw new BoardError(code, messages[code]);
 };
 
-// 外部身份只能碰与自己有关的单：自己发起的、明确派给它的、它已领取的。
-const involved = (ticket, name) => ticket.from?.name === name || ticket.claimedBy === name ||
-  Array.isArray(ticket.to) && ticket.to.includes(name);
-// 开放认领、还没人接走的卡（谁有空谁接）：可以看，可以领；别的不行。
-const openWaiting = ticket => ticket?.openClaim?.state === 'open' && ticket.state === 'queued' && !ticket.claimedBy;
-// 接力卡：它做过（或正在做）的那一棒。轮到它之后一直读得到，没轮到之前读不到；做事的动作仍只给当前那一棒。
-const onRoute = (ticket, name) => Array.isArray(ticket?.relay?.steps) &&
-  ticket.relay.steps.some(step => step?.who?.name === name && step.who.type === 'external' && step.status !== 'waiting');
-const readable = (ticket, name) => involved(ticket, name) || openWaiting(ticket) || onRoute(ticket, name);
-const HINT_NOT_YOURS = '这张卡不是你的（没有派给你，也不是你发起的），不能查看或操作。';
+// 规则在 board-external.mjs，投文件口调用同一份。
+const involved = externalInvolved;
+const openWaiting = externalOpenWaiting;
+const onRoute = externalOnRoute;
+const readable = externalReadable;
+const HINT_NOT_YOURS = EXTERNAL_HINT_NOT_YOURS;
+const HINT_CANT_TAKE = EXTERNAL_HINT_CANT_TAKE;
 const HINT_GATE = '这一棒等主人放行，工作令牌不能自行恢复。';
 // 轮过之后只留自己那一棒，加上交给自己的上一棒交接说明。正在做、自己发起、派给自己的仍看整张。
 const projectExternalTicket = (ticket, name) => {
@@ -60,7 +61,6 @@ const projectExternalTicket = (ticket, name) => {
   copy.open_ask = null;
   return copy;
 };
-const HINT_CANT_TAKE = '这张卡没有派给你，也不是「谁有空谁接」的开放卡，不能领；只能领派给你的和开放认领的卡。';
 const refuse = (code, hint) => {
   const error = new BoardError(code, messages[code]);
   error.hint = hint;
@@ -196,10 +196,8 @@ export function createBoardHandler({
       if (!scopeAllows(identity.scope, permission)) {
         problem('FORBIDDEN');
       }
-      const actor = {
-        name: identity.name,
-        type: 'external'
-      };
+      // 命令通道进来的外部身份：进度和状态记录标 via=cli，界面用来画来源小标。
+      const actor = externalActor(identity.name, 'cli');
       if (action === 'whoami') {
         send(200, identity);
       } else if (action === 'ticket') {

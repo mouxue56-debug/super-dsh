@@ -79,7 +79,10 @@ function check(label, value) { assert(value, label); console.log('通过：' + l
       if (!face || face.getAttribute('data-bot-avatar') !== bot.id) problems.push('单聊脸 ' + bot.id);
       const messages = Hub.assistantMessages(bot.id);
       const last = messages.length ? plain(messages[messages.length - 1]) : '';
-      if (last && row.querySelector('.preview').textContent !== last) problems.push('第二行 ' + bot.id);
+      const lastMessage = messages.at(-1);
+      const lastTopic = R43Thread.topics(bot.id).find(item => item.id === lastMessage?.session);
+      const preview = lastTopic ? lastTopic.title + ' · ' + last : last;
+      if (last && row.querySelector('.preview').textContent !== preview) problems.push('第二行 ' + bot.id);
       const badge = row.querySelector('.home-row-meta .r29-unread');
       const text = badge ? badge.textContent : '';
       const want = bot.unread > 99 ? '99+' : bot.unread > 0 ? '+' + bot.unread : '';

@@ -27,7 +27,10 @@
       .replace(/\bL1\b/g, '记一笔就行')
       .replace(/\bL2\b/g, '先做完再告诉你')
       .replace(/\bL3\b/g, '先问你')
-      .replace(/\bL4\b/g, '不能做');
+      .replace(/\bL4\b/g, '不能做')
+      .replace(/\bdeleted\b/gi, '已删除')
+      .replace(/\brestore\b/gi, '恢复')
+      .replace(/\btrash\b/gi, '最近删除');
   }
 
   function clip(value, max) {
@@ -90,6 +93,9 @@
 
   function headline(card) {
     var name = who(card);
+    if (card.confirmationTotal || String(card.tool || '').indexOf('self_edit') === 0) {
+      return String(card.title || card.action || name + '请你确认这次操作');
+    }
     var kind = kindOf(card);
     if (kind === 'write') {
       var place = sharedPlace(card.path);
@@ -319,6 +325,26 @@
     return notes;
   }
 
+  function confirmationDetails(data) {
+    if (!data.confirmationTotal && !data.consequence && !data.targets) return null;
+    var box = el('section', {class: 'm-plain-talk-confirmation', 'data-confirmation-details': ''});
+    if (data.confirmationTotal === 2) {
+      var phase = data.confirmationStep === 2 ? '再次确认 · 请核对下面的对象和数量' : '先确认这件事 · 下一步核对对象';
+      box.append(el('p', {class: 'm-plain-talk-row', role: 'status'}, phase));
+    }
+    if (data.consequence) box.append(el('p', {class: 'm-plain-talk-row'}, String(data.consequence)));
+    if (data.rollback) box.append(el('p', {class: 'm-plain-talk-row'}, String(data.rollback)));
+    var targets = Array.isArray(data.targets) ? data.targets : [];
+    if (targets.length || Number.isInteger(data.targetCount)) {
+      var count = Number.isInteger(data.targetCount) ? data.targetCount : targets.length;
+      box.append(el('p', {class: 'm-plain-talk-row', 'data-confirmation-count': ''}, '涉及 ' + count + ' 个对象'));
+      var list = el('ul', {class: 'm-plain-talk-list', 'data-confirmation-targets': ''});
+      targets.forEach(function (target) { list.append(el('li', {}, String(target))); });
+      box.append(list);
+    }
+    return box;
+  }
+
   function renderCard(card) {
     var data = card && typeof card === 'object' ? card : {};
     var root = el('section', {
@@ -402,10 +428,17 @@
     addText(countdown, remainText(data));
     details.append(countdown);
     root.append(details);
+    var confirmation = confirmationDetails(data);
+    if (confirmation) root.append(confirmation);
     var actions = el('div', { class: 'actions m-plain-talk-actions' });
-    actions.append(button('同意', 'approve', data, 'primary'));
+    var agree = data.confirmationTotal === 2 ?
+      (data.confirmationStep === 2 ? '对象和数量已核对，确认执行' : '继续核对对象') : '同意';
+    actions.append(button(agree, 'approve', data, 'primary'));
     actions.append(button('拒绝', 'reject', data, 'ghostbtn'));
-    if (hadRemember(data)) actions.append(button('以后这类不用问', 'remember', data, 'ghostbtn'));
+    if (data.scopeGrantable === true) {
+      actions.append(button('这一次这类都同意', 'approve-task', data, 'ghostbtn'));
+      root.append(el('p', {class: 'm-plain-talk-row'}, '只限当前这件事、这一类操作，授权到期后会再问。'));
+    } else if (hadRemember(data)) actions.append(button('以后这类不用问', 'remember', data, 'ghostbtn'));
     root.append(actions);
     return root;
   }
@@ -620,6 +653,7 @@
     headline: headline,
     parseProject: parseProject,
     renderCard: renderCard,
+    confirmationDetails: confirmationDetails,
     renderProject: renderProject,
     sampleCards: sampleCards,
     samplePages: samplePages,
@@ -643,8 +677,9 @@
       'background:rgba(0,0,0,.06);font:13px/1.5 ui-monospace,Menlo,monospace;user-select:text}',
       '.m-plain-talk-more{flex:1 0 100%;text-align:left;min-height:32px;font-weight:700;',
       'text-decoration:underline}',
+      '.m-plain-talk-confirmation{overflow-wrap:anywhere}',
       '.m-plain-talk-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}',
-      '.m-plain-talk-btn{min-height:44px}',
+      '#app .m-plain-talk-card .m-plain-talk-btn{min-height:44px;height:auto}',
       '.m-plain-talk-page{margin:0 0 16px}',
       '.m-plain-talk-sec{margin:8px 0}',
       '.m-plain-talk-list{margin:4px 0 0;padding-left:1.2em}',

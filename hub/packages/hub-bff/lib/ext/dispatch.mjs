@@ -1,10 +1,10 @@
 // 外包派工扩展（后端，BFF 密钥之后）。
-// 三道闸都在这一侧：①确认卡或带到期日的放权；②机器检查任务书；③读过外部内容不许派。
+// 三道闸都在这一侧：①本次外派确认卡；②机器检查任务书；③读过外部内容不许派。
 // 插件工具只负责把「哪张工单、谁在派、会话读没读过外部内容」递过来，不决定任何事。
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { createRunner, normalizeConfig, renderCardText, rootOf, setActiveRunner } from '../dispatch-runner.mjs';
+import { createRunner, normalizeConfig, renderCardText, setActiveRunner } from '../dispatch-runner.mjs';
 import { cardSummary, textDigest } from '../fulltext.mjs';
 import { depsStopped, panicStateDir, STATE_NAME } from '../panic-marker.mjs';
 
@@ -86,7 +86,7 @@ function readGrants(file, logger) {
 }
 
 // 放权表：沿用命令放权的条目格式；program 写工人名，dir 写外包根（或工作树根）。
-function createGrants({ file, now, offset, days, logger }) {
+function createGrants({ file, now, offset, logger }) {
   let chain = Promise.resolve();
   const status = g => (g.revokedAt ? 'revoked' : today(now(), offset) > g.until ? 'expired' : 'active');
   const write = grants => {
@@ -117,34 +117,6 @@ function createGrants({ file, now, offset, days, logger }) {
   };
   return {
     list: () => readGrants(file, logger).map(g => ({ ...g, status: status(g) })),
-    // 找一条能用的：同助理、同工人、工作目录在放权目录下、没到期没撤销。
-    find({ bot, worker, workdir }) {
-      return readGrants(file, logger).find(g => status(g) === 'active' && g.bot === bot && g.program === worker &&
-        (workdir === g.dir || workdir.startsWith(g.dir + path.sep)));
-    },
-    // 主人点了「以后这类不用问」：按助理加工人加目录放权，带到期日；已有的只顺延。
-    remember({ bot, worker, dir, cardId, device }) {
-      return change(() => {
-        const grants = readGrants(file, logger);
-        const on = today(now(), offset);
-        const until = today(now() + days * 86400000, offset);
-        let g = grants.find(x => x.bot === bot && x.program === worker && x.dir === dir && status(x) === 'active');
-        const action = g ? 'grant-extend' : 'grant-add';
-        if (g) {
-          g.until = until > g.until ? until : g.until;
-        } else {
-          const stamp = new Date(now()).toISOString().replace(/\D/gu, '').slice(0, 14);
-          g = { id: `G-${stamp.slice(0, 8)}-${stamp.slice(8)}-${randomBytes(2).toString('hex')}`, bot, program: worker,
-            dir, caps: { network: false, writeRoots: [dir] }, by: 'owner', on, until, tag: '',
-            createdAt: new Date(now()).toISOString(), cardId, revokedAt: null };
-          grants.push(g);
-        }
-        g.tag = `#by/owner #on/${g.on} #until/${g.until}`;
-        write(grants);
-        log(action, g, device);
-        return { ...g, status: status(g) };
-      });
-    },
     revoke(id, device) {
       return change(() => {
         const grants = readGrants(file, logger);
@@ -192,7 +164,7 @@ export function stateFor(deps) {
       state.runner = createRunner({ config, board: deps.board, ledger: deps.ledger, notify: deps.notify, now,
         logger: deps.logger ?? console, canStart: () => !panicStopped(deps) });
       state.grants = createGrants({ file: path.join(deps.configDir, 'dispatch-grants.json'), now,
-        offset: typeof deps.utcOffsetMinutes === 'number' ? deps.utcOffsetMinutes : 0, days: config.grantDays,
+        offset: typeof deps.utcOffsetMinutes === 'number' ? deps.utcOffsetMinutes : 0,
         logger: deps.logger });
     }
     states.set(deps, state);
@@ -257,7 +229,7 @@ export function createHandler(deps) {
   };
   const names = () => (deps.roster?.list?.() ?? []).flatMap(b => [b.id, b.name]).filter(Boolean);
 
-  // 主人批准后先复查并启动，成功后再记录放权。
+  // 主人本次批准后先复查并启动。旧卡的 approve-always 只按本次批准处理。
   async function afterCard({ answer, request, spec, digest, createdAt }) {
     const yes = answer?.status === 'answered' && ['approve', 'approve-always'].includes(answer.choice);
     if (!yes) {
@@ -283,16 +255,7 @@ export function createHandler(deps) {
         text: `主人批准了，但启动前复查没通过：${result.reasons?.[0]?.message ?? result.code}` });
       return;
     }
-    if (answer.choice === 'approve-always') {
-      const dir = rootOf(spec.workdir, state.config);
-      try {
-        if (!dir) throw new Error('找不到放权目录');
-        await state.grants.remember({ bot: request.bot, worker: spec.worker, dir, cardId: answer.id,
-          device: answer.device });
-      } catch {
-        notify({ kind: 'grant_failed', ticket: spec.ticketId, text: '这次放行了，但「以后不用问」没能记下' });
-      }
-    }
+
   }
 
   async function dispatch(body, res) {
@@ -320,15 +283,7 @@ export function createHandler(deps) {
       return refusal(res, inspected.code, inspected.reasons[0].message, inspected.reasons);
     }
     const { spec } = inspected;
-    const grant = state.grants.find({ bot, worker: spec.worker, workdir: spec.workdir });
-    if (!grant && typeof deps.cards?.ask !== 'function') return refusal(res, 'NO_CARDS', '确认卡通道没接通，不能外派');
-    if (grant) {
-      const result = await state.runner.start({ ...request, approval: { by: 'grant', id: grant.id },
-        expectSha: spec.specSha });
-      if (!result.ok) return refusal(res, result.code, result.reasons[0].message, result.reasons);
-      const body = { status: 'started', via: 'grant', grant: grant.id, run: result.run };
-      return send(res, result.existing ? 200 : 201, body);
-    }
+    if (typeof deps.cards?.ask !== 'function') return refusal(res, 'NO_CARDS', '确认卡通道暂未接通，请稍后再试');
     if (state.pending.has(ticket)) return send(res, 202, { status: 'awaiting_approval', repeated: true });
     const createdAt = (deps.now ?? Date.now)();
     const token = {};
@@ -341,9 +296,11 @@ export function createHandler(deps) {
     state.pending.set(ticket, token);
     const task = Promise.resolve(deps.cards.ask({
       title: `派给外部工人：${spec.worker}`.slice(0, 40), text, bot, sessionId: sessionId ?? '', kind: 'dispatch',
-      ttlMs: state.config.cardTtlMs, ...(digest ? { fullText: digest } : {}),
-      choices: [{ id: 'approve', label: '派出去' }, { id: 'approve-always', label: '以后这类不用问' },
-        { id: 'reject', label: '先不' }],
+      ttlMs: state.config.cardTtlMs, confirmationTotal: 1, ...(digest ? { fullText: digest } : {}),
+      choices: [{ id: 'approve', label: '这次派出去' }, { id: 'reject', label: '先不' }],
+      targets: [`${spec.worker} · ${spec.ticketId} · ${spec.workdir}`], targetCount: 1,
+      consequence: '任务书会交给这位外部工人，并启动配置好的接单器。',
+      rollback: '可以停止后续执行，已发送的任务书和已产生的费用无法撤回。',
     })).then(answer => afterCard({ answer, request, spec, digest, createdAt }))
       .catch(() => notify({ kind: 'card_failed', ticket, text: '外派确认卡出错，没有启动' }))
       .finally(() => {

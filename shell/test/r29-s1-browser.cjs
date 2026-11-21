@@ -190,7 +190,7 @@ function serve(dir){
     await page.waitForSelector('[data-r29-plus-panel]');
     await page.screenshot({path:path.join(shots,'02-plus.png')});
     const picks=await page.locator('[data-r29-plus-panel] button').allTextContents();
-    check('加号只有传图片和传文件',picks.join('|')==='传图片|传文件');
+    check('加号可传图片、传文件和新开话题',picks.join('|')==='传图片|传文件|新开话题');
     const accept=await page.locator('[data-r29-file="image"]').getAttribute('accept');
     check('图片选择器只收图片',accept==='image/*');
     const fileAccept=await page.locator('[data-r29-file="any"]').getAttribute('accept');

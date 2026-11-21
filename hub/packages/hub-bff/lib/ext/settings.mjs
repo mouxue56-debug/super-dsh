@@ -64,7 +64,21 @@ export function createHandler(deps) {
     const permission = url.pathname === '/settings/permission';
     const budget = url.pathname === '/settings/budget';
     const read = url.pathname === '/settings' || url.pathname === '/settings/';
+    const mirrorStatus = url.pathname === '/settings/board-mirror';
+    const mirrorRebuild = url.pathname === '/settings/board-mirror/rebuild';
     try {
+      if (mirrorStatus || mirrorRebuild) {
+        if (req.method !== (mirrorRebuild ? 'POST' : 'GET')) {
+          send(res, 405, { ok: false, error: 'method', message: '请求方法不支持' });
+        } else if (!ownerWrite(deps, req)) {
+          send(res, 403, { ok: false, error: 'forbidden', message: '任务板文件版要主人在已登录的设备上操作' });
+        } else if (!deps.mirror) {
+          send(res, 503, { ok: false, error: 'unavailable', message: '任务板文件版暂不可用' });
+        } else {
+          send(res, 200, mirrorRebuild ? await deps.mirror.rebuild() : deps.mirror.status());
+        }
+        return true;
+      }
       if (read) {
         if (req.method !== 'GET') {
           send(res, 405, { ok: false, error: 'method', message: '请求方法不支持' });

@@ -1,0 +1,45 @@
+/* 回复旁的「念出来」和被拦住时的播放条。手机上按钮不小于 44。 */
+.r45-speak,
+.r45-auto,
+.r45-play {
+  box-sizing: border-box;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px 14px;
+  border: var(--line-w, 1.5px) solid var(--line, #1c1b22);
+  border-radius: var(--r-pill, 999px);
+  background: var(--elev, #fffdf7);
+  color: var(--ink, #1c1b22);
+  font: 700 15px/1.2 var(--round, sans-serif);
+}
+.msg-bot > .r45-speak {
+  margin: 6px 0 2px;
+}
+.r45-auto[aria-pressed="true"] {
+  background: var(--solid, #ffd43a);
+  color: var(--on-solid, #1c1b22);
+}
+[data-r45-playbar] {
+  position: fixed;
+  z-index: 40;
+  left: 12px;
+  right: 12px;
+  bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 64px;
+  padding: 10px 12px;
+  border: 2px solid var(--ink, #1c1b22);
+  border-radius: 18px;
+  background: var(--solid, #ffd43a);
+  color: var(--on-solid, #1c1b22);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+}
+[data-r45-playbar][hidden] { display: none; }
+.r45-play-status {
+  flex: 1;
+  min-width: 0;
+  font: 700 16px/1.35 var(--round, sans-serif);
+  overflow-wrap: anywhere;
+}

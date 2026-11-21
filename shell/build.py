@@ -52,6 +52,10 @@ def build(output_path=None, demo='generic'):
     for voice_part in ('css/r29-voice.css', 'js/r29-voice.js'):
         read_source(voice_part)
     page = read_source('index.html')
+    for rel in ('css/r45-speak.css', 'js/r45-speak.js'):
+        if rel not in page:
+            raise ValueError('index.html must include ' + rel)
+        read_source(rel)
     for rel in ('css/r29-settings.css', 'js/r29-settings.js'):
         if rel not in page:
             raise ValueError('index.html must include ' + rel)
@@ -66,8 +70,12 @@ def build(output_path=None, demo='generic'):
             raise ValueError('index.html must include ' + rel)
         read_source(rel)
     sheets = re.findall(r'<link rel="stylesheet" href="([^"]+)">', page)
-    if not sheets or sheets[-1] != 'css/r29-polish.css':
-        raise ValueError('css/r29-polish.css must be the last stylesheet')
+    if not sheets or sheets[-3:] != ['css/r29-polish.css', 'css/r43-thread.css', 'css/r43-delete.css']:
+        raise ValueError('r43-delete.css must follow r43-thread.css')
+    for rel in ('css/r43-thread.css', 'js/r43-thread.js', 'css/r43-delete.css', 'js/r43-delete.js'):
+        if rel not in page:
+            raise ValueError('index.html must include ' + rel)
+        read_source(rel)
     board_css = 'css/r29-board-desktop.css'
     if board_css not in sheets or sheets.index(board_css) >= sheets.index('css/r29-polish.css'):
         raise ValueError('css/r29-board-desktop.css must be linked before css/r29-polish.css')

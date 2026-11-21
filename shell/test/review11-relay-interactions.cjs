@@ -4,7 +4,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
-const { JSDOM } = require(process.env.JSDOM_MODULE || '/Users/example/Documents/AIPPT/node_modules/jsdom');
+const { JSDOM } = require(process.env.JSDOM_MODULE || 'jsdom');
 
 const root = join(__dirname, '..');
 

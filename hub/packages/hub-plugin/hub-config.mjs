@@ -5,7 +5,7 @@ export function parseFlatYaml(text,label='配置') {
  const out=Object.create(null);
  for(const line of text.split(/\r?\n/)){
   if(!line.trim()||line.startsWith('#'))continue;
-  const m=/^([a-z_]+): (.+)$/.exec(line);
+  const m=/^([a-z_]+|nativeLedger): (.+)$/.exec(line);
   if(!m||Object.hasOwn(out,m[1]))throw Error(label+'格式错误或重复键');
   const v=JSON.parse(m[2]);if(JSON.stringify(v)!==m[2])throw Error(label+'值必须为无重复键的紧凑JSON');out[m[1]]=v;
  }
@@ -22,7 +22,7 @@ export function presetRoster(){
 export const PASS_KEYS=Object.freeze(['timezone','board_dir','ledger_dir','data_dir',
  'prices','max_hop','max_active_per_worker']);
 export const PASS_SECTIONS=Object.freeze(['board','ledger','groups','meetings','models','cua','panic','routines',
- 'today','rules','dispatch','voice','uploads']);
+ 'today','rules','dispatch','voice','uploads','nativeLedger','plugins','self_edit','permissions']);
 export function loadHubConfig({home=os.homedir(),hubHome=process.env.HUB_HOME??path.join(home,'dsh-work'),read=true}={}){
  if(!abs(hubHome))throw Error('HUB_HOME须为绝对路径');
  const roster=presetRoster(),seed=JSON.parse(fs.readFileSync(new URL('../devinst/presets-r26.replace.json',import.meta.url),'utf8'));
@@ -33,6 +33,7 @@ export function loadHubConfig({home=os.homedir(),hubHome=process.env.HUB_HOME??p
  if(PASS_SECTIONS.some(k=>Object.hasOwn(raw,k)&&(!raw[k]||typeof raw[k]!=='object'
   ||Array.isArray(raw[k])))
   )throw Error('安装配置的模块段须为对象');
+ // 兼容上一轮安装留下的 permissions 段。全开档的四类确认不读取旧开关。
  const extra=Object.fromEntries([...PASS_KEYS,...PASS_SECTIONS].filter(k=>Object.hasOwn(raw,k)).map(k=>[k,raw[k]]));
  const c={version:1,home,hubHome,
   kb:raw.kb??path.join(home,'knowledge-base'),heartbeat:raw.heartbeat??path.join(hubHome,'config/bff-heartbeat.json'),

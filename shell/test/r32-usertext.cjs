@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { JSDOM } = require(process.env.JSDOM_MODULE || '/Users/example/Documents/AIPPT/node_modules/jsdom');
+const { JSDOM } = require(process.env.JSDOM_MODULE || 'jsdom');
 
 const src = fs.readFileSync(path.join(__dirname, '..', 'js', 'stewards.js'), 'utf8');
 const second = src.slice(src.indexOf('(function () {\n  var PAIRS'));
@@ -33,7 +33,8 @@ function run(real) {
   const d = w.document;
   d.body.innerHTML = '<h1 id="g">r31验收群</h1><b id="c">验收报告</b><i id="s">验收会话</i>' +
     '<p id="d">负责验收和重试</p><u id="n">验收员</u><span id="st">等你验收</span>' +
-    '<span id="m">请重试一次验收</span><button id="t" title="验收报告">x</button><span id="mix">状态：待验收 · 验收报告</span>';
+    '<span id="m">请重试一次验收</span><button id="t" title="验收报告">x</button><span id="mix">状态：待验收 · 验收报告</span>' +
+    '<span id="col">等验收</span><span id="back">交回，等验收</span>';
   w.r29PlainTalk();
   const t = (id) => d.getElementById(id).textContent;
   assert.equal(t('g'), 'r31验收群');
@@ -45,6 +46,8 @@ function run(real) {
   assert.equal(d.getElementById('t').getAttribute('title'), '验收报告');
   assert.equal(t('st'), '等你看过确认', '状态标签仍说人话');
   assert.equal(t('mix'), '状态：等你看过 · 验收报告', '同一行里状态词换、用户内容不换');
+  assert.equal(t('col'), '等验收', '看板第三列保持等验收');
+  assert.equal(t('back'), '交回，等验收', '系统句子里的等验收不被拆开改写');
   // 演示模式不动
   const w2 = run(false);
   w2.document.body.innerHTML = '<span id="x">验收</span>';

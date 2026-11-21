@@ -82,6 +82,8 @@ fail_and_stop() {
 }
 
 # 内核：隔离的数据目录与假 HOME，只接假模型；环境变量清空后只给必要的几个。
+# 演示用的假密钥仍放在环境变量里，不打印它的值。真模型请改用 0600 文件。
+echo "演示实例的模型密钥仍在环境变量里。真模型请在配置里写 apiKeyFile，指向权限为 0600 的文件。" >&2
 NODE_DIR="$(dirname "$NODE")"
 nohup env -i HOME="$TARGET/kernel/fakehome" USER=demo LOGNAME=demo LANG=en_US.UTF-8 \
   PATH="$NODE_DIR:/usr/bin:/bin:/usr/sbin:/sbin" DSH_HOME="$TARGET/kernel/home" DSH_AGENTS_HOME="$TARGET/hub" \

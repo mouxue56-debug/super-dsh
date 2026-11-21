@@ -59,7 +59,11 @@ export async function fixture({ clock = at(1, 0), stopped = false, board: boardC
       triggers?.onEvent(ev);
       for (const hook of extraHooks) hook(ev);
     },
-    reservedNames: ['owner', 'chief', 'research', 'content', 'old'], ...extra });
+    reservedNames: ['owner', 'chief', 'research', 'content', 'old'],
+    isChief: (name) => {
+      const bot = rows.find(r => r && (r.id === name || r.name === name));
+      return !!(bot && bot.role === 'chief' && bot.status === 'active' && bot.paused !== true);
+    }, ...extra });
   handoffWake = createHandoffWake({ board, roster, sessions, stateFile: join(dir, 'wake.json'),
     now: () => state.clock, utcOffsetMinutes: 540, isStopped: () => state.stopped, logger: { error() {} }, tickMs: 0 });
   triggers = createTriggers({ board, roster, sessions, handoffWake, stateFile: join(dir, 'triggers.json'),

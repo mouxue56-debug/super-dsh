@@ -208,7 +208,8 @@ async function pass(browser, real) {
   await page.locator('[data-r29-plus]').click();
   await page.waitForSelector('[data-r29-plus-panel]');
   const plus = await page.locator('[data-r29-plus-panel] button').allInnerTexts();
-  check('加号只有传图片和传文件', plus.length === 2 && plus.includes('传图片') && plus.includes('传文件'));
+  check('加号保留附件并在长对话提供新话题', plus.length === (tag === 'demo' ? 3 : 2)
+    && plus.includes('传图片') && plus.includes('传文件') && (tag !== 'demo' || plus.includes('新开话题')));
   await page.locator('[data-r29-file="any"]').setInputFiles({
     name: 'note.txt', mimeType: 'text/plain', buffer: Buffer.from('hello')
   });

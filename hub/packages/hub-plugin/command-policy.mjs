@@ -154,7 +154,9 @@ export function classifyCommand(input={}){
  const raise=(l,r)=>{notes.push(r);if(rank[l]>rank[level]){level=l;reason=r;}};
  let selfAddrs=[];try{selfAddrs=selfAddresses(input.selfAddrs);}catch(e){raise('deny',e.message);}
  if(typeof input.command==='string'&&localService(input.command,selfAddrs))raise('deny','不许连本机的服务');
- const denies=[...protectedRoots(home,hubHome),...(input.denyPaths||[])].flatMap(d=>{try{const wildcard=d.endsWith('*');return [d,physical(wildcard?d.slice(0,-1):d,'/',home)+(wildcard?'*':'')];}catch{return [d];}});
+ const protectedPaths=protectedRoots(home,hubHome).filter(root=>!input.creator
+  || ![hubHome+'/config',hubHome+'/dsh-hub'].includes(root));
+ const denies=[...protectedPaths,...(input.denyPaths||[])].flatMap(d=>{try{const wildcard=d.endsWith('*');return [d,physical(wildcard?d.slice(0,-1):d,'/',home)+(wildcard?'*':'')];}catch{return [d];}});
  const isBlocked=(p,write=false)=>{
   const v=fold(p);if(slashes.test(p))return true;
   if(credential.test(v)||(input.forbiddenWords||[]).some(w=>w&&v.split('/').some(s=>s.includes(fold(w)))))return true;
@@ -200,7 +202,7 @@ export function classifyCommand(input={}){
     }
    }
   }
-  const guarded=write?protectedTarget(p):null;
+  const guarded=write&&!input.creator?protectedTarget(p):null;
   if(guarded){raiseLocal('deny',guarded+'，命令不能写，这类永远不做');return null;}
   if(isBlocked(p,write)){raiseLocal('deny','碰到了凭据、系统保护区或其他禁用路径（'+p+'），这类永远不做');return null;}
   // 只有字面上就是 /dev/null 的才当空设备；经 ..、链接绕到它的照普通写入判。

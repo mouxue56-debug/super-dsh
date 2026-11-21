@@ -22,6 +22,9 @@ const error = (code, message) => {
 const nameOK = (numberValue) =>
   typeof numberValue === "string" && /^[A-Za-z0-9_.-]{1,64}$/u.test(numberValue);
 const hash = (value) => createHash("sha256").update(value).digest("hex");
+// 回写口才带 via：file 是投文件，cli 是外部身份的命令通道。别的调用不写这个字段。
+const recordVia = (actorValue) =>
+  actorValue?.via === "file" || actorValue?.via === "cli" ? actorValue.via : null;
 const canonical = (inputValue) =>
   Array.isArray(inputValue)
     ? inputValue.map(canonical)
@@ -62,6 +65,8 @@ export function createBoard(
     // 没负责人的卡被拖到「在做」时请首席安排（false=旧行为，主人自己当负责人）；本地时区偏移（分钟，给夜间判断用）。
     arrangeOnDrag = true,
     utcOffsetMinutes = () => -new Date().getTimezoneOffset(),
+    // 是不是在任首席，由服务端按名册现判。没接上就谁都不是首席。
+    isChief = () => false,
     __beforeIndexWrite,
   } = {},
 ) {
@@ -71,6 +76,7 @@ export function createBoard(
     (legacyDir !== undefined && typeof legacyDir !== "string") ||
     typeof reservedNames !== "function" &&
       (!Array.isArray(reservedNames) || !reservedNames.every((item) => typeof item === "string")) ||
+    typeof isChief !== "function" ||
     (__beforeIndexWrite !== undefined && typeof __beforeIndexWrite !== "function")
   ) error("INVALID", "Invalid board configuration");
   const ensure = async () =>
@@ -99,10 +105,10 @@ export function createBoard(
   const checkId = (id) => {
     if (typeof id !== "string" || !ID_PATTERN.test(id)) error("INVALID", "Invalid ticket id");
   };
-  const readNative = async (id) => {
+  const readNative = async (id, folder = "tickets") => {
     checkId(id);
     try {
-      const ticketValue = JSON.parse(await readFile(join(root, "tickets", `${id}.json`), "utf8"));
+      const ticketValue = JSON.parse(await readFile(join(root, folder, `${id}.json`), "utf8"));
       if (ticketValue.id === id && validateTicket(ticketValue).ok) return ticketValue;
     } catch (errorValue) {
       if (errorValue.code !== "ENOENT" && !(errorValue instanceof SyntaxError)) throw errorValue;
@@ -179,6 +185,8 @@ export function createBoard(
       const result = fn(ticketValue, ts) ?? {};
       ticketValue.updatedAt = ts;
       const historyEntry = { ts, by: actorValue.name, action: type };
+      const via = recordVia(actorValue);
+      if (via) historyEntry.via = via;
       if (result.detail !== undefined) historyEntry.detail = result.detail;
       ticketValue.history.push(historyEntry);
       const valid = validateTicket(ticketValue);
@@ -306,7 +314,10 @@ export function createBoard(
         } catch (errorValue) {
           if (errorValue.code !== "NOT_FOUND") throw errorValue;
         }
-        ticketValue.history.push({ ts: ticketValue.createdAt, by: actorValue.name, action: "created" });
+        const created = { ts: ticketValue.createdAt, by: actorValue.name, action: "created" };
+        const via = recordVia(actorValue);
+        if (via) created.via = via;
+        ticketValue.history.push(created);
         await save(ticketValue);
         return ticketValue;
       });
@@ -349,7 +360,7 @@ export function createBoard(
   const board = {
     ...createRelayOps({ mutate, locked, readNative, checkId, guardActor, createWithMeta }),
     ...createClaimOps({ mutate, createWithMeta, guardActor }),
-    ...createArrangeOps({ mutate, createWithMeta, guardActor, now, offset: () =>
+    ...createArrangeOps({ mutate, createWithMeta, guardActor, now, isChief, offset: () =>
       (typeof utcOffsetMinutes === "function" ? utcOffsetMinutes() : utcOffsetMinutes) }),
     createWithMeta,
     async create(actorValue, input) {
@@ -358,6 +369,23 @@ export function createBoard(
 
     async get(id) {
       return read(id);
+    },
+
+    async listArchived() {
+      const files = await readdir(join(root, "archive")).catch(errorValue => {
+        if (errorValue.code === "ENOENT") return [];
+        throw errorValue;
+      });
+      const archived = [];
+      for (const file of files) {
+        if (!file.endsWith(".json") || !ID_PATTERN.test(file.slice(0, -5))) continue;
+        try {
+          archived.push(await readNative(file.slice(0, -5), "archive"));
+        } catch (errorValue) {
+          if (errorValue.code !== "NOT_FOUND") throw errorValue;
+        }
+      }
+      return archived;
     },
 
     async list({ state, assignee, creator, inboxFor, attention, open } = {}) {
@@ -471,12 +499,60 @@ export function createBoard(
       text(value, "progress");
       return mutate(actorValue, id, "progress", (ticketValue, ts) => {
         worker(ticketValue, actorValue);
-        ticketValue.progress.push({ ts, by: actorValue.name, text: value });
+        const entry = { ts, by: actorValue.name, text: value };
+        const via = recordVia(actorValue);
+        if (via) entry.via = via;
+        ticketValue.progress.push(entry);
         const relay = ticketValue.relay;
         const step = relay?.steps?.[relay.current];
         if (relay?.phase === "running" && step?.who?.name === actorValue.name && step.stalledAt) {
           step.stalledAt = null;
           step.stalledMin = null;
+        }
+      });
+    },
+
+    // 分身进度。同一句不重复写。编号记在这一棒上，供时间线小标和去重。
+    async noteClone(actorValue, id, patch = {}) {
+      const lines = Array.isArray(patch.lines) ? patch.lines : [];
+      for (const line of lines) text(line, "progress");
+      const callIds = Array.isArray(patch.callIds) ? patch.callIds : [];
+      const backIds = Array.isArray(patch.backIds) ? patch.backIds : [];
+      const cloneIdOk = (value) => typeof value === "string" && /^[^\p{Cc}\p{Zl}\p{Zp}]{1,80}$/u.test(value);
+      const take = (value) => (Array.isArray(value) ? value.filter(cloneIdOk).slice(0, 32) : []);
+      return mutate(actorValue, id, "progress", (ticketValue, ts) => {
+        worker(ticketValue, actorValue);
+        for (const line of lines) {
+          if (!(ticketValue.progress ?? []).some((item) => item.text === line)) {
+            ticketValue.progress.push({ ts, by: actorValue.name, text: line });
+          }
+        }
+        const relay = ticketValue.relay;
+        const current = relay?.steps?.[relay.current];
+        if (relay?.phase === "running" && current?.who?.name === actorValue.name && current.stalledAt) {
+          current.stalledAt = null;
+          current.stalledMin = null;
+        }
+        let step = null;
+        if (relay && Number.isInteger(patch.index) && relay.steps?.[patch.index]?.who?.name === actorValue.name) {
+          step = relay.steps[patch.index];
+        } else if (current?.who?.name === actorValue.name && relay?.phase === "running") step = current;
+        const prior = step ?? (!relay && ticketValue.cloneTrack && typeof ticketValue.cloneTrack === "object"
+          ? ticketValue.cloneTrack : {});
+        const calls = take(prior.cloneCalls ?? prior.calls);
+        const backs = take(prior.cloneBack ?? prior.backs);
+        for (const callId of callIds) {
+          if (cloneIdOk(callId) && !calls.includes(callId) && calls.length < 32) calls.push(callId);
+        }
+        for (const backId of backIds) {
+          if (cloneIdOk(backId) && !backs.includes(backId) && backs.length < 32) backs.push(backId);
+        }
+        if (step) {
+          step.cloneCalls = calls;
+          step.cloneBack = backs;
+          step.clones = calls.length;
+        } else if (!relay) {
+          ticketValue.cloneTrack = { cloneCalls: calls, cloneBack: backs, clones: calls.length };
         }
       });
     },

@@ -165,6 +165,7 @@ export function startMock(port, options = {}) {
   return new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(port, '127.0.0.1', () => resolve({
+      port: server.address().port,
       state: st,
       async close() { await new Promise(done => server.close(done)); server.closeAllConnections?.(); },
     }));

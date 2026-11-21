@@ -5,7 +5,8 @@ const validDate = (s) =>
 
 // 创建账本 HTTP 处理器。
 export function createLedgerHandlers(
-  { ledger, priceBook, now = () => Date.now(), utcOffsetMinutes = 0, resolveBot, sessionTitle },
+  { ledger, priceBook, now = () => Date.now(), utcOffsetMinutes = 0, resolveBot, sessionTitle, readNative,
+    readPlugins },
 ) {
   const summarizeRows = (rows, time) => summarize(rows, { priceBook, nowMs: time, utcOffsetMinutes });
   const bad = (error) => ({ status: 400, body: { error } });
@@ -15,12 +16,28 @@ export function createLedgerHandlers(
       return bad('invalid date range');
     }
     const time = now();
-    const rows = await ledger.readRows({ from, to });
-    return { status: 200, body: { ...summarizeRows(rows, time), recent: recentCalls(rows, time) } };
+    const [rows, native, plugins] = await Promise.all([
+      ledger.readRows({ from, to }),
+      Promise.resolve().then(() => readNative?.()).catch(() => ({
+        ok: false, reason: '本体账本读取失败',
+      })),
+      Promise.resolve().then(() => readPlugins?.()).catch(() => ({
+        ok: false, reason: '插件账本读取失败',
+      })),
+    ]);
+    const body = { ...summarizeRows(rows, time), recent: recentCalls(rows, time) };
+    if (native !== undefined) body.native = native;
+    if (plugins !== undefined) body.plugins = plugins;
+    const fromPlugins = plugins?.ok === true;
+    body.pricing = {
+      source: fromPlugins ? 'plugins' : 'prices',
+      label: fromPlugins ? `来自 ${plugins.source}` : '按价目估算',
+    };
+    return { status: 200, body };
   }
 
   // 逐次明细。每次模型调用一行：哪位助理、哪段会话、什么时候、用量、价格；最近 60 次。
-  // 每行的 bucket 就是只含这一次调用的汇总桶，价格有依据才算出钱，没有就是待计价，界面不显示重复字样。
+  // 每行的 bucket 只汇总这一次调用，沿用整页的价格和用量口径。
   const RECENT_MAX = 60;
   function recentCalls(rows, time) {
     return rows.filter((r) => r.kind === 'call' && Number.isFinite(r.tsMs))

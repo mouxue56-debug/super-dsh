@@ -1,0 +1,34 @@
+{
+  "currency": "CNY",
+  "perTokens": 1000000,
+  "rates": {
+    "input": 1,
+    "cacheRead": 0.02,
+    "cacheWrite": 1,
+    "output": 4
+  },
+  "peak": {
+    "timeZone": "Asia/Tokyo",
+    "utcOffsetMinutes": 540,
+    "weekdays": [1, 2, 3, 4, 5],
+    "windows": [[10, 13], [15, 19]],
+    "multiplier": 2
+  },
+  "source": {
+    "file": "<plugin dir>/cost-meter/client.js",
+    "checkedAt": "2026-11-19",
+    "lines": {
+      "currency": 81,
+      "perTokens": [81, 149],
+      "input": [82, 145, 149],
+      "cacheRead": [82, 146, 149],
+      "cacheWrite": [82, 147, 149],
+      "output": [82, 148, 149],
+      "timeZone": [84, 85],
+      "utcOffsetMinutes": 85,
+      "weekdays": [90, 91],
+      "windows": 93,
+      "multiplier": [81, 156]
+    }
+  }
+}

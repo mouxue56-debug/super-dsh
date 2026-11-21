@@ -20,6 +20,7 @@
           row({ 'data-r29-open-permissions': '', 'data-r31-setting': 'permissions' }, '权限', now),
           row({ 'data-r29-more': 'appearance', 'data-r31-setting': 'appearance' }, '外观', '白天、晚上、皮肤'),
           row({ 'data-act': 'settings', 'data-r31-setting': 'more' }, '其他设置', '助理、连接、健康、偏好'));
+        if (window.R29Settings && typeof R29Settings.mountMirror === 'function') R29Settings.mountMirror(host);
       } });
     } catch (error) { /* 已经登记过就算了 */ }
   }

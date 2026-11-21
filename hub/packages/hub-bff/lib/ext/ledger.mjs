@@ -1,5 +1,7 @@
 import { createLedgerHandlers } from '../ledger-http.mjs';
-import { createPriceBook } from '../prices.mjs';
+import { createNativePriceBook } from '../prices.mjs';
+import { readNativeLedger } from '../native-ledger.mjs';
+import { readPluginLedger, resolvePluginSource } from '../plugin-ledger.mjs';
 
 function send(response, status, body) {
   response.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
@@ -8,12 +10,18 @@ function send(response, status, body) {
 
 // 账本扩展：提供汇总、当日和会话的只读接口。
 export function createHandler(deps) {
+  const pluginSource = resolvePluginSource(deps.hubConfig);
   const handlers = deps.ledger && createLedgerHandlers({
     ledger: deps.ledger,
-    priceBook: deps.priceBook ?? createPriceBook([]),
+    priceBook: deps.priceBook ?? createNativePriceBook(),
     now: deps.now ?? Date.now,
     utcOffsetMinutes: deps.utcOffsetMinutes ?? 0,
     resolveBot: value => deps.roster?.resolve?.(value) ?? value,
+    readNative: () => readNativeLedger(deps.hubConfig?.nativeLedger),
+    readPlugins: () => readPluginLedger(pluginSource, {
+      now: deps.now ? deps.now() : Date.now(),
+      utcOffsetMinutes: deps.utcOffsetMinutes ?? 0,
+    }),
     // 逐次明细里「哪段会话」用会话清单里的标题；清单里没有就留空。
     sessionTitle: id => (typeof id === 'string' && typeof deps.sessions?.list === 'function'
       ? deps.sessions.list({ all: true }).find(row => row.id === id)?.title : '') ?? '',

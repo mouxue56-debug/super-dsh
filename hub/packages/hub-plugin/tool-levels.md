@@ -12,6 +12,10 @@
 | bash | CMD | CMD | CMD | CMD | CMD | 项目默认值 |
 | 其他工具 | L4 | L4 | L4 | L4 | L4 | 项目默认值 |
 
+## 派分身
+
+`subagent` 是本体进程内的分身工具。权限表 `kernel_tools` 登记 `subagent` 后按 L0：三档都不拦「派」这个动作。没登记仍按未列出的工具拒绝。分身自己再派、改工作目录、换预设，拒绝。分身随后的工具调用与父助理同一套判定，四类必问照旧；确认卡写「某某的分身想」。启用步骤只写在 `packages/devinst/subagent.patch.yml`，不自动套到正在用的 profile。
+
 CMD 统一交给命令判定；取管道、串联中最严格等级。L0 只读；L1 直接做并留痕；L3 发手机审批卡；L4 永远拒绝。来源：项目默认值。
 
 | 命令规则 | 内容 | 来源 |
@@ -49,7 +53,7 @@ CMD 统一交给命令判定；取管道、串联中最严格等级。L0 只读�
 | bot_update | L3 | 普通助理只改自己；首席可改任何一位 | 问前校验，before/after卡，BFF先落盘，插件只读核对 |
 | bot_create | L3 | 只有首席 | 名字不重名，启用最多12个；BFF生成id，新增preset=hub-bot/role=bot，KB白名单为空 |
 | bot_set_status | L3 | 只有首席 | 只停用/恢复，不删除；不能停用自己，至少留一个启用 |
-| delegate_to_bot | L1 | 首席派给启用的普通助理 | bot参数可用id或当前名字，工单存id，原每轮3次限制保留 |
+| delegate_to_bot | L1 | 首席在主人点头后整件交接 | bot 可用 id 或当前名字；须 owner_ok；每轮最多 3 个 |
 | 停用助理 | L4 | 所有工具 | 下一次判定即拒绝「这个助理已停用」 |
 
 YAML不再列bots/chief；实时名单、名字、角色由bots.yaml提供。expected_tools按chief/bot两种角色登记，新增助理不需要编辑权限表。角色由名册决定，职责文字不能增加权限。图形默认取值来自插件avatar-defaults.json，角色取值只认config/avatar-kinds.json。

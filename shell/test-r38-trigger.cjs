@@ -14,10 +14,10 @@ const chromium = process.env.CHROMIUM || [path.join(home, 'Library/Caches/ms-pla
   'chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell')].find(exists);
 assert(playwrightPath && chromium, '缺少本机浏览器或 playwright-core');
 const playwright = require(playwrightPath);
-const port = 3873;
+const port = 0;
 const dist = path.join(__dirname, 'dist-generic');
-const shots = process.env.R38_SHOTS || path.join(__dirname, '..', 'shots');
-const base = 'http://127.0.0.1:' + port + '/DSH-Hub.html';
+const shots = process.env.R38_SHOTS || path.join(__dirname, 'tmp/r38-trigger');
+let base = 'http://127.0.0.1/DSH-Hub.html';
 let passed = 0;
 const check = (label, value) => { assert(value, label); passed += 1; console.log('通过：' + label); };
 
@@ -35,7 +35,9 @@ function serve() {
       res.end(buf);
     });
   });
-  return new Promise((resolve) => server.listen(port, '127.0.0.1', () => resolve(server)));
+  return new Promise((resolve) => server.listen(port, '127.0.0.1', () => {
+    base = 'http://127.0.0.1:' + server.address().port + '/DSH-Hub.html'; resolve(server);
+  }));
 }
 
 const iso = (min) => new Date(Date.now() + min * 60000).toISOString();
@@ -94,6 +96,9 @@ function backendWith() {
       else if (body.column === 'progress') { t.state = 'progress'; t.claimedBy = t.to[0]; }
       else if (body.column === 'done') t.state = 'completed';
     } else if (m[2] === 'arrange') {
+      if (t.requireConfirmation && ['ok', 'swap'].includes(body.action)) {
+        return json(202, {ticket: {...t, awaitingConfirmation: true}});
+      }
       if (body.action === 'ok') { t.arrange = Object.assign({}, t.arrange, {state: 'applied', decision: 'ok'}); t.state = 'queued'; t.to = ['research']; t.open_ask = null; }
       else if (body.action === 'skip') { t.arrange = Object.assign({}, t.arrange, {state: 'declined'}); t.state = 'queued'; t.open_ask = null; }
       else if (body.action === 'swap') { t.arrange = Object.assign({}, t.arrange, {state: 'applied', decision: 'swap'}); t.state = 'queued'; t.to = [body.who]; t.open_ask = null; }
@@ -127,7 +132,7 @@ async function open(browser, {width, height, touch, real, backend, scheme, hash,
   await page.route('**/*', (route) => {
     const url = new URL(route.request().url());
     if (url.protocol === 'data:' || url.protocol === 'blob:') return route.continue();
-    if (url.hostname !== '127.0.0.1' || url.port !== String(port)) return route.abort();
+    if (url.origin !== new URL(base).origin) return route.abort();
     if (url.pathname.startsWith('/bff/')) return backend ? backend.handle(route) : route.abort();
     return route.continue();
   });
@@ -310,6 +315,16 @@ const shot = (page, name) => page.screenshot({path: path.join(shots, name)});
     await page.click('#r38-today [data-r38-tok]');
     await page.waitForTimeout(500);
     check('今天页「就这么办」真发给后端：arrange ok，这一行换成一句回执', backend.calls.slice(before).some((c) => c.path === 'arrange' && c.body.action === 'ok') && await page.evaluate(() => /已照首席的意思办/.test(document.querySelector('#r38-today').innerText)));
+    const pendingTicket = backend.tickets.find(t => t.id === raw.arrangements.items[0].id);
+    pendingTicket.requireConfirmation = true;
+    const beforeState = JSON.stringify(pendingTicket);
+    await page.evaluate(m => R30LT.mountToday(document.querySelector('#r38-today'), m, {}), model);
+    await page.click('#r38-today [data-r38-tok]');
+    await page.waitForTimeout(500);
+    check('高风险安排等待核对对象，不提前宣称办成', await page.evaluate(() => {
+      const text = document.querySelector('#r38-today').innerText;
+      return text.includes('核对对象，再确认一次') && !text.includes('已照首席的意思办');
+    }) && JSON.stringify(pendingTicket) === beforeState);
     await s.ctx.close();
 
     // ================= 电脑：拖没负责人的卡到「在做」 =================

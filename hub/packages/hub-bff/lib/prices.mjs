@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 const fields = ['input', 'cacheRead', 'cacheWrite', 'output', 'reasoning'];
 const referenceFields = fields.map((k) => `reference${k[0].toUpperCase()}${k.slice(1)}`);
 const dateValid = (s) =>
@@ -124,6 +126,37 @@ export function createPriceBook(rows) {
   return { find: (channel, model) => index.get(channel)?.get(model) };
 }
 
+const nativeRates = JSON.parse(readFileSync(new URL('../native-rates.json', import.meta.url), 'utf8'));
+const nativeFields = Object.keys(nativeRates.rates);
+const flashModels = ['deepseek-flash', 'deepseek-v4-flash', 'deepseek-v4.1-flash'];
+const nativePrice = Object.freeze({ mode: 'metered', currency: nativeRates.currency, native: true });
+const usageOnly = Object.freeze({ mode: 'local' });
+const nativeModels = new Map([
+  ['deepseek-official', flashModels],
+  ['deepseek-account', flashModels],
+  ['deepseek', flashModels],
+  ['opencode-go', ['deepseek-v4.1-flash']],
+]);
+
+export function createNativePriceBook(configuredBook) {
+  return {
+    find(channel, model) {
+      if (nativeModels.get(channel)?.includes(model)) return nativePrice;
+      return configuredBook?.find(channel, model) ?? usageOnly;
+    },
+  };
+}
+
+function nativeCost(tokens, time) {
+  const { rates, perTokens, peak } = nativeRates;
+  const jst = new Date(time + peak.utcOffsetMinutes * 60_000);
+  const hour = jst.getUTCHours();
+  const isPeak = peak.weekdays.includes(jst.getUTCDay()) &&
+    peak.windows.some(([start, end]) => start <= hour && hour < end);
+  const base = nativeFields.reduce((sum, field) => sum + (tokens?.[field] ?? 0) * rates[field], 0);
+  return (isPeak ? peak.multiplier : 1) * base / perTokens;
+}
+
 // 计算调用成本。
 export function computeCost(callRow, priceBook, nowMs = Date.now()) {
   const p = priceBook.find(callRow.channel, callRow.model);
@@ -138,6 +171,10 @@ export function computeCost(callRow, priceBook, nowMs = Date.now()) {
   };
   if (!p) return result;
   if (p.mode === 'local') return { ...result, status: 'local', amount: 0 };
+  if (p.native) {
+    if (nativeFields.every(field => callRow.tokens?.[field] == null)) return result;
+    return { ...result, status: 'ok', amount: nativeCost(callRow.tokens, callRow.tsMs) };
+  }
   const calc = (names) => {
     let micro = 0;
     const missing = [];

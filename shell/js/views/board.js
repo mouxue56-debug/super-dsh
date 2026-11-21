@@ -309,6 +309,41 @@ function r29DeskAdd(list, seen, person) {
   seen[person.key] = true;
   list.push(person);
 }
+function r29DeskViaLabel(item) {
+  if (!item || (item.via !== 'file' && item.via !== 'cli')) return '';
+  var who = typeof item.by === 'string' ? item.by : '';
+  return '来自：' + who + (item.via === 'file' ? '（文件）' : '（命令）');
+}
+function r29DeskLogWord(action) {
+  var words = {claimed: '领取了这张卡', reported: '交回了成果', submitted: '交给派单人验收', blocked: '标了卡住'};
+  return words[action] || '';
+}
+function r29DeskLogs(ticket) {
+  var logs = [];
+  (Array.isArray(ticket.progress) ? ticket.progress : []).forEach(function (item) {
+    if (!item || typeof item !== 'object') return;
+    var text = typeof item.text === 'string' ? item.text.trim() : '';
+    if (!text) return;
+    logs.push({text: text, via: r29DeskViaLabel(item)});
+  });
+  (Array.isArray(ticket.history) ? ticket.history : []).forEach(function (item) {
+    if (!item || typeof item !== 'object' || item.action === 'progress' || item.action === 'created') return;
+    var word = r29DeskLogWord(item.action);
+    if (!word || !r29DeskViaLabel(item)) return;
+    logs.push({text: word, via: r29DeskViaLabel(item)});
+  });
+  return logs;
+}
+function r29DeskLogsHtml(logs) {
+  if (!logs || !logs.length) return '';
+  var html = '<h3>进度记录</h3><ul class="r41-logs">';
+  logs.forEach(function (item) {
+    html += '<li>' + esc(r29DeskClip(item.text, 300));
+    if (item.via) html += ' <span class="r41-via">' + esc(item.via) + '</span>';
+    html += '</li>';
+  });
+  return html + '</ul>';
+}
 function r29DeskFromTicket(ticket) {
   if (!ticket || typeof ticket.id !== 'string' || !ticket.id) return null;
   var names = r29DeskNames(ticket);
@@ -339,7 +374,8 @@ function r29DeskFromTicket(ticket) {
     locked: ticket.legacy === true,
     summary: r29DeskSummary(ticket),
     verified: r29DeskVerified(ticket),
-    unmet: r29DeskUnmet(ticket, stage, names)
+    unmet: r29DeskUnmet(ticket, stage, names),
+    logs: r29DeskLogs(ticket)
   };
 }
 function r29DeskDemoCol(card) {
@@ -521,7 +557,8 @@ function r29DeskDetail(rows) {
   }
   return '<div class="r29-desk-detail"><h2>' + esc(row.title) + '</h2><p>' + esc(row.line) +
     '</p><h3>摘要</h3><p>' + esc(row.summary) + '</p><h3>怎么验的</h3><p>' + esc(row.verified) +
-    '</p><h3>没验的</h3><p>' + esc(row.unmet) + '</p></div>' + r30ActionsHtml(row);
+    '</p><h3>没验的</h3><p>' + esc(row.unmet) + '</p>' + r29DeskLogsHtml(row.logs) +
+    '</div>' + r30ActionsHtml(row);
 }
 function r29DeskBody(rows) {
   var shut = r29DeskOpen ? '' : ' is-shut';
@@ -1070,7 +1107,8 @@ function r30SheetNode() {
 function r30DetailHtml(row) {
   return '<details class="r30-detail"' + (r30Sheet && r30Sheet.detail ? ' open' : '') +
     '><summary>看详情</summary><h3>摘要</h3><p>' + esc(row.summary) + '</p><h3>怎么验的</h3><p>' +
-    esc(row.verified) + '</p><h3>没验的</h3><p>' + esc(row.unmet) + '</p></details>';
+    esc(row.verified) + '</p><h3>没验的</h3><p>' + esc(row.unmet) + '</p>' +
+    r29DeskLogsHtml(row.logs) + '</details>';
 }
 function r30SheetBody() {
   var sheet = r30Sheet;

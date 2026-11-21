@@ -200,7 +200,7 @@ test('确认卡全文、重复请求、批准、回收结果与账本', async t 
   assert.equal(h.cards.length, 1);
   const card = h.cards[0];
   assert.equal(card.kind, 'dispatch');
-  assert.deepEqual(card.choices.map(c => c.id), ['approve', 'approve-always', 'reject']);
+  assert.deepEqual(card.choices.map(c => c.id), ['approve', 'reject']);
   assert.ok(card.text.includes(composeBrief(ticket)));
   assert.ok(card.text.includes('worker') && card.text.includes('model-1'));
   assert.ok(card.text.includes(path.join(h.root, ticket.id)));
@@ -308,60 +308,33 @@ test('长任务书经全文卡批准后按原文启动', async t => {
   assert.equal(ext.listRunning().length, 1);
 });
 
-test('放权创建、范围、过期、撤销与安全闸', async t => {
+test('旧外派放权可查看撤销，但每张新工单仍需本次确认', async t => {
   const h = await fixture(t);
-  const first = await h.ticket();
-  await h.post(first.id);
-  await h.answer('approve-always');
   const file = path.join(h.dir, 'dispatch-grants.json');
-  const grant = JSON.parse(fs.readFileSync(file, 'utf8')).grants[0];
-  assert.equal(fs.statSync(file).mode & 0o777, 0o600);
-  assert.deepEqual([grant.bot, grant.program, grant.dir, grant.by], ['bot', 'worker', h.root, 'owner']);
-  assert.deepEqual(grant.caps, { network: false, writeRoots: [h.root] });
-  assert.deepEqual([grant.on, grant.until], ['2026-01-02', '2026-01-04']);
-  assert.equal(grant.tag, '#by/owner #on/2026-01-02 #until/2026-01-04');
-  assert.equal(grant.cardId, 'confirm-1');
-  assert.equal(grant.revokedAt, null);
-  assert.match(fs.readFileSync(path.join(h.dir, 'permissions.changes.log'), 'utf8'), /dispatch-grant-add/);
-  const next = await h.ticket();
-  const started = await h.post(next.id);
-  assert.equal(started.status, 201);
-  assert.equal(started.body.via, 'grant');
+  const grant = { id: 'G-old', bot: 'bot', program: 'worker', dir: h.root,
+    caps: { network: false, writeRoots: [h.root] }, by: 'owner', on: '2026-01-02', until: '2026-01-04',
+    tag: '#by/owner #on/2026-01-02 #until/2026-01-04', createdAt: '2026-01-01T18:00:00Z',
+    cardId: 'old-confirm', revokedAt: null };
+  fs.writeFileSync(file, JSON.stringify({ v: 1, grants: [grant] }), { mode: 0o600 });
+  const first = await h.ticket();
+  assert.equal((await h.post(first.id)).status, 202, '旧放权不跳过本次确认');
   assert.equal(h.cards.length, 1);
-  for (const [patch, bot] of [
-    [{}, 'other'],
-    [{ to: ['worker2'], routing: {
-      requestedBy: 'bot', hint: '', worker: 'worker2', model: 'model-1', via: 'dispatch_prepare',
-    } }, 'bot'],
-    [{ workdir: { path: h.tree, writable: [] } }, 'bot'],
-  ]) {
-    const ticket = await h.ticket(patch, bot);
-    assert.equal((await h.post(ticket.id, { bot })).status, 202);
-    await h.answer('reject');
-  }
+  await h.answer('approve-always');
+  assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')).grants, [grant], '旧卡选项只批准本次');
+  const next = await h.ticket();
+  assert.equal((await h.post(next.id)).status, 202, '同一助理、工人、目录的新任务仍问');
+  await h.answer('reject');
   const tainted = await h.ticket({ readExternalContent: true });
   assert.equal((await h.post(tainted.id)).body.error.code, 'TAINTED');
-  const forbidden = await h.ticket({ goal: '读取 .secrets' });
-  assert.equal((await h.post(forbidden.id)).status, 403);
   assert.equal((await request(h.handler, '/dispatch/grants')).body.grants[0].status, 'active');
   h.advance(3 * 86400000);
   assert.equal((await request(h.handler, '/dispatch/grants')).body.grants[0].status, 'expired');
-  const expired = await h.ticket();
-  assert.equal((await h.post(expired.id)).status, 202);
-  await h.answer('approve-always');
-  const grants = (await request(h.handler, '/dispatch/grants')).body.grants;
-  const active = grants.find(g => g.status === 'active');
-  assert.ok(active);
-  const revoked = await request(h.handler, '/dispatch/grants/' + active.id + '/revoke', {});
+  const revoked = await request(h.handler, '/dispatch/grants/G-old/revoke', {});
   assert.equal(revoked.body.grant.status, 'revoked');
-  const listed = (await request(h.handler, '/dispatch/grants')).body.grants;
-  assert.equal(listed.find(g => g.id === active.id).status, 'revoked');
-  const after = await h.ticket();
-  assert.equal((await h.post(after.id)).status, 202);
-  await h.answer('reject');
+  assert.equal((await request(h.handler, '/dispatch/grants')).body.grants[0].status, 'revoked');
 });
 
-test('同一工作树的放权和批准路径均拒绝并发；停服务不杀进程，全停能回报', async t => {
+test('同一工作树的外派批准后拒绝并发；停服务不杀进程，全停能回报', async t => {
   const h = await fixture(t, { hold: true });
   const workdir = { path: h.tree, writable: [] };
   const first = await h.ticket({ workdir });
@@ -371,7 +344,9 @@ test('同一工作树的放权和批准路径均拒绝并发；停服务不杀�
   assert.equal(running.length, 1);
   assert.ok(running[0].pid);
   const second = await h.ticket({ workdir });
-  assert.equal((await h.post(second.id)).status, 409);
+  assert.equal((await h.post(second.id)).status, 202);
+  await h.answer();
+  assert.ok(h.events.some(e => e.kind === 'refused' && e.code === 'BUSY'));
   const third = await h.ticket({ workdir }, 'other');
   assert.equal((await h.post(third.id, { bot: 'other' })).status, 202);
   await h.answer();

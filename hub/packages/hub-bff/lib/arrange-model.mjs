@@ -194,14 +194,17 @@ export function checkConclusion(input, ctx) {
         if (!usable(bot)) return no(`第 ${index + 1} 棒的 ${bot.name ?? bot.id} 停用或暂停了`);
         who = { name: bot.id, type: 'assistant' };
       }
-      steps.push({ who, task: raw.task, doneWhen: raw.done_when ?? raw.doneWhen, gate: raw.gate === true });
+      const step = { who, task: raw.task, doneWhen: raw.done_when ?? raw.doneWhen, gate: raw.gate === true };
+      if (raw.aside === true) step.aside = true;
+      steps.push(step);
     }
     try {
       parseRoute(steps);
     } catch (error) {
       return no('接力路线不合格：' + String(error?.message ?? error).slice(0, 100));
     }
-    plan = { kind: 'relay', steps: parseRoute(steps).map(s => ({ who: s.who, task: s.task, doneWhen: s.doneWhen, gate: s.gate })) };
+    plan = { kind: 'relay', steps: parseRoute(steps).map(s => ({ who: s.who, task: s.task, doneWhen: s.doneWhen, gate: s.gate,
+      ...(s.aside === true ? { aside: true } : {}) })) };
   } else {
     return no('kind 只能是 bot（内部助理）、external（外部身份）、relay（接力路线）');
   }
@@ -234,17 +237,39 @@ export function checkConclusion(input, ctx) {
 
 // ---------- 要不要先让主人点头 ----------
 // 返回原因列表；空数组 = 可以直接派。四类用现有的权限判定（permission-mode 的 PAY/PUBLISH/DELETE/ADMIN 命中结果）。
-export function approvalNeeds({ plan, ticket, cfg = {} }) {
+export function approvalNeeds({ plan, ticket }) {
   const needs = [];
   if (plan.askOwner) needs.push({ code: 'chief', text: '首席觉得要你先点头：' + plan.askReason });
   const hit = sensitiveText(`${ticket?.title ?? ''}\n${ticket?.goal ?? ''}`);
   if (hit) needs.push({ code: hit.id, text: hit.reason });
   const externalNames = plan.kind === 'external' ? [plan.who.name]
     : plan.kind === 'relay' ? plan.steps.filter(s => s.who.type === 'external').map(s => s.who.name) : [];
-  if (externalNames.length && cfg.external_approval !== false) {
-    needs.push({ code: 'external', text: `要派给外部身份「${[...new Set(externalNames)].join('、')}」，外部 agent 干活默认要你点一次头` });
+  if (externalNames.length) {
+    needs.push({ code: 'external', text: `要把这张卡交给「${[...new Set(externalNames)].join('、')}」，点头后当场拉起外部 agent` });
   }
   return needs;
+}
+
+export const arrangementVersion = ticket => JSON.stringify([
+  ticket.updatedAt, ticket.history.length, ticket.arrange?.plan,
+]);
+
+// 主人已在首席建议上点过一次。特别危险的安排再列清对象，让主人确认一次。
+export function arrangementRecheck(ticket, decision) {
+  const plan = ticket.arrange?.plan;
+  if (!plan || decision.action === 'skip') return null;
+  const text = `${ticket.title}\n${ticket.goal}`;
+  const hit = sensitiveText(text);
+  const people = decision.who ? [decision.who] : plan.kind === 'relay' ? plan.steps.map(step => step.who) : [plan.who];
+  const external = people.filter(who => who?.type === 'external');
+  const highRisk = hit?.id === 'pay' || external.length > 1 ||
+    /群发|批量发送|不可撤回|不可恢复|覆盖.*数据|改.*(?:权限|令牌)|(?:清空|删除).*(?:全部|所有)|(?:全部|所有).*删除/u.test(text);
+  if (!highRisk) return null;
+  const targets = external.length > 1 ? external.map(who => `${who.name} · ${cut(ticket.title, 100)}`)
+    : [`${ticket.id} · ${cut(ticket.title, 120)} · ${cut(ticket.goal, 250)}`];
+  return {targets, targetCount: targets.length,
+    consequence: '按这张工单启动安排，涉及的付款、群发或数据变更可能无法撤回。',
+    rollback: '确认前可取消。已发生的付款、对外发送或覆盖数据，需要按目标自身的恢复办法处理。'};
 }
 
 // 「首席建议：交给 X，Y 时做，因为……」的人话（卡上记录与今天页都用它）

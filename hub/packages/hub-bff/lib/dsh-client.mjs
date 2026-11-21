@@ -14,6 +14,21 @@ export { messageFromEvent } from './timeline.mjs';
 // 收口：去掉写死的个人路径；建会话必须显式给工作目录（名册预设目录），缺了就报错，不落到别处。
 export const DEFAULT_CWD = undefined;
 const invalid = message => new BffError('INVALID_INPUT', message, 400);
+// 只凭内核来源标记确认压缩。分页没有看到标记时，不能断言整个话题从未压缩。
+function historyContext(records, messages) {
+  const checkpoints = records.map(record => record.event ?? record).filter(event =>
+    event.type === 'user/message' && event.data?.source?.kind === 'compact-checkpoint'
+    && event.surfaceOp?.op === 'replace' && validSeq(event.seq)
+    && validSeq(event.surfaceOp.startSeq) && validSeq(event.surfaceOp.endSeq)
+    && event.surfaceOp.startSeq <= event.surfaceOp.endSeq && event.surfaceOp.endSeq < event.seq);
+  const checkpoint = checkpoints.sort((a, b) => a.seq - b.seq).at(-1);
+  if (!checkpoint) return { compacted: null, exact: false };
+  const afterSeq = checkpoint.surfaceOp.endSeq;
+  const first = messages.filter(item => item.role === 'user' && item.seq > afterSeq && item.text?.trim())
+    .sort((a, b) => a.seq - b.seq)[0];
+  return { compacted: true, exact: false, checkpointSeq: checkpoint.seq, afterSeq,
+    retainedFrom: first ? { seq: first.seq, text: Array.from(first.text.trim()).slice(0, 80).join('') } : null };
+}
 export function sessionId(value) {
   if (typeof value !== 'string' || !/^[A-Za-z0-9_.:-]{1,200}$/.test(value)) throw invalid('Invalid session id');
   return value;
@@ -193,9 +208,16 @@ export class DshClient {
     if (!Array.isArray(value?.items)) throw new BffError('INCOMPATIBLE','Invalid DSH session list');
     return value.items.map(item => ({id:sessionId(item.sessionId),title:typeof item.projections?.values?.title === 'string' ? item.projections.values.title : 'New session',updatedAt:item.updatedAt}));
   }
-  async createSession({cwd, title, agentPreset} = {}) {
+  async createSession({cwd, title, agentPreset, sessionId: requestedId} = {}) {
     if (typeof cwd !== 'string' || !cwd || (title !== undefined && (typeof title !== 'string' || !title.trim() || title.length > 200)) || (agentPreset !== undefined && (typeof agentPreset !== 'string' || !agentPreset))) throw invalid('Invalid session options');
-    const result = await this.rpc('session/create',{request:{cwd,...(agentPreset === undefined ? {} : {agentPreset})}}); const id = sessionId(result?.sessionId);
+    if (requestedId !== undefined) sessionId(requestedId);
+    const result = await this.rpc('session/create', { request: { cwd,
+      ...(agentPreset === undefined ? {} : { agentPreset }),
+      ...(requestedId === undefined ? {} : { sessionId: requestedId }) } });
+    const id = sessionId(result?.sessionId);
+    if (requestedId !== undefined && id !== requestedId) {
+      throw new BffError('INCOMPATIBLE', 'DSH returned a different session identity');
+    }
     if (title !== undefined) await this.renameSession(id,title);
     return {id};
   }
@@ -229,6 +251,55 @@ export class DshClient {
     try{return {messages:project(await this.records(id),cards).surface()};}
     catch(error){if(error.message==='Unsupported history replacement')throw new BffError('INCOMPATIBLE',error.message);throw error;}
   }
+  // 长对话逐页投影；原 history 的全量契约留给既有调用者。
+  async historyPage(id, { beforeSeq, throughSeq, limit = 40, cards = [] } = {}) {
+    sessionId(id);
+    const request = { address: { kind: 'session', sessionId: id }, maxMessages: limit };
+    if (beforeSeq !== undefined) request.beforeSeq = beforeSeq;
+    if (throughSeq !== undefined) request.throughSeq = throughSeq;
+    let value, next;
+    const records = [];
+    for (let page = 0; page < 100; page++) {
+      value = await this.rpc('session/events', { request });
+      if (!Array.isArray(value?.records)) throw new BffError('INCOMPATIBLE', 'Invalid DSH history');
+      next = value.records[0]?.event?.seq ?? value.records[0]?.seq;
+      if (value.hasMore && (!Number.isSafeInteger(next) || next < 0
+        || (request.beforeSeq !== undefined && next >= request.beforeSeq))) {
+        throw new BffError('INCOMPATIBLE', 'Invalid DSH history cursor');
+      }
+      records.unshift(...value.records);
+      const events = records.map(record => record.event ?? record);
+      const calls = new Set(events.filter(event => event.type === 'tool/call').map(event => event.data?.callId));
+      const dangling = events.some(event => event.type === 'tool/result'
+        && !calls.has(event.data?.message?.toolCallId ?? event.data?.message?.source?.callId));
+      const startsWithMessage = ['user/message', 'assistant/message'].includes(events[0]?.type);
+      const crossesReplacement = events.some(({ surfaceOp }) => surfaceOp?.op === 'replace'
+        && Number.isSafeInteger(surfaceOp.startSeq) && surfaceOp.startSeq >= 0 && surfaceOp.startSeq < next);
+      // 补齐页首工具调用与跨原始页的替换区间，避免旧内容在下一页重新出现。
+      if (!value.hasMore || startsWithMessage && !dangling && !crossesReplacement) break;
+      if (page === 99) throw new BffError('UPSTREAM_FAILURE', 'History page exceeds the BFF limit');
+      request.beforeSeq = next;
+      request.throughSeq ??= value.cursor;
+    }
+    try {
+      const messages = project(records, cards).surface();
+      const requestIds = new Map(records.map(record => record.event ?? record)
+        .filter(event => event.type === 'user/message' && event.data?.source?.kind === 'user'
+          && typeof event.data.source.rpcId === 'string' && event.data.source.rpcId.length <= 200)
+        .map(event => [event.seq, event.data.source.rpcId]));
+      for (const message of messages) {
+        if (message.role === 'user' && requestIds.has(message.seq)) message.requestId = requestIds.get(message.seq);
+      }
+      return { messages, context: historyContext(records, messages), hasMore: Boolean(value.hasMore),
+        nextBeforeSeq: value.hasMore ? next : null, throughSeq: value.cursor,
+        maxSeq: records.at(-1)?.event?.seq ?? records.at(-1)?.seq ?? 0 };
+    } catch (error) {
+      if (error.message === 'Unsupported history replacement') {
+        throw new BffError('INCOMPATIBLE', error.message);
+      }
+      throw error;
+    }
+  }
   async modelCatalog() { return this.rpc('session/modelCatalog',{}); }
   // 给会话选择内核模型。
   async selectModel({sessionId: id, provider, model, reasoningEffort}) {
@@ -253,7 +324,7 @@ export class DshClient {
     } catch(error) {signal.removeEventListener('abort',abort);raw.dispose();throw error;}
     finally {clearTimeout(timer);}
   }
-  async follow(id,{cards=()=>[],onRawEvent}={}) {
+  async follow(id,{cards=()=>[],onRawEvent,onSnapshot,onEnd}={}) {
     sessionId(id);await this.connect();
     const controller=new AbortController(), signal=controller.signal;
     let opened=await this.#rawFollow(id,signal), lastSeq=-1, initial=true, stopReason='';
@@ -288,6 +359,8 @@ export class DshClient {
             if(initial) {
               if(first.hasMore)records=(await client.records(id)).filter(r=>!validSeq(first.cursor) || r.event?.seq<=first.cursor);
               for(const r of records)timeline.ingest(r.event);
+              // 快照不进账本。分身交回常在本轮跟随结束之后才到，下次跟随靠这里补记。
+              try { const pending=onSnapshot?.(records); pending?.catch?.(()=>{}); } catch {}
               lastSeq=validSeq(first.cursor)?first.cursor:Math.max(-1,...records.map(r=>r.event?.seq).filter(validSeq));
             } else {
               // 快照窗口不足时只读分页补齐；补事件但绝不重发 prompt。
@@ -325,7 +398,10 @@ export class DshClient {
             catch(error) {if(signal.aborted)return;if(error.code==='INCOMPATIBLE')throw error;client.#lost(disconnected());await client.#waitReady(signal);}
           }
         }
-      } finally {opened.detach();opened.raw.dispose();}
+      } finally {
+        try { const pending=onEnd?.(); pending?.catch?.(()=>{}); } catch {}
+        opened.detach();opened.raw.dispose();
+      }
     })();
     const dispose=()=>{controller.abort();opened.raw.dispose();};
     return {[Symbol.asyncIterator]:()=>iterator,next:()=>iterator.next(),return:async()=>{dispose();return iterator.return();},dispose};

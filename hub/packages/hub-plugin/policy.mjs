@@ -19,7 +19,7 @@ const norm = s => s.normalize('NFC').toLowerCase();
 export const within = (p,r) => norm(p) === norm(r) || norm(p).startsWith(norm(r).replace(/\/$/,'')+'/');
 const forbidden = ['医院','病历','医疗','密钥','凭据','secrets','.env','聊天记录'];
 function freeze(o) { if (o && typeof o==='object') { Object.getOwnPropertyNames(o).forEach(k=>freeze(o[k])); Object.freeze(o); } return o; }
-export const COMMAND_DENY_PATHS=Object.freeze(['~/.secrets','~/.ssh','~/.gnupg','~/Library/Keychains','~/.config','~/.codex','~/.grok','~/.claude','~/.local/share/opencode','~/.dsh','~/.agents','$HUB_HOME/config','$HUB_HOME/dev-home*','$HUB_HOME/dsh-hub','/Applications/DeepSeek Harness.app','/Library/LaunchDaemons','/Library/LaunchAgents','~/Library/LaunchAgents','/etc','/System']);
+export const COMMAND_DENY_PATHS=Object.freeze(['~/.secrets','~/.ssh','~/.gnupg','~/Library/Keychains','~/.config','~/.codex','~/.grok','~/.claude','~/.local/share/opencode','~/.dsh','~/.agents','$HUB_HOME/config','$HUB_HOME/dev-home*','/Applications/DeepSeek Harness.app','/Library/LaunchDaemons','/Library/LaunchAgents','~/Library/LaunchAgents','/etc','/System']);
 export function roleTools(){const common=['read','write','edit','list_files','ticket_create','ticket_update','ticket_move','bot_status','bot_list','bot_update','bash'];return {bot:common,chief:[...common,'bot_create','bot_set_status','delegate_to_bot']};}
 export function expectedTools(bots=defaults().bots,chief=defaults().chief){const tools=roleTools();return Object.fromEntries(bots.map(b=>[b,[...tools[b===chief?'chief':'bot']]]));}
 export function policyForRoster(policy,rows){
@@ -37,7 +37,8 @@ export function policyText(base=process.env.HUB_HOME??path.join(os.homedir(),'ds
  rows.bot_list='L0';for(const t of ['bot_create','bot_update','bot_set_status'])rows[t]='L3';
  // 插件工具模块须在权限表点名才启用；不传就不写这一行，旧表逐字不变。
  if(options.pluginTools!==undefined)rows.plugin_tools=pluginToolList(options.pluginTools);
- // 收口：内核自带的可选工具（目前只有手册的 skill）须在权限表登记才算清单里的；不传就不写这一行。
+ // 收口：内核自带的可选工具须在权限表登记才算清单里的；不传就不写这一行。
+ // subagent 与 skill 一样，只有调用方传入 kernelTools 才写进表。
  if(options.kernelTools!==undefined)rows.kernel_tools=kernelToolList(options.kernelTools);
  return '# 第26轮任务书，Fable 定，Owner 未确认；严格平面 YAML，每值为单行紧凑 JSON。\n'+Object.entries(rows).map(([k,v])=>`${k}: ${JSON.stringify(v)}`).join('\n')+'\n';
 }
@@ -148,8 +149,9 @@ export function evaluate(policy,bot,tool,args,cwd) {try {return decide(bot,tool,
 
 // 插件工具（tools/ 下的模块）的级别。只认 L0、L1、L3、L4；可按角色给 {chief,bot}。
 export const PLUGIN_LEVELS=Object.freeze(['L0','L1','L3','L4']);
-// 内核自带、可以在权限表里登记的可选工具及其级别：skill 只读手册全文。名单外的一律不收（整表作废）。
-export const KERNEL_OPTIONAL_TOOLS=Object.freeze({skill:'L0'});
+// 内核自带、可以在权限表里登记的可选工具及其级别。名单外的一律不收（整表作废）。
+// skill 只读手册全文。subagent 是本体进程内的分身：派这个动作本身不改东西，按 L0。
+export const KERNEL_OPTIONAL_TOOLS=Object.freeze({skill:'L0',subagent:'L0'});
 
 // 校验权限表里登记的内核可选工具名单。
 export function kernelToolList(value){

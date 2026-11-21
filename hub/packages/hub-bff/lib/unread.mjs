@@ -168,6 +168,11 @@ function acceptGroupCursor(value) {
     && Number.isInteger(value.id) && value.id >= 0;
 }
 
+export function isDirectSession(row) {
+  return row.hidden !== true && !row.groupId && !['meeting', 'routine'].includes(row.purpose)
+    && !(typeof row.purpose === 'string' && row.purpose.startsWith('group-'));
+}
+
 export function createUnread(deps = {}) {
   const filePath = typeof deps.dataDir === 'string' && deps.dataDir ? join(deps.dataDir, FILE_NAME) : '';
   let tail = Promise.resolve();
@@ -220,6 +225,8 @@ export function createUnread(deps = {}) {
       return { v: 1, conversations, groups };
     } catch (error) {
       if (error.code === 'FROZEN') throw error;
+      // 长对话的 GET 只读位置，损坏时也不移动原文件。
+      if (deps.readOnly === true) throw Object.assign(new Error('invalid-cursors'), { code: 'FROZEN' });
       try {
         await quarantine();
       } catch {
@@ -287,13 +294,6 @@ export function createUnread(deps = {}) {
     return fail(503, 'UNAVAILABLE', '未读暂时算不出来');
   }
 
-  function isDirectSession(row) {
-    // purpose 为 board 的「派工：…」会话在会话列表里点得开，它的回复要能数到、也能读掉；
-    // 会议、定时任务这类系统发起的仍不计。
-    return row.hidden !== true && !row.groupId && !['meeting', 'routine'].includes(row.purpose)
-      && !(typeof row.purpose === 'string' && row.purpose.startsWith('group-'));
-  }
-
   function readGroup(id) {
     if (!deps.dataDir) return null;
     try {
@@ -312,8 +312,12 @@ export function createUnread(deps = {}) {
       const bots = Object.create(null);
       for (const row of sessions) {
         if (!isDirectSession(row)) continue;
+        if (deps.trash?.isSegmentDeleted?.(row.id) === true) continue;
         const messages = await historyOf(row.id);
-        const count = countSessionUnread(messages, cursors.conversations[row.id]);
+        const visible = typeof deps.trash?.filterMessages === 'function'
+          ? deps.trash.filterMessages(row.id, messages)
+          : messages;
+        const count = countSessionUnread(visible, cursors.conversations[row.id]);
         conversations[row.id] = count;
         bots[row.bot] = (bots[row.bot] ?? 0) + count;
       }
@@ -376,5 +380,5 @@ export function createUnread(deps = {}) {
     }
   }
 
-  return { counts, mark, filePath };
+  return { counts, mark, filePath, readPositions: () => exclusive(() => readCursors()) };
 }

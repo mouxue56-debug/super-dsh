@@ -1,14 +1,17 @@
 // · 看板交接：助理的两个工具 board_handoff（派给外部成员）与 board_answer（回答外部成员的问题）。
-// 外部成员名单来自安装配置 board.externals；走现有的插件工具权限（权限表点名 handoff，级别 L1）。
+// 外部成员名单来自安装配置 board.externals；权限表点名 handoff，主人批准 L3 卡后执行。
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {EventEmitter} from 'node:events';
 import {apply} from '../index.mjs';
 import {loadHubConfig, hubConfigText} from '../hub-config.mjs';
 import {policyText} from '../policy.mjs';
 import {boardConfig} from '../tools/index.mjs';
+import {createBoard} from '../../hub-bff/lib/board.mjs';
+import {createExtLaunch} from '../../hub-bff/lib/ext-launch.mjs';
 
 const ids = ['leader', 'writer', 'helper'];
 const names = ['总管', '小文', '小帮'];
@@ -39,7 +42,7 @@ function fixture({plugins = ['bots', 'handoff'], disabled = [], board = {externa
 }
 
 function setup(bot = 'writer', {fx = fixture(), extra = [], config = {}, sandbox = false} = {}) {
-  const tools = {}, events = {}, guards = [], logs = [];
+  const tools = {}, events = {}, guards = [], logs = [], approvals = [];
   const agent = {id: 'session-' + bot, session: {header: {agentPreset: 'hub-' + bot, cwd: fx.base + '/bots/' + bot},
     append() {}}};
   const services = sandbox ? {
@@ -78,9 +81,14 @@ function setup(bot = 'writer', {fx = fixture(), extra = [], config = {}, sandbox
     if (d.kind === 'deny') {
       throw Error(d.reason);
     }
+    if (d.kind === 'ask') {
+      approvals.push(JSON.parse(d.reason.slice('HUBAPPROVAL1 '.length)));
+      await events['approval/request']({ agent, callId: e.callId, toolName: name,
+        signal: e.signal, reason: d.reason }, async () => 'allowed-once');
+    }
     return tools[name].execute(args, e);
   };
-  return {fx, tools, events, guards, logs, agent, exec, pre, turn, run};
+  return {fx, tools, events, guards, logs, approvals, agent, exec, pre, turn, run};
 }
 
 const tickets = base => {
@@ -129,7 +137,43 @@ test('board_handoff：派给外部成员，工单记清派单人、接单身份�
   assert.equal(tickets(h.fx.base).length, 1);
   await h.events['tools/post-execute'](h.exec('board_handoff', ARGS),
     {isError: false, content: [{type: 'text', text: '已派给'}]}, async () => ({kind: 'accept'}));
-  assert.match(fs.readFileSync(h.fx.base + '/config/actions.log', 'utf8'), /writer\tboard_handoff\tplugin:handoff\tL1/);
+  assert.ok(h.approvals.some(card => card.tool === 'board_handoff' && card.level === 'L3'));
+});
+
+test('Codex 外派必须先取得本次确认，直接执行和改参数都不能代点', async () => {
+  const h = setup('leader');
+  fs.writeFileSync(path.join(h.fx.base, 'config/permission-mode.json'),
+    JSON.stringify({v: 1, mode: 'open'}), {mode: 0o600});
+  await h.turn(1);
+  const e = h.exec('board_handoff', ARGS);
+  const d = await h.pre(e);
+  assert.equal(d.kind, 'ask');
+  assert.match(d.reason, /codex/);
+  await assert.rejects(() => h.tools.board_handoff.execute(ARGS, e), /未取得本次明确批准/);
+  assert.equal(tickets(h.fx.base).length, 0);
+  await h.events['approval/request']({agent: h.agent, callId: e.callId, toolName: e.name,
+    signal: e.signal, reason: d.reason}, async () => 'allowed-once');
+  await assert.rejects(() => h.tools.board_handoff.execute({...ARGS, to: 'grok'}, e), /参数已变化/);
+  assert.equal(tickets(h.fx.base).length, 0);
+  await h.tools.board_handoff.execute(ARGS, e);
+  assert.equal(tickets(h.fx.base).length, 1);
+  const board = createBoard({root: h.fx.base + '/board'}), launches = [];
+  const launcher = createExtLaunch({board, stateFile: path.join(h.fx.base, 'launch-state.json'), tickMs: 0,
+    hubConfig: () => ({board: {externals: ['codex'], external_launch: {codex: {cmd: ['/fake/codex']}}}}),
+    spawn: (cmd, argv, options) => {
+      launches.push({cmd, argv, ticket: options.env.HUB_TICKET});
+      const child = new EventEmitter();
+      child.stderr = new EventEmitter();
+      setImmediate(() => child.emit('close', 0));
+      return child;
+    }});
+  const event = {id: tickets(h.fx.base)[0].id, type: 'created'};
+  await launcher.onEvent(event);
+  await launcher.drain();
+  await launcher.onEvent(event);
+  await launcher.resume();
+  await launcher.drain();
+  assert.deepEqual(launches, [{cmd: '/fake/codex', argv: [], ticket: tickets(h.fx.base)[0].id}]);
 });
 
 test('board_handoff：不在名单的名字、名册里的助理、坏参数都拒；首席和普通助理都能派', async () => {

@@ -16,11 +16,14 @@ export function oneLine(value, max) {
   return chars.length > max ? chars.slice(0, max).join('') + '…' : chars.join('');
 }
 
-// 外部身份名单：来自安装配置 board.externals（名字数组）。没配、配错都当没有，不猜。
+// 外部身份名单：保留名字数组，也接受按身份配置的对象。
 export function externalNames(boardConfig) {
   const raw = boardConfig?.externals;
-  if (!Array.isArray(raw)) return [];
-  const names = raw.filter(item => typeof item === 'string' && NAME.test(item));
+  const configured = Array.isArray(raw) ? raw : Object.entries(raw && typeof raw === 'object' ? raw : {})
+    .filter(([, options]) => options && typeof options === 'object' && !Array.isArray(options) &&
+      (options.inbox === undefined || typeof options.inbox === 'boolean'))
+    .map(([name]) => name);
+  const names = configured.filter(item => typeof item === 'string' && NAME.test(item));
   return [...new Set(names)];
 }
 
@@ -32,22 +35,35 @@ const SECRET_PATTERNS = [
   [/\bAKIA[0-9A-Z]{16}\b/u, '像云服务访问密钥'],
   [/\bxox[abprs]-[A-Za-z0-9-]{10,}/u, '像聊天应用令牌'],
   [/\bAIza[0-9A-Za-z_-]{30,}/u, '像接口密钥'],
-  [/-----BEGIN [A-Z ]*PRIVATE KEY-----/u, '像私钥'],
+  [/-----BEGIN [A-Z ]*PRIVATE KEY-----/u, '像私钥',
+    /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)/gu],
   [/\bBearer\s+[A-Za-z0-9._~+/-]{20,}/iu, '像带令牌的请求头'],
   [/(?:api[_-]?key|secret|token|passwd|password|密钥|令牌|口令|密码)\s*[:=：]\s*["']?[^\s"']{8,}/iu,
     '像「名字=密钥」的写法'],
   [/\.secrets(?:\/|\b)/u, '提到了密钥目录'],
 ];
+const TOKEN_RUN = /[A-Za-z0-9_-]{32,}/gu;
+const looksLikeToken = run => /[a-z]/u.test(run) && /[A-Z]/u.test(run) && /\d/u.test(run);
 
 export function scanSecrets(text) {
   const value = String(text ?? '');
   for (const [pattern, why] of SECRET_PATTERNS) {
     if (pattern.test(value)) return why;
   }
-  for (const run of value.match(/[A-Za-z0-9_-]{32,}/gu) ?? []) {
-    if (/[a-z]/u.test(run) && /[A-Z]/u.test(run) && /\d/u.test(run)) return '有一长串像令牌的字符';
+  for (const run of value.match(TOKEN_RUN) ?? []) {
+    if (looksLikeToken(run)) return '有一长串像令牌的字符';
   }
   return null;
+}
+
+export function redactSecrets(text) {
+  const hidden = '【已隐去：疑似密钥】';
+  let value = String(text ?? '');
+  // 先处理整段私钥，随后保留原有检测规则及未命中的文字。
+  for (const [pattern, , replacement] of SECRET_PATTERNS) {
+    value = value.replace(replacement ?? new RegExp(pattern.source, pattern.flags + 'g'), hidden);
+  }
+  return value.replace(TOKEN_RUN, run => looksLikeToken(run) ? hidden : run);
 }
 
 // 拼出派给外部身份的建单入参。派单人、接单身份、目标、完成标准、交回方式都落在工单里：

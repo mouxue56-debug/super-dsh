@@ -26,7 +26,7 @@ const shots = path.resolve(__dirname, '..', '..', 'shots');
 const port = 3633;
 const base = 'http://127.0.0.1:' + port + '/index.html';
 const PROMPT = '帮我新建一个助理，负责：';
-const OPEN_LINE = '助理直接干活。付款、对外发送、删除找不回的东西、动线上服务，仍然先问你';
+const OPEN_LINE = '助理直接干活。花钱、对外发送或公开发布、删除、上线或动线上服务，仍然先问你';
 const ORDER = ['助理名册', '固定任务', '账本', '设置', '全部暂停'];
 const GONE = ['三分钟看完', '手势', '完整模式', '会话、文件与更多操作'];
 

@@ -50,8 +50,10 @@ export function register(ctx, deps) {
     name: 'relay_start',
     material: false,
     description: '把一件事拆成「接力」：几位同事按顺序各做一棒，做完一棒自动交给下一棒，最后回到你这里做总验收。'
+      + '对话里不要自动发起。只在主人要排接力，或他已经点头把整件按棒交出去时使用。'
       + `${RELAY_MIN_STEPS}–${RELAY_MAX_STEPS} 棒。每棒写清：谁接（助理 id 或名字${more}，`
       + '写「主人」表示这一棒要主人看一眼才放行）、做什么、做到什么算完（done_when）；gate=true 表示这一棒做完要主人看一眼再放行。'
+      + 'aside=true 表示这一棒由同一位助理另开一段会话来做，不接着原来的对话；只适用于助理。'
       + '每个人看不到你的对话，任务要自包含。不要写密钥、令牌。',
     parameters: {
       type: 'object',
@@ -62,7 +64,10 @@ export function register(ctx, deps) {
           type: 'array',
           items: {
             type: 'object',
-            properties: {who: str(64), task: str(300), done_when: str(300), gate: {type: 'boolean'}},
+            properties: {
+              who: str(64), task: str(300), done_when: str(300),
+              gate: {type: 'boolean'}, aside: {type: 'boolean'},
+            },
             required: ['who', 'task'],
             additionalProperties: false,
           },
@@ -98,8 +103,11 @@ export function register(ctx, deps) {
             throw Error(`第 ${i + 1} 棒的「${oneLine(name, 20)}」不在名册里${notIn}，先用 list_bots 查`);
           }
         }
+        if (raw.aside === true && who.type !== 'assistant') {
+          throw Error(`第 ${i + 1} 棒「另开一段会话」只适用于助理，不能给主人或外部身份`);
+        }
         const doneWhen = typeof raw.done_when === 'string' ? raw.done_when : '';
-        return {who, task: raw.task, doneWhen, gate: raw.gate === true};
+        return {who, task: raw.task, doneWhen, gate: raw.gate === true, ...(raw.aside === true ? {aside: true} : {})};
       });
       const toExternal = steps.some(s => s.who.type === 'external');
       for (const [label, text] of [['标题', args.title], ['目标', args.goal], ['key', args.key],
@@ -128,9 +136,14 @@ export function register(ctx, deps) {
       const t = result.ticket;
       if (result.deduped) return `这条接力已经发起过了（同一个 key），工单 ${t.id}`;
       const first = t.relay.steps[0].who;
-      return `已发起接力，工单 ${t.id}，共 ${t.relay.steps.length} 棒。` + (first.name === me.id
-        ? '第 1 棒是你自己：请直接做，做完用 relay_pass 交棒。'
-        : `第 1 棒已交给 ${first.name}${first.type === 'external' ? '（外部成员，它用命令行来领）' : '，会叫醒它'}。`)
+      const aside = t.relay.steps[0].aside === true;
+      const mine = aside
+        ? '第 1 棒是你自己，这一棒另开一段会话，不接着现在这段对话，会叫醒你。'
+        : '第 1 棒是你自己：请直接做，做完用 relay_pass 交棒。';
+      const handed = first.type === 'external' ? '（外部成员，它用命令行来领）'
+        : (aside ? '，这一棒另开一段会话，会叫醒它' : '，会叫醒它');
+      const head = `已发起接力，工单 ${t.id}，共 ${t.relay.steps.length} 棒。`;
+      return head + (first.name === me.id ? mine : `第 1 棒已交给 ${first.name}${handed}。`)
         + '之后每一棒交回都会自动交给下一棒；全部走完会叫醒你做总验收，不要重复催，也不要重复发起。';
     },
   });

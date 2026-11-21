@@ -1,5 +1,5 @@
 // 真壳、带状态的假后端、手机宽度。点开就算看过 / 点头像落到有未读那段 / 失败重试不弹回 /
-// 旧数字不写回 / 看着时来了新回复自动读掉 / 另有未读入口 / 群里回复自己出现。端口 3821、3822。
+// 旧数字不写回 / 看着时来了新回复自动读掉 / 另有未读入口 / 群里回复自己出现。端口由系统分配。
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
@@ -11,8 +11,6 @@ import { createHubWeb } from '../server.mjs';
 import { startMock } from './r31-fb-mock.mjs';
 
 const require = createRequire(import.meta.url);
-const MOCK_PORT = 3821;
-const WEB_PORT = 3822;
 const shellFile = process.env.HUB_SHELL_DIST || '';
 
 function playwrightCore() {
@@ -43,7 +41,7 @@ function skipReason() {
 // 起一套假后端 + 网页服务 + 手机宽度浏览器，跑完整套收掉。
 async function withApp(options, run) {
   const { viewport = { width: 390, height: 844 }, ...mockOptions } = options;
-  const mock = await startMock(MOCK_PORT, mockOptions);
+  const mock = await startMock(0, mockOptions);
   const dir = await mkdtemp(join(tmpdir(), 'r31-fb-'));
   const shell = join(dir, 'shell');
   await mkdir(shell);
@@ -51,10 +49,11 @@ async function withApp(options, run) {
   await writeFile(join(dir, 'web.key'), 'web-r31', { mode: 0o600 });
   await writeFile(join(dir, 'bff.key'), 'bff-r31', { mode: 0o600 });
   const web = await createHubWeb({
-    HUB_WEB_PORT: String(WEB_PORT), HUB_WEB_HOSTS: '127.0.0.1', HUB_WEB_SHELL_DIR: shell,
+    HUB_WEB_PORT: '0', HUB_WEB_HOSTS: '127.0.0.1', HUB_WEB_SHELL_DIR: shell,
     HUB_WEB_KEY_FILE: join(dir, 'web.key'), BFF_KEY_FILE: join(dir, 'bff.key'),
-    BFF_URL: 'http://127.0.0.1:' + MOCK_PORT,
+    BFF_URL: 'http://127.0.0.1:' + mock.port,
   }, { log() {} });
+  const origin = 'http://127.0.0.1:' + web.servers[0].address().port;
   const browser = await require(playwrightCore()).chromium.launch({
     executablePath: chromiumBin(), headless: true, args: ['--disable-dev-shm-usage'],
   });
@@ -65,10 +64,10 @@ async function withApp(options, run) {
     page.on('pageerror', error => errors.push(String(error)));
     await page.route('**/*', route => {
       const target = new URL(route.request().url());
-      if (target.hostname === '127.0.0.1' && target.port === String(WEB_PORT)) return route.continue();
+      if (target.origin === origin) return route.continue();
       return route.abort();
     });
-    await page.goto('http://127.0.0.1:' + WEB_PORT + '/?key=web-r31', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.goto(origin + '/?key=web-r31', { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForSelector('[data-real-group="g3"]', { timeout: 20000 });
     await run({ page, mock, errors });
     assert.equal(errors.length, 0, errors.join('\n'));

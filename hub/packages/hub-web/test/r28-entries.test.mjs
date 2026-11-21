@@ -720,9 +720,9 @@ async function webFixture() {
     async close() { await web.close(); await new Promise(resolve => fake.close(resolve)); } };
 }
 
-test('网页层：规矩页只读转发（GET 放行，其余方法在网页层就拒），dispatch 仍不转发', async () => {
+test('网页层：规矩页只读，长对话只放行明确的写操作，dispatch 仍不转发', async () => {
   const { READONLY_EXT_PREFIXES, EXT_PREFIXES } = await import('../server.mjs');
-  assert.deepEqual(READONLY_EXT_PREFIXES, ['rules']);
+  assert.deepEqual(READONLY_EXT_PREFIXES, ['rules', 'threads']);
   assert.equal(EXT_PREFIXES.includes('rules'), false);
   assert.equal(EXT_PREFIXES.includes('dispatch'), false);
   const web = await webFixture();
@@ -732,14 +732,36 @@ test('网页层：规矩页只读转发（GET 放行，其余方法在网页层�
     assert.equal(web.received.at(-1).path, '/rules');
     assert.equal((await fetch(`${web.url}/bff/rules/a?x=1`, { headers: { cookie: web.cookie } })).status, 200);
     assert.equal(web.received.at(-1).path, '/rules/a?x=1');
+    const thread = await fetch(`${web.url}/bff/threads/aa?before=cursor&limit=40`, {
+      headers: { cookie: web.cookie },
+    });
+    assert.equal(thread.status, 200);
+    assert.equal(web.received.at(-1).path, '/threads/aa?before=cursor&limit=40');
     const before = web.received.length;
     for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
       const res = await fetch(`${web.url}/bff/rules/a`, { method, body: '{}',
         headers: { cookie: web.cookie, origin: web.url, 'content-type': 'application/json' } });
       assert.equal(res.status, 405, method);
       assert.equal(res.headers.get('allow'), 'GET, HEAD');
+      const threadWrite = await fetch(`${web.url}/bff/threads/aa/read`, { method, body: '{}',
+        headers: { cookie: web.cookie, origin: web.url, 'content-type': 'application/json' } });
+      assert.equal(threadWrite.status, 405, 'threads ' + method);
+      assert.equal(threadWrite.headers.get('allow'), 'GET, HEAD');
     }
     assert.equal(web.received.length, before);
+    const writes = [['POST', 'send'], ['POST', 'send/request-a/hold'], ['POST', 'send/request-a/cancel'],
+      ['POST', 'reassign'], ['PATCH', 'topics/s-a'], ['POST', 'topics/s-a/merge'], ['POST', 'topics/s-a/unmerge']];
+    for (const [method, route] of writes) {
+      const path = '/threads/aa/' + route;
+      const headers = { cookie: web.cookie, origin: web.url, 'content-type': 'application/json' };
+      assert.equal((await fetch(web.url + '/bff' + path, { method, body: '{}', headers })).status, 200);
+      assert.deepEqual(web.received.at(-1), { method, path });
+    }
+    const sent = web.received.length;
+    const denied = await fetch(web.url + '/bff/threads/aa/send', { method: 'POST', body: '{}',
+      headers: { cookie: web.cookie, origin: 'http://localhost:1', 'content-type': 'application/json' } });
+    assert.equal(denied.status, 403);
+    assert.equal(web.received.length, sent);
     // 没登录的读取仍然被拒
     assert.equal((await fetch(`${web.url}/bff/rules`)).status === 200, false);
     // 全文与全停走原来的代理路径

@@ -18,4 +18,4 @@ dedicated low-privilege user. Do not expose the web service to the public intern
 
 ## 支持的版本
 
-0.1.0-beta 阶段只维护最新版本。
+0.2.0-beta 阶段只维护最新版本。

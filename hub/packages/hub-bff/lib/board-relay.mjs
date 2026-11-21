@@ -113,7 +113,8 @@ export function createRelayOps({ mutate, locked, readNative, checkId, guardActor
         if (!['running', 'gate', 'stuck'].includes(relay.phase)) error('CONFLICT', 'Route is closed');
         const kept = relay.steps.slice(0, relay.current + 1);
         const added = parseRoute(steps, { min: 0, first: false });
-        const fresh = newRelay([...kept.map((s) => ({ who: s.who, task: s.task, doneWhen: s.doneWhen, gate: s.gate })),
+        const fresh = newRelay([...kept.map((s) => ({ who: s.who, task: s.task, doneWhen: s.doneWhen, gate: s.gate,
+          ...(s.aside === true ? { aside: true } : {}) })),
           ...added]);
         if (fresh.steps.length > RELAY_MAX_STEPS) error('INVALID', 'Too many steps');
         relay.steps = [...kept, ...fresh.steps.slice(kept.length)];
@@ -169,6 +170,23 @@ export function createRelayOps({ mutate, locked, readNative, checkId, guardActor
           (expectStartedAt && step.startedAt !== expectStartedAt) ||
           Date.parse(ts) - acted < windowMs) throw NOTHING;
         return markStalled(ticket, ts, minutes);
+      }).catch((e) => {
+        if (e === NOTHING) return null;
+        throw e;
+      });
+    },
+
+    // 另开的那段会话反复打不开。这一棒停住，等主人看，不悄悄丢掉。
+    async relayAsideStuck(id, { index, startedAt } = {}) {
+      return mutate(SYSTEM, id, 'relay_aside_stuck', (ticket, ts) => {
+        const relay = needRelay(ticket);
+        const step = stepOf(ticket);
+        if (relay.phase !== 'running' || !step || step.aside !== true || relay.current !== index) throw NOTHING;
+        if (startedAt && step.startedAt !== startedAt) throw NOTHING;
+        const text = '另开的这段会话没能打开，这一棒先停在这里';
+        ticket.state = 'waiting-human';
+        ticket.open_ask = { text, ts };
+        return { ...stuck(ticket, text, ts), attention: true, attentionKind: 'waiting-human', reason: text };
       }).catch((e) => {
         if (e === NOTHING) return null;
         throw e;

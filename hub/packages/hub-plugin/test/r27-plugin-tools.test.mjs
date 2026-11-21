@@ -74,12 +74,14 @@ function setup(bot = 'writer', {fx = fixture(), extra = [], config = {}, sandbox
   const turn = n => events['agent/pre-step']({agent, turn: n, step: 1, messages: []}, async () => ({kind: 'enter',
     messages: []}));
   const run = async (name, args) => {
-    const e = exec(name, args);
+    const handed = (name === 'send_to_bot' || name === 'delegate_to_bot') && args.owner_ok === undefined
+      ? {...args, owner_ok: true} : args;
+    const e = exec(name, handed);
     const d = await pre(e);
     if (d.kind === 'deny') {
       throw Error(d.reason);
     }
-    return tools[name].execute(args, e);
+    return tools[name].execute(handed, e);
   };
   return {fx, tools, events, guards, logs, agent, exec, pre, turn, run};
 }

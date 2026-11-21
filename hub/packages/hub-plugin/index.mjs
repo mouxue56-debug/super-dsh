@@ -6,15 +6,18 @@ import {fileURLToPath} from 'node:url';
 import {AsyncLocalStorage} from 'node:async_hooks';
 import {loadPolicy,evaluate,canonicalize,within,commandLists,policyForRoster,decidePlugin,KERNEL_OPTIONAL_TOOLS}
  from './policy.mjs';
-import {readPermissionMode,applyPermissionMode} from './permission-mode.mjs';
+import {readPermissionMode,applyPermissionMode,creatorMode,creatorRisk,modeFilePath} from './permission-mode.mjs';
 import {loadHubConfig,expandConfiguredPath} from './hub-config.mjs';
 import {readGrants} from './grants.mjs';
 import {inspectToolInventory,appendInventoryAlert,INVENTORY_DENY} from './tool-inventory.mjs';
 import {classifyCommand} from './command-policy.mjs';
+import {creatorPaths,creatorFileDecision,creatorCommand} from './creator-policy.mjs';
+import {createSelfEditClient} from './tools/self-edit.mjs';
 import {readGroupShares,groupAccess} from './group-share.mjs';
 import {installCommandSandbox} from './command-sandbox.mjs';
 import {sharedGrant} from './shared-grant.mjs';
 import {createRosterReader,resolveIdentity,resolveBot,MANAGEMENT_TOOLS,proposeChange,authorizeChange,verifyChange,readAvatarKinds} from './roster.mjs';
+import {handoffRefusal} from './reply-route.mjs';
 
 const selfAddrs=()=>[...new Set(Object.values(os.networkInterfaces()).flat().filter(Boolean).map(i=>String(i.address).split('%')[0]))];
 import {heartbeatOnline,watchApproval,OFFLINE} from './heartbeat.mjs';
@@ -29,6 +32,7 @@ import {protectedFileNames} from './protected-files.mjs';
 import {anyStopped,panicStateDirs} from '../hub-bff/lib/panic-marker.mjs';
 import {readExposure,markExposed,readSharedMarks,addSharedMarks} from '../hub-bff/lib/bot-exposure.mjs';
 import {DELEGATED_FIRST,EXTERNAL_FIRST} from '../hub-bff/lib/board-inbox.mjs';
+import {isTopicSession} from '../hub-bff/lib/topic-session.mjs';
 
 // 一键全停：修E（R3-4）位置与判断和后端共用 hub-bff/lib/panic-marker.mjs；算不出、读不了都按已停（只会多拒）。
 function panicStopped(install){
@@ -62,12 +66,24 @@ export function apply(ctx,config={}) {
  if(!registeredRole)throw Error('hub-plugin 缺少有效 bot');
  const sandbox=ctx.get?.('sandbox'),sandboxPolicy=ctx.get?.('sandboxPolicy'),shell=ctx.get?.('shell');
  const withSharedGrant=sharedGrant(ctx,sandboxPolicy),calls=new AsyncLocalStorage();
+ const mode=()=>readPermissionMode(modeFilePath(install.hubHome)).mode;
+ const creator=()=>creatorMode(install,mode());
+ const selfEdit=install.self_edit?.enabled===true ? createSelfEditClient(install) : null;
+ const ownerTurn=s=>s.turn!==null && s.ownerTurn===true && !s.foreignMaterial;
+ const ownerSource=s=>s.turn!==null && s.ownerTurn===true;
+ const readExternal=(s,bot)=>exposed(bot)||s.untrusted===true||s.tainted===true||s.foreignMaterial;
  let sandboxInstalled=false,sandboxBroken=false,inventoryBroken=false;
  try{
-  if(sandbox&&typeof sandbox.confine==='function'&&typeof shell?.resolve==='function'&&shell.sandboxMode==='workspace-write'){
+  if(sandbox&&typeof sandbox.confine==='function'&&typeof shell?.resolve==='function'&&shell.sandboxMode){
    const dispose=installCommandSandbox(ctx,sandbox,{getCall:()=>{const call=calls.getStore();if(call)call.confined=true;return call;}});
    const resolve=shell.resolve;
-   const wrapped=function(request){const call=calls.getStore();return Reflect.apply(resolve,this,[call?{...request,workdir:call.workdir,timeoutMs:call.timeoutMs}:request]);};
+   const wrapped=function(request){
+    const call=calls.getStore();
+    if(!call)return Reflect.apply(resolve,this,[request]);
+   if(call.creator){call.requestEnv=request.env;call.dshEnv=request.dshEnv;}
+    const confined=call.creator ? {sandboxPolicy:{...request.sandboxPolicy,mode:'workspace-write'}} : {};
+    return Reflect.apply(resolve,this,[{...request,workdir:call.workdir,timeoutMs:call.timeoutMs,...confined}]);
+   };
    shell.resolve=wrapped;
    sandboxInstalled=true;ctx.effect?.(()=>()=>{dispose();if(shell.resolve===wrapped)shell.resolve=resolve;});
   }
@@ -115,7 +131,9 @@ export function apply(ctx,config={}) {
   chatOnly=chatOnlyReader(path.join(install.hubHome,'config/chat-only-sessions.json'),ctx.logger);
  let board,boardCfg,bootStep;
  try{boardCfg=boardConfig(install);
-  board=createPluginBoard(boardCfg,ctx.logger);}catch(e){
+  // 安排结论只有在任首席能给；名册现读（N4 在后端接了，插件这侧漏了，首席的 arrange 工具一直报「只有首席能做」）。
+  board=createPluginBoard(boardCfg,ctx.logger,name=>{const rows=readRoster();
+   const bot=rows.find(b=>b&&b.id===name)||rows.find(b=>b&&b.name===name);return !!(bot&&bot.role==='chief'&&bot.status==='active');});}catch(e){
   ctx.logger.error('hub-plugin 看板配置错误，插件工具不启用：'+e.message);}
  const createUserMessage=config.createUserMessage??KERNEL.createUserMessage;
  if(board&&typeof createUserMessage==='function')installBootSlice({on:(_n,f)=>{bootStep=f;}},{name:'hub-boot-slice',
@@ -166,40 +184,57 @@ export function apply(ctx,config={}) {
   if(!s.inventoryChecked)inventory(exec.agent,s,row,policy);
   return {cwd,s,bot,row,rows,policy,names:Object.fromEntries(rows.map(b=>[b.id,b.name]))};
  }
- function command(exec,cwd,s,bot,policy){
+ function command(exec,cwd,s,bot,policy,asCreator){
   const args=exec.arguments??{};
   if(['sandbox_permissions','justification','run_in_background'].some(k=>Object.hasOwn(args,k)))return {level:'deny',reason:COMMAND_PARAMETER_ERROR};
   if(typeof args.command!=='string'||!args.command.trim()||args.command.length>2000)return {level:'deny',reason:'命令须为1至2000字'};
   if(!policy)return {level:'deny',reason:'权限表不可核实'};
-  if(sandboxBroken||!sandboxInstalled)return {level:'deny',reason:'命令沙箱没开，这次不跑'};
+  if(sandboxBroken||!sandboxInstalled||!asCreator&&shell.sandboxMode!=='workspace-write')
+   return {level:'deny',reason:'命令沙箱没开，这次不跑'};
   const own=canonicalize(policy.base+'/bots/'+bot,'/');
   const roots={own,readable:[own,...['shared','tickets'].map(r=>canonicalize(policy.base+'/'+r,'/')),...(policy.kb_allow[bot]??[]).map(r=>canonicalize(policy.kb+'/'+r,'/'))],writable:[own]};
   if(!within(own,policy.base+'/bots/'+bot)||roots.readable.slice(1,3).some((p,i)=>!within(p,policy.base+'/'+['shared','tickets'][i]))||roots.readable.slice(3).some((p,i)=>!within(p,policy.kb+'/'+policy.kb_allow[bot][i])))throw Error('命令可读区域根指向外部');
   roots.readable.push(...policy.group_access.read);
   roots.writable.push(...policy.group_access.write);
-  const denyPaths=[...policy.cmd_deny_paths.map(p=>expandConfiguredPath(p,install)),path.dirname(fileURLToPath(import.meta.url))];
+  const denyPaths=policy.cmd_deny_paths.filter(p=>!asCreator || !p.startsWith('$HUB_HOME/dsh-hub')
+    && p!=='$HUB_HOME/config')
+   .map(p=>expandConfiguredPath(p,install));
+  if(!asCreator)denyPaths.push(path.dirname(fileURLToPath(import.meta.url)));
   const active=sandboxPolicy?.resolve({session:exec.agent.session})?.mode==='workspace-write'&&!!sandbox&&sandboxInstalled;
   const liveGrants=readGrants(install.grants,ctx.logger);
   // 在途审批仍按未放权判定；新保存的规则从下一次命令生效，保持本次复判与卡片一致。
   const grants=pending.has(exec.token)?[]:liveGrants;
   const d=classifyCommand({command:args.command,workdir:args.workdir,cwd,bot,roots,home:install.home,
    hubHome:install.hubHome,denyPaths,forbiddenWords:policy.forbidden,lists:commandLists(policy),
-   sandboxActive:active,tainted:exposed(bot)||s.untrusted===true,internalTainted:s.internal,
+   sandboxActive:active,tainted:readExternal(s,bot),internalTainted:s.internal,
    timeoutMs:args.timeoutMs,grants,now:new Date(),selfAddrs:selfAddrs(),
-   protectedNames,groupFence:policy.group_access});
-  return {...d,path:d.workdir,area:'own',roots,denyPaths,sandboxActive:active};
+   protectedNames,groupFence:policy.group_access,creator:asCreator});
+  if(asCreator){
+   const bounds=creatorPaths(install);
+   const timeoutMs=Math.min(policy.cmd_timeout_max_ms,
+    Number.isSafeInteger(args.timeoutMs)&&args.timeoutMs>0 ? args.timeoutMs : policy.cmd_timeout_ms);
+   const c=creatorCommand({args,cwd,roots,bounds,timeoutMs,legacy:d});
+   return {...c,path:c.workdir,area:'own',denyPaths,sandboxActive:true};
+  }
+  return {...d,path:d.workdir,area:'own',roots,denyPaths,sandboxActive:active,
+   tainted:readExternal(s,bot)||s.internal};
  }
  function check(exec){try{
+  if(isTopicSession(exec.agent?.id))
+   return {level:'L4',reason:'话题整理只做一次文字归类，不能调用工具',path:''};
   // 一键全停后插件一律拒新工具调用；标记读不了也按已停。全停优先于任何档位。
   if(panicStopped(install))
    return {level:'L4',reason:'已一键全停，需先恢复',path:''};
   const {cwd,s,bot,rows,policy}=context(exec);
-  // 已经是拒绝的不再读档位，避免全开把拒绝放宽。其余每次现读；缺档、坏档由读取函数按改动前问。
+  const currentMode=mode(),owner=ownerTurn(s),asCreator=creatorMode(install,currentMode)&&owner;
   const finish=d=>{
    if(d.level==='L4')return d;
-   const mode=readPermissionMode(path.join(install.hubHome,'config','permission-mode.json')).mode;
-   const out=applyPermissionMode(d,{mode,tool:exec.name,args:exec.arguments??{},cwd,
-    home:install.home,hubHome:install.hubHome});
+   const onceExternal=readExternal(s,bot);
+   const fixed=d.management||['board_handoff','board_answer'].includes(exec.name);
+   const risk=currentMode==='open'&&(asCreator||fixed||d.ownerRisk)
+    ? creatorRisk({tool:exec.name,args:exec.arguments??{},decision:d,cwd,tainted:onceExternal,owner}) : null;
+   const out=applyPermissionMode(d,{mode:currentMode,config:install,tool:exec.name,args:exec.arguments??{},cwd,
+    home:install.home,hubHome:install.hubHome,ownerTurn:owner,creatorActive:asCreator||Boolean(risk),risk});
    if(out!==d&&out.level==='L3'&&s.locked)
     return {...out,level:'L4',reason:'刚才这件事 主人 没批准，不能换路径或换工具再试'};
    return out;
@@ -209,7 +244,17 @@ export function apply(ctx,config={}) {
   if(chatOnly(exec.agent.id))return finish({level:'L4',reason:'这是只聊天的会话，不动手',path:''});
   if(!policy)return finish({level:'L4',reason:'权限表不可核实',path:''});
   if(exec.name==='bot_list')return finish({level:'L0',path:install.hubHome+'/config/bots.yaml'});
-  // 收口：权限表登记过的内核可选工具（skill 读手册）按登记级别；没登记的照旧走下面的判定（拒）。
+  // 分身工具。再派、改目录、换预设一律拒，避免分身权限高过父助理。登记了才按 L0。
+  if(exec.name==='subagent'){
+   const header=exec.agent?.session?.header;
+   if(header?.origin==='subagent')return finish({level:'L4',reason:'分身不能再派分身',path:''});
+   const spawnArgs=exec.arguments??{};
+   if(typeof spawnArgs.cwd==='string'&&spawnArgs.cwd.trim())return finish({level:'L4',reason:'分身不能改工作目录',path:''});
+   if(typeof spawnArgs.agent_preset==='string'&&spawnArgs.agent_preset.trim())
+    return finish({level:'L4',reason:'分身不能换预设',path:''});
+   if(policy.kernel_tools?.includes('subagent'))return finish({level:'L0',path:''});
+  }
+  // 收口：权限表登记过的内核可选工具按登记级别；没登记的照旧走下面的判定（拒）。
   if(policy.kernel_tools?.includes(exec.name))return finish({level:KERNEL_OPTIONAL_TOOLS[exec.name],path:''});
   if(MANAGEMENT_TOOLS.includes(exec.name)){
    const p=pending.get(exec.token);let management;
@@ -221,20 +266,39 @@ export function apply(ctx,config={}) {
   if(pluginTools.has(exec.name)){
    // 插件工具按权限表启用名单与模块 levels 判定；L3 同样受拒批锁约束。
    const d=decidePlugin(policy,bot,exec.name,pluginTools.get(exec.name));
+   if(d.level==='L3'&&!d.path)d.path=install.hubHome;
+   if(d.level!=='L4'&&d.plugin==='self-edit'&&(!selfEdit||currentMode!=='readonly')) {
+    return finish({...d,level:'L0'});
+   }
    if(d.level==='L3'&&s.locked)return {...d,level:'L4',reason:'刚才这件事 主人 没批准，不能换路径或换工具再试'};
    return finish(d);
   }
   if(exec.name==='bash'){
-   const cmd=command(exec,cwd,s,bot,policy),d={...cmd,cmd,level:({run:'L1',ask:'L3',deny:'L4'})[cmd.level]??'L4'};
+   let cmd=command(exec,cwd,s,bot,policy,asCreator);
+   let ownerRisk=false;
+   if(currentMode==='open'&&ownerSource(s)&&!asCreator){
+    const candidate=command(exec,cwd,s,bot,policy,true);
+    if(candidate.level!=='deny'&&creatorRisk({tool:'bash',args:exec.arguments,
+     decision:{cmd:candidate},cwd,tainted:true,owner:false})){
+     cmd=candidate;
+     ownerRisk=true;
+    }
+   }
+   const d={...cmd,cmd,ownerRisk,level:({run:'L1',ask:'L3',deny:'L4'})[cmd.level]??'L4'};
    if(d.level==='L3'&&s.locked)return {...d,level:'L4',reason:'刚才这件事 主人 没批准，不能换路径或换工具再试'};
    return finish(d);
   }
   if(['write','edit'].includes(exec.name)&&['justification','sandbox_permissions'].some(k=>Object.hasOwn(exec.arguments??{},k)))return finish({level:'L4',reason:PARAMETER_ERROR,path:''});
-  const d=evaluate(policy,bot,exec.name,exec.arguments,cwd);if(d.level==='L3'&&s.locked)return {...d,level:'L4',reason:'刚才这件事 主人 没批准，不能换路径或换工具再试'};return finish(d);
+  let d=evaluate(policy,bot,exec.name,exec.arguments,cwd);
+  if(asCreator)d=creatorFileDecision(d,creatorPaths(install),exec.name);
+  if(d.level==='L3'&&s.locked)return {...d,level:'L4',reason:'刚才这件事 主人 没批准，不能换路径或换工具再试'};
+  return finish(d);
  }catch(e){return {level:'L4',reason:e.message,path:''};}}
  function firstUser(s,message,session){if(message.source?.kind!=='user')return;
   const text=typeof message.content==='string'?message.content:(message.content??[])
    .filter(c=>c.type==='text').map(c=>c.text).join('');
+  s.ownerTurn=!DELEGATED.test(text)&&!GROUP_TURN.test(text)&&!EXTERNAL_FIRST.test(text)&&
+   !text.includes('【外部来源】')&&!text.includes('【外部来源接力】');
   if(EXTERNAL_FIRST.test(text)||text.includes('【外部来源】')){
    s.untrusted=true;s.tainted=true;mark(s,'收到带外部来源的消息','user',session);
   }
@@ -260,18 +324,21 @@ export function apply(ctx,config={}) {
   return filled&&ARGUMENT_START.test(String(e?.message??''));
  }
  ctx.on('agent/inbox/inserted',({agent,message})=>{
+  if(isTopicSession(agent?.id))return;
   if(message.source?.kind==='user'){
    const s=state(agent);try{context({agent});}catch{}
    firstUser(s,message,agent.id);s.locked=false;s.version++;
   }
  });
  ctx.on('agent/pre-step',async(payload,next)=>{
+  // 归类不读取开工资料，也不因模型试图调用工具而继续下一步。
+  if(isTopicSession(payload.agent?.id))return payload.step===1?next():{kind:'reject'};
   const s=state(payload.agent);try{const {row,policy}=context({agent:payload.agent});inventory(payload.agent,s,row,policy);}catch(e){ctx.logger.warn?.('hub-plugin '+e.message);}
   for(const message of payload.messages??[])firstUser(s,message,payload.agent.id);
   if(!Number.isSafeInteger(payload.turn)||payload.turn<1){s.turn=null;if(s.delegated)return {kind:'reject'};return next();}
   if(s.turn!==payload.turn){
    s.turn=payload.turn;s.count=0;s.sendCount=0;s.steps=0;s.tainted=s.untrusted===true;
-   s.internal=s.groupTurn===true;s.readOutside=false;
+   s.internal=s.groupTurn===true;s.readOutside=false;s.foreignMaterial=false;
   }
   if(s.delegated&&(s.steps>=8||!Number.isSafeInteger(payload.step)||payload.step<1||payload.step>8)){
    // （fcd421a）：不往会话日志写自定义事件，改写旁路 config/step-limits.log 给 BFF 读。
@@ -288,6 +355,10 @@ export function apply(ctx,config={}) {
   return decision;
  },{prepend:true});
  ctx.on('agent/disposed',({agent})=>{sessions.delete(agent.id);});
+ function wish(exec,names,bot){
+  const who=names[bot]??bot;
+  return who+(exec.agent?.session?.header?.origin==='subagent'?'的分身想':'想');
+ }
  ctx.on('tools/pre-execute',async(exec,next)=>{
   const d=check(exec);if(d.level==='L4')return deny(d.reason);
   const {bot:activeBot,s:activeState}=context(exec);
@@ -301,64 +372,98 @@ export function apply(ctx,config={}) {
   if(exec.name==='bash')admissions.set(exec.token,{signature:commandSignature(exec.arguments,d.cmd),decision:d.cmd});
   if(d.level!=='L3')return next();
   const {s,bot,policy,names}=context(exec),args=exec.arguments;
-  const p={path:d.path,version:s.version,agent:exec.agent,callId:exec.callId,approved:false,management:d.management,args:JSON.stringify(args)};pending.set(exec.token,p);
+  const p={path:d.path,version:s.version,agent:exec.agent,callId:exec.callId,approved:false,
+   management:d.management,args:JSON.stringify(args),risk:JSON.stringify(d.risk)};
+  pending.set(exec.token,p);
+  const approvalReason=data=>{
+   p.reason=JSON.stringify(data);
+   return 'HUBAPPROVAL1 '+p.reason;
+  };
   if(!heartbeatOnline(heartbeatFile)){p.failureReason=OFFLINE;s.locked=true;try{appendApproval(policy,bot,exec.name,d.path,'unavailable');}catch{}return deny(OFFLINE);}
   if(d.management){
-   const m=d.management,data={v:1,bot,sessionId:exec.agent.id,level:'L3',action:m.action,tool:exec.name,path:m.path,chars:0,preview:m.preview,target:m.target,before:m.before,after:m.after,why:m.why};
-   p.reason=JSON.stringify(data);return {kind:'ask',reason:'HUBAPPROVAL1 '+p.reason,displayReason:{zh:names[bot]+'想'+m.action+'：'+(m.after.name??m.target)}};
+   const m=d.management,data={v:1,bot,sessionId:exec.agent.id,level:'L3',action:m.action,tool:exec.name,path:m.path,chars:0,preview:m.preview,target:m.target,before:m.before,after:m.after,why:m.why,...d.risk};
+   return {kind:'ask',reason:approvalReason(data),displayReason:{zh:wish(exec,names,bot)+m.action+'：'+(m.after.name??m.target)}};
   }
   if(exec.name==='bash'){
-   const c=d.cmd,data={v:1,bot,sessionId:exec.agent.id,level:'L3',action:d.modeHold||'跑命令',tool:'bash',path:c.workdir,chars:args.command.length,preview:args.command.slice(0,200),command:args.command,cwd:c.workdir,why:typeof args.description==='string'?args.description.slice(0,200):'',timeoutMs:c.timeoutMs,caps:c.caps,grantable:!!c.grantKey&&!c.caps?.longRunning,...c.grantKey&&!c.caps?.longRunning?{grantKey:c.grantKey}:{}};
-   return {kind:'ask',reason:'HUBAPPROVAL1 '+JSON.stringify(data),displayReason:{zh:`${names[bot]}想跑命令：${args.command.slice(0,60)}`}};
+   const c=d.cmd,grantable=!d.risk&&!!c.grantKey&&!c.caps?.longRunning;
+   const data={v:1,bot,sessionId:exec.agent.id,level:'L3',action:d.modeHold||'跑命令',tool:'bash',path:c.workdir,chars:args.command.length,preview:args.command.slice(0,200),command:args.command,cwd:c.workdir,why:typeof args.description==='string'?args.description.slice(0,200):'',timeoutMs:c.timeoutMs,caps:c.caps,grantable,...grantable?{grantKey:c.grantKey}:{},...d.risk};
+   return {kind:'ask',reason:approvalReason(data),displayReason:{zh:`${wish(exec,names,bot)}跑命令：${args.command.slice(0,60)}`}};
   }
   if(d.area==='plugin'){
    const card=pluginCard(exec,args),data={v:1,
     bot,sessionId:exec.agent.id,level:'L3',action:card.action,tool:exec.name,
     path:d.path,chars:card.preview.length,preview:card.preview,
-    why:card.why};
-   return {kind:'ask',reason:'HUBAPPROVAL1 '+JSON.stringify(data),
-    displayReason:{zh:`${names[bot]}想${card.action}：${card.preview.slice(0,60)}`}};
+    why:card.why,...d.risk};
+   return {kind:'ask',reason:approvalReason(data),
+    displayReason:{zh:`${wish(exec,names,bot)}${card.action}：${card.preview.slice(0,60)}`}};
   }
   const action=d.modeHold||(['write','edit'].includes(exec.name)?'写共享区':exec.name==='ticket_move'?'移动别人建的工单':'修改别人建的工单');
   const text=exec.name==='edit'?(args.new_string??args.newString??''):args.content??args.append??'';
-  const data={v:1,bot,sessionId:exec.agent.id,level:'L3',action,tool:exec.name,path:d.path,chars:String(text).length,preview:String(text).slice(0,200),...d.ticketId?{ticketId:d.ticketId}:{}};
-  if(exec.name==='edit')data.diff=('- '+String(args.old_string??args.oldString??'')+'\n+ '+String(text)).slice(0,600);
-  return {kind:'ask',reason:'HUBAPPROVAL1 '+JSON.stringify(data),displayReason:{zh:`${names[bot]}想${action}，共 ${data.chars} 字，路径 ${d.path}`}};
+  const data={v:1,bot,sessionId:exec.agent.id,level:'L3',action,tool:exec.name,path:d.path,
+   chars:String(text).length,preview:d.risk?'':String(text).slice(0,200),...d.ticketId?{ticketId:d.ticketId}:{},...d.risk};
+  if(exec.name==='edit'&&!d.risk)data.diff=('- '+String(args.old_string??args.oldString??'')+'\n+ '+String(text)).slice(0,600);
+  return {kind:'ask',reason:approvalReason(data),displayReason:{zh:`${wish(exec,names,bot)}${action}，共 ${data.chars} 字，路径 ${d.path}`}};
  });
  ctx.on('approval/request',async(req,next)=>{
   let bot;try{bot=context({agent:req.agent}).bot;}catch{return 'rejected';}
   let data;try{data=JSON.parse(req.reason?.startsWith('HUBAPPROVAL1 ')?req.reason.slice(13):'');}catch{return 'rejected';}
   const p=[...pending.values()].find(p=>p.agent===req.agent&&p.callId===req.callId&&p.path===data.path);
-  if(!p||data.bot!==bot||data.sessionId!==req.agent.id||data.tool!==req.toolName||p.management&&JSON.stringify(data)!==p.reason)return 'rejected';
+  if(!p||data.bot!==bot||data.sessionId!==req.agent.id||data.tool!==req.toolName||
+   (p.management||p.risk)&&JSON.stringify(data)!==p.reason)return 'rejected';
   const s=state(req.agent),outcome=await watchApproval({file:heartbeatFile,signal:req.signal,next,fail:reason=>{p.failureReason=reason;if(s.version===p.version)s.locked=true;}});
   p.approved=outcome==='allowed-once';return outcome;
  },{prepend:true});
  function guard(exec){
   const d=check(exec);if(d.level==='L4')return deny(d.reason).reason;
   if(exec.name==='bash'){
-   if(sandboxPolicy?.resolve({session:exec.agent.session})?.mode!=='workspace-write')return deny('命令沙箱没开，这次不跑').reason;
+   if(!d.cmd.creator&&sandboxPolicy?.resolve({session:exec.agent.session})?.mode!=='workspace-write')
+    return deny('命令沙箱没开，这次不跑').reason;
    if(admissions.get(exec.token)?.signature!==commandSignature(exec.arguments,d.cmd))return deny('审批后命令或目录已变化').reason;
   }
   if(d.level==='L3'){
    const p=pending.get(exec.token),{s}=context(exec);if(p?.path!==d.path)return deny(exec.name==='bash'?'审批后命令或目录已变化':'审批后的路径或工单已变化').reason;
    if(!p.approved)return deny('未取得本次明确批准').reason;
+   if(p.risk!==JSON.stringify(d.risk)||d.risk&&(p.args!==JSON.stringify(exec.arguments)||
+    p.version!==s.version))return deny('审批后的对象、参数或请求已变化，需要重新确认').reason;
    if(!heartbeatOnline(heartbeatFile)){p.failureReason=OFFLINE;if(s.version===p.version)s.locked=true;return deny(OFFLINE).reason;}
   }
  }
  ctx.tools.guard(guard);
+ function callContext(exec,d){
+  const {bot,row,s}=context(exec);
+  return Object.freeze({bot,role:row.role,tool:exec.name,sessionId:exec.agent.id,turn:s.turn,level:d.level,
+   approved:pending.get(exec.token)?.approved===true,
+   ownerTurn:ownerTurn(s),
+   creatorMode:creator(),
+   readExternal:exposed(bot)||s.untrusted===true||s.internal||s.readOutside});
+ }
+ async function withSourceLease(exec,d,target,summary,next){
+  if(!selfEdit)throw Error('改自己还没开通，需要 主人 在配置里开');
+  const context=callContext(exec,d);
+  const call=d.ownerRisk&&context.approved ? {...context,ownerTurn:true} : context;
+  if(!call.ownerTurn)throw Error('需要主人在对话里交代这次改动');
+  const prepared=await selfEdit('prepare',{path:target,summary},call,exec.signal);
+  const {change,lease}=prepared;
+  try {return await next();}
+  finally {
+   try {await selfEdit('release',{id:change.id,leaseId:lease.id},call);}
+   catch {ctx.logger.warn?.('改自己：原生工具的写入租约未释放，等待租约过期');}
+  }
+ }
  ctx.on('tools/execute',async(exec,next)=>{
   const denied=guard(exec);if(denied)throw Error(denied);
   const d=check(exec);if(d.level==='L4')throw Error(deny(d.reason).reason);
   const {bot,policy}=context(exec);
   if(exec.name==='bash'){
    const c=d.cmd,approved=pending.get(exec.token)?.approved===true||!!c.grantId;
-   const openRead=readPermissionMode(path.join(install.hubHome,'config','permission-mode.json')).mode==='open'
-    &&d.level==='L1';
+   const openRead=mode()==='open'&&d.level==='L1';
    const call={bot,home:install.home,hubHome:install.hubHome,own:c.roots.own,readable:c.roots.readable,
     denyRead:c.denyPaths.filter(p=>!['/etc','/private/etc','/System'].includes(p)),
-    network:c.caps.network&&(approved||openRead),extraWrite:[...(approved?c.caps.writeRoots:[]),...policy.group_access.write],
+    network:c.caps.network&&(approved||openRead)||Boolean(c.creator&&approved&&d.risk?.network),
+    extraWrite:[...(approved?c.caps.writeRoots:[]),...policy.group_access.write],
     tmpdir:secureOwnDir(c.roots.own,'.tmp'),workdir:c.workdir,timeoutMs:c.timeoutMs,selfAddrs:selfAddrs(),
-    protectedNames,confined:false};
+    protectedNames,confined:false,creator:c.creator,bounds:c.bounds,sourceMutation:c.sourceMutation,
+    risk:approved?d.risk:null,sensitiveWrites:c.sensitiveWrites};
    // 漏了内核必填的说明字段：用命令第一个词补上并留痕，不再让参数错误把沙箱判坏。
    const a=exec.arguments;
    let filled=false;
@@ -369,20 +474,27 @@ export function apply(ctx,config={}) {
     if(!Reflect.set(a,'description',word)||a.description!==word)throw Error(MISSING_DESCRIPTION);
     appendAction(policy,bot,'bash',c.workdir+' 补说明字段 description='+word,'L1-fill');
    }
-   let failure;
-   try{return await calls.run(call,next);}
-   catch(e){
-    failure=e;
-    if(!call.confined&&argumentError(e,filled)){
-     throw Error(MISSING_DESCRIPTION+'（内核原话：'+String(e?.message??e).slice(0,120)+'）');
+   const run=async()=>{
+    let failure;
+    try{return await calls.run(call,next);}
+    catch(e){
+     failure=e;
+     if(!call.confined&&argumentError(e,filled)){
+      throw Error(MISSING_DESCRIPTION+'（内核原话：'+String(e?.message??e).slice(0,120)+'）');
+     }
+     throw e;
     }
-    throw e;
-   }
-   finally{
-    // 只有本次确实缺说明字段、且内核报的是参数校验错误（错误对象的 code，或以参数错误开头的原话）
-    // 才不算沙箱坏；命令自己的输出里带这几个字不算。
-    if(!call.confined&&!(failure&&argumentError(failure,filled))){
-     sandboxBroken=true;ctx.logger.error('hub-plugin 命令没经过沙箱');}}
+    finally{
+     // 缺说明字段导致的参数错误还未进入执行，和实际沙箱断开分开处理。
+     if(!call.confined&&!(failure&&argumentError(failure,filled))){
+      sandboxBroken=true;ctx.logger.error('hub-plugin 命令没经过沙箱');}
+    }
+   };
+   return c.sourceMutation ? withSourceLease(exec,d,c.bounds.source,'在源码目录运行命令',run) : run();
+  }
+  if(creator()&&ownerTurn(context(exec).s)&&['write','edit'].includes(exec.name)&&d.path){
+   const run=()=>withSharedGrant(exec.agent.session,path.dirname(d.path),next);
+   return d.area==='self_source' ? withSourceLease(exec,d,d.path,'修改 '+path.basename(d.path),run) : run();
   }
   // 组员写自己那一格（L1，留痕不出卡）：内核文件沙箱只为这一次调用加这一个写根。
   if(d.area==='group_own'&&['write','edit'].includes(exec.name)){
@@ -429,9 +541,13 @@ export function apply(ctx,config={}) {
   if(!result.isError&&decision.kind==='accept'){
    const content=decision.content??result.content??[];
    const text=content.filter(item=>item.type==='text').map(item=>item.text).join('\n');
-   if(policy?.cmd_taint_tools.includes(exec.name))mark(st,'使用外部来源工具',exec.name,exec.agent.id);
-   if(text.includes('【外部来源】')||text.includes('读过外部内容】'))
+   if(policy?.cmd_taint_tools.includes(exec.name)){
+    st.foreignMaterial=true;mark(st,'使用外部来源工具',exec.name,exec.agent.id);
+   }
+   if(text.includes('【外部来源】')||text.includes('读过外部内容】')){
+    st.foreignMaterial=true;
     mark(st,'工具结果带外部来源记号',exec.name,exec.agent.id);
+   }
    const cmd=exec.name==='bash'?admissions.get(exec.token)?.decision:null;
    // 跑过的命令找不到准入记录（认不出读了什么）：从严按接触过外部内容算。
    if(exec.name==='bash'&&!cmd)mark(st,'认不出命令读了什么','bash',exec.agent.id);
@@ -440,9 +556,12 @@ export function apply(ctx,config={}) {
     const reads=cmd?(cmd.readPaths.length?cmd.readPaths:[cmd.workdir]):[d.path];
     for(const target of reads){
      const literalNull=target==='/dev/null'&&(cmd?!cmd.nonLiteralNullRead:exec.arguments?.file_path==='/dev/null');
-     const outside=!literalNull&&!within(target,path.join(install.hubHome,'bots',bot))&&
+     const ownedSource=d.area==='self_source'||cmd?.bounds?.source&&within(target,cmd.bounds.source);
+     const outside=!literalNull&&!ownedSource&&!within(target,path.join(install.hubHome,'bots',bot))&&
       !['shared','tickets','group-work'].some(p=>within(target,path.join(install.hubHome,p)));
-     if(externalPath(target,bot,rows)||outside)mark(st,'读了 '+target,target,exec.agent.id);
+     if(externalPath(target,bot,rows)||outside){
+      st.foreignMaterial=true;mark(st,'读了 '+target,target,exec.agent.id);
+     }
     }
    }
    if(exposed(bot)||st.untrusted===true){
@@ -493,7 +612,11 @@ export function apply(ctx,config={}) {
  register('list_files','列一个获准目录，最多200项',{path:str},['path'],async(args,exec,d)=>{
   const st=fs.statSync(d.path);if(!st.isDirectory())throw Error('只能列目录');
   // 不展开子目录；对每个名称也执行read判定，避免泄露禁用条目与外部链接。
-  const {cwd,bot,policy}=context(exec);return JSON.stringify(fs.readdirSync(d.path).filter(n=>evaluate(policy,bot,'read',{file_path:d.path+'/'+n},cwd).level==='L0').sort().slice(0,200));
+  const {cwd,bot,policy}=context(exec),bounds=creator()?creatorPaths(install):null;
+  return JSON.stringify(fs.readdirSync(d.path).filter(n=>{
+   const rd=evaluate(policy,bot,'read',{file_path:d.path+'/'+n},cwd);
+   return (bounds?creatorFileDecision(rd,bounds,'read'):rd).level==='L0';
+  }).sort().slice(0,200));
  });
  register('ticket_create','新建自己的备注工单',{title:str,body:str,assignee:str},['title','body'],async(args,exec)=>{
   const {bot,policy,s}=context(exec);
@@ -504,9 +627,12 @@ export function apply(ctx,config={}) {
  register('ticket_update','追加工单进度或更新备注状态',{id:str,append:str,status:str},['id'],async(args,exec,d)=>{
   const {bot,policy,s}=context(exec);
   const marked=(exposed(bot)||s.untrusted===true)&&args.append!==undefined;
-  return '已更新 '+updateTicket(policy,bot,marked?{...args,append:markText(args.append)}:args,d.level==='L3');
+  return '已更新 '+updateTicket(policy,bot,marked?{...args,append:markText(args.append)}:args,d.level==='L3'||creator());
  });
- register('ticket_move','移动备注工单到指定栏',{id:str,to:str},['id','to'],async(args,exec,d)=>{const {bot,policy}=context(exec);const p=moveTicket(policy,bot,args,d.level==='L3');completedPaths.set(exec.token,p);return '已移动 '+p;});
+ register('ticket_move','移动备注工单到指定栏',{id:str,to:str},['id','to'],async(args,exec,d)=>{
+  const {bot,policy}=context(exec);
+  const p=moveTicket(policy,bot,args,d.level==='L3'||creator());completedPaths.set(exec.token,p);return '已移动 '+p;
+ });
  register('bot_status','查看助理忙闲、待批与排队数量',{},[],async(_args,exec)=>JSON.stringify(botStatus(context(exec).policy)));
  register('bot_list','列出启用助理的id、当前名字和职责',{},[],async(_args,exec)=>JSON.stringify(context(exec).rows.filter(b=>b.status==='active').map(({id,name,duty})=>({id,name,duty}))));
  // 形象可选值写进 schema（来自 config/avatar-kinds.json），模型不用猜。
@@ -518,17 +644,20 @@ export function apply(ctx,config={}) {
  if(registeredRole==='chief'){
   register('bot_create','新建普通助理，先请 Owner 确认；权限由系统统一决定',{name:{type:'string',minLength:1,maxLength:8},duty:{type:'string',minLength:1,maxLength:60},notDuty:{type:'string',maxLength:120},avatar,phrases},['name','duty','notDuty','avatar','phrases'],manage);
   register('bot_set_status','停用或恢复一位助理，没有删除；先请 Owner 确认',{target:str,status:{type:'string',enum:['active','disabled']}},['target','status'],manage);
-  register('delegate_to_bot','按id或当前名字派给启用的普通助理；每轮最多3个',{bot:str,task:str},['bot','task'],async(args,exec)=>{
+  register('delegate_to_bot','整件交给启用的普通助理前先问主人；owner_ok 为 true 才派。每轮最多3个。不要自动转单。',{bot:str,task:str,owner_ok:{type:'boolean'}},['bot','task'],async(args,exec)=>{
    const {s,bot,policy,rows}=context(exec),target=resolveBot(rows,args.bot);
-   if(s.turn===null)throw Error('无法核实当前轮次，不能派活');if(s.count>=3)throw Error('本轮已派3个，不能再派');s.count++;
+   if(s.turn===null)throw Error('无法核实当前轮次，不能派活');
+   if(args.owner_ok!==true)throw Error(handoffRefusal(target?.name||'同事'));
+   if(s.count>=3)throw Error('本轮已派3个，不能再派');s.count++;
    // 兼容入口：权限表启用了 bots 模块就改走看板（send_to_bot 同一条路）；上面的首席与目标判定、每轮 3 个照旧。
+   // 这里已经核对过主人点头，转发给 send_to_bot 时带上 owner_ok。
    const forward=pluginSpecs.get('send_to_bot');
    if(forward&&pluginTools.has('send_to_bot')){
     completedPaths.set(exec.token,path.join(boardCfg.dir,'tickets'));
     const {row}=context(exec),call=Object.freeze({bot,role:row.role,tool:'send_to_bot',
     sessionId:exec.agent.id,turn:s.turn,level:'L1',approved:false,
     readExternal:exposed(bot)||s.untrusted===true||s.internal||s.readOutside});
-    return pluginCalls.run(call,()=>forward.execute({to:target.id,message:args.task},exec,call));}
+    return pluginCalls.run(call,()=>forward.execute({to:target.id,message:args.task,owner_ok:true},exec,call));}
    const t=createTicket(policy,bot,{title:args.task.slice(0,120),body:args.task,assignee:target.id,sessionId:exec.agent.id},true);completedPaths.set(exec.token,t.path);return '已派给 '+target.name+'，工单 '+t.id+'，前面还有 '+t.queued+' 个';
   });
  }
@@ -555,6 +684,7 @@ export function apply(ctx,config={}) {
       };
      },
      markExternalRead(){
+      s.foreignMaterial=true;
       mark(s,'插件工具读取外部内容','plugin',sessionId);
      },
      // 读到别的助理写的内容（组消息、工单正文与回报）：内部来源。
@@ -563,7 +693,8 @@ export function apply(ctx,config={}) {
    async askApproval(card){
     // 内核的审批在执行前出卡；这里只核对本次调用确已批准，没有就拒，不另开通道。
     const call=pluginCalls.getStore();
-    if(call?.level==='L3'&&call.approved===true)return {approved:true,card};
+    if(call?.level==='L3'&&call.approved===true||call?.tool==='rule_propose_shared'&&creator())
+     return {approved:true,card};
     throw Error('这件事要先请 主人 批准：工具级别须为 L3，批准后才执行');
    },
    log(action){
@@ -647,10 +778,7 @@ export function apply(ctx,config={}) {
       const approved=normalized(JSON.parse(pending.get(exec.token).args));
       if(approved!==normalized(exec.arguments)||approved!==normalized(args))throw Error('审批后参数已变化，请重新批准');
      }
-     const {bot,row,s}=context(exec);
-     const call=Object.freeze({bot,role:row.role,tool:name,sessionId:exec.agent.id,
-      turn:s.turn,level:d.level,approved:pending.get(exec.token)?.approved===true,
-      readExternal:exposed(bot)||s.untrusted===true||s.internal||s.readOutside});
+     const call=callContext(exec,d);
      const out=await pluginCalls.run(call,()=>spec.execute(args,exec,call));
      // 工具结果默认按资料包起来（工单正文、别的助理的回报、组消息都算）；模块明说 material:false 才不包。
      return entry.material&&typeof out==='string'?wrapMaterial([{type:'text',text:out}],

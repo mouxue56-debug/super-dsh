@@ -151,7 +151,7 @@ export function boardConfig(install) {
   Object.defineProperty(config, 'externals', {value: Object.freeze(externalNames(raw))});
   // 外部身份交回的卡由主人点完成（board.external_accept: assistant 才恢复助理可直接验收）。
   Object.defineProperty(config, 'ownerAcceptExternal', {value: raw.external_accept !== 'assistant'});
-  // 首席安排的配置段（external_approval 默认 true：派给外部身份要主人先点头）。
+  // 首席安排的其他配置保留。派给外部身份的主人确认固定生效，旧 external_approval 不再绕过。
   Object.defineProperty(config, 'arrange', {value: Object.freeze(raw.arrange && typeof raw.arrange === 'object' &&
     !Array.isArray(raw.arrange) ? {...raw.arrange} : {})});
   return Object.freeze(config);
@@ -248,7 +248,7 @@ export function chatOnlyReader(file, logger) {
 }
 
 // 建插件这一侧的看板：与 BFF 同一个目录，靠看板自己的文件锁并发；事件追加到 plugin-events.jsonl 给 BFF 读。
-export function createPluginBoard(cfg, logger) {
+export function createPluginBoard(cfg, logger, isChief = () => false) {
   const onEvent = ev => {
     try {
       fs.mkdirSync(cfg.dir, {recursive: true, mode: 0o700});
@@ -264,7 +264,7 @@ export function createPluginBoard(cfg, logger) {
       logger?.warn?.('hub-plugin 看板事件没记上：' + e.message);
     }
   };
-  return createBoard({root: cfg.dir, maxHop: cfg.maxHop, onEvent,
+  return createBoard({root: cfg.dir, maxHop: cfg.maxHop, onEvent, isChief,
     ownerAcceptExternal: cfg.ownerAcceptExternal !== false});
 }
 

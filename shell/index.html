@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-Hans"><head><!-- Icons: Phosphor Icons, MIT License, Copyright (c) 2023 Phosphor Icons --><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="DSH"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" media="(prefers-color-scheme: light)" content="#D5EEDD"><meta name="theme-color" media="(prefers-color-scheme: dark)" content="#173A3E"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; manifest-src 'self'; font-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"><title>超级 DSH · 你的助理们</title><link rel="icon" href="assets/icons/favicon-64.png">
+<html lang="zh-Hans"><head><!-- Icons: Phosphor Icons, MIT License, Copyright (c) 2023 Phosphor Icons --><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="SDS"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" media="(prefers-color-scheme: light)" content="#D5EEDD"><meta name="theme-color" media="(prefers-color-scheme: dark)" content="#173A3E"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; manifest-src 'self'; font-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"><title>SDS · 你的助理们</title><link rel="icon" href="assets/icons/favicon-64.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon-180.png">
 <link rel="stylesheet" href="css/tokens.css">
@@ -28,7 +28,11 @@
 <link rel="stylesheet" href="css/r32-relay.css">
 <link rel="stylesheet" href="css/r35-claim.css">
 <link rel="stylesheet" href="css/r38-trigger.css">
+<link rel="stylesheet" href="css/r45-speak.css">
+<link rel="stylesheet" href="css/r43-selfedit.css">
 <link rel="stylesheet" href="css/r29-polish.css">
+<link rel="stylesheet" href="css/r43-thread.css">
+<link rel="stylesheet" href="css/r43-delete.css">
 </head><body>
 <div id="app"></div><div id="toast" aria-live="polite"></div>
 <input id="fileinput" type="file" multiple accept="image/*,.pdf,.txt,.md,.docx,.xlsx" hidden>
@@ -57,12 +61,16 @@
 <script defer src="js/views/stage.js" onerror="window.Hub?Hub.warn('js/views/stage.js','文件未加载'):console.warn('[Hub] 文件未加载：js/views/stage.js')"></script>
 <script defer src="js/stewards.js"></script>
 <script defer src="js/r29-voice.js"></script>
+<script defer src="js/r45-speak.js"></script>
 <script defer src="js/r29-welcome.js"></script>
 <script defer src="js/r30-ledger-today.js"></script>
 <script defer src="js/r31-nav.js"></script>
 <script defer src="js/r32-relay.js"></script>
 <script defer src="js/r35-claim.js"></script>
 <script defer src="js/r38-trigger.js"></script>
+<script defer src="js/r43-thread.js"></script>
+<script defer src="js/r43-delete.js"></script>
+<script defer src="js/r43-selfedit.js"></script>
 <script defer src="modules/manifest.js" onerror="window.Hub?Hub.warn('modules/manifest.js','文件未加载'):console.warn('[Hub] 文件未加载：modules/manifest.js')"></script>
 <!-- MODULE_BOOT: build.py replaces this with isolated inline module bodies. -->
 <script>

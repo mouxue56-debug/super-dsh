@@ -1,6 +1,10 @@
+function r43MessagesHTML(){
+  var rows=Hub.currentMessages();
+  return window.R43Thread?R43Thread.renderHTML(rows,msgHTML):rows.map(msgHTML).join('');
+}
 function msgHTML(m,i){return Hub.messageHTML(m,i);}
 function chatToolHTML(){return Hub.currentTask()?'</div></div><div class="chat-tail" aria-label="消息区辅助位"></div>':'<details class="r22-tool-call"><summary>'+ico('file')+'<span>查了知识库</span><small>2 条引用</small>'+ico('chevron')+demoText("views.chat.sample.4");}
-function chatView(){var r29GroupHtml='<section class="chatview" data-conversation="'+esc(state.conversation)+'"><div class="thread"><div class="thread-inner"><p class="time-stamp" data-demo-content="date">今天，11 月 13 日 <span>·</span> '+projBy(state.project).name+(state.bot===demoText("views.chat.sample.2")?demoText("views.chat.sample.3"):'')+'</p>'+r29EmptyTalk()+Hub.currentMessages().map(msgHTML).join('')+(state.running?'<article class="surface" data-reply-wait><div class="row">'+(state.bot==='chief'?avatar('chief'):'')+'<span class="wave" style="color:var(--sage)"><i></i><i></i><i></i><i></i></span><span class="grow muted">正在输入 · '+state.model+'</span><button class="textbutton" data-act="stop">停止</button></div></article>':'')+chatToolHTML()+composer()+'</section>';return typeof r29GroupThread==='function'?r29GroupThread(r29GroupHtml):r29GroupHtml;}
+function chatView(){var r29GroupHtml='<section class="chatview" data-conversation="'+esc(state.conversation)+'"><div class="thread"><div class="thread-inner"><p class="time-stamp" data-demo-content="date">今天，11 月 13 日 <span>·</span> '+projBy(state.project).name+(state.bot===demoText("views.chat.sample.2")?demoText("views.chat.sample.3"):'')+'</p>'+r29EmptyTalk()+r43MessagesHTML()+(state.running?'<article class="surface" data-reply-wait><div class="row">'+(state.bot==='chief'?avatar('chief'):'')+'<span class="wave" style="color:var(--sage)"><i></i><i></i><i></i><i></i></span><span class="grow muted">正在输入 · '+state.model+'</span><button class="textbutton" data-act="stop">停止</button></div></article>':'')+chatToolHTML()+composer()+'</section>';return typeof r29GroupThread==='function'?r29GroupThread(r29GroupHtml):r29GroupHtml;}
 
 var r29OpeningFallback='把现在最想办成的一件事说给我';
 var r29OpeningDefaults={

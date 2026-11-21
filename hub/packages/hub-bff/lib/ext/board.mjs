@@ -4,6 +4,7 @@ import { ID_PATTERN } from '../ticket.mjs';
 import { listTokenNames } from '../board-tokens.mjs';
 import { OWNER_NAME } from '../relay-model.mjs';
 import { externalNames } from '../handoff.mjs';
+import { arrangementRecheck, arrangementVersion } from '../arrange-model.mjs';
 
 const OWNER = Object.freeze({ name: 'owner', type: 'owner' });
 const MAX_BODY = 16384;
@@ -66,7 +67,9 @@ async function resolveRoute(deps, body) {
   for (const item of raw) {
     if (!item || typeof item !== 'object') throw new BoardError('INVALID', 'Invalid request');
     const who = await resolveWho(deps, item.who, cache);
-    out.push({ who, task: item.task, doneWhen: item.doneWhen ?? item.done_when, gate: item.gate === true });
+    const step = { who, task: item.task, doneWhen: item.doneWhen ?? item.done_when, gate: item.gate === true };
+    if (item.aside === true) step.aside = true;
+    out.push(step);
   }
   return out;
 }
@@ -106,6 +109,34 @@ async function resolveDoer(deps, raw) {
 
 // 看板扩展：外部令牌鉴权；可信适配层（主人）可读全部，并能挪列、换负责人、改标题说明、新建（POST /board/tickets/new）、删掉（软删除，搬进 archive/）。
 export function createHandler(deps) {
+  const pendingRechecks = new Map();
+  async function decide(request, id, decision, names) {
+    const current = await deps.board.get(id);
+    if (current.arrange?.state !== 'proposed' || current.state !== 'waiting-human') {
+      throw new BoardError('CONFLICT', 'Nothing to decide');
+    }
+    const risk = arrangementRecheck(current, decision);
+    if (!risk) return {ticket: await deps.board.arrangeDecide(OWNER, id, decision, {names})};
+    if (deps.isOwnerDevice?.(request) !== true) throw new BoardError('FORBIDDEN', '请从主人设备确认');
+    if (typeof deps.cards?.open !== 'function') throw new BoardError('CONFLICT', '确认卡暂未接通，请稍后再试');
+    const expectedVersion = arrangementVersion(current);
+    const key = JSON.stringify([id, decision, expectedVersion]);
+    if (!pendingRechecks.has(key)) {
+      const opened = deps.cards.open({title: '再确认一次这项安排',
+        text: '你已同意首席的建议。请核对下面的具体对象和数量，再决定是否开始。',
+        kind: 'board-arrange', sessionId: current.sessions?.from ?? '', confirmationTotal: 1,
+        ...risk, choices: [{id: 'yes', label: '核对过，开始'}, {id: 'no', label: '先不做'}]});
+      pendingRechecks.set(key, opened);
+      void opened.then(({result}) => result).then(async answer => {
+        if (answer.status !== 'answered' || answer.choice !== 'yes' || !answer.device) return;
+        await deps.board.arrangeDecide(OWNER, id, decision, {names, expectedVersion});
+      }).catch(() => deps.notify?.({source: 'board', kind: 'arrange-changed', ticket: id,
+        text: '这张卡在确认期间有变化，请重新查看首席建议。'}))
+        .finally(() => pendingRechecks.delete(key));
+    }
+    const {card} = await pendingRechecks.get(key);
+    return {ticket: {...current, awaitingConfirmation: true}, awaitingConfirmation: true, card};
+  }
   // 外部令牌：只读令牌只看与自己有关的单（readAll 关）；令牌名不许与名册助理同名。
   const reservedNames = () => ['owner', ...(deps.roster?.list?.() ?? []).flatMap(b => [b.id, b.name])];
   const bearer = deps.board && createBoardHandler({ board: deps.board, configDir: deps.configDir, readAll: false,
@@ -128,6 +159,9 @@ export function createHandler(deps) {
         .exec(url.pathname);
       if (request.method === 'POST' && (url.pathname === '/board/tickets/new' || post)) {
         const body = await readJson(request);
+        if (deps.enforceOwnerProof && deps.isOwnerDevice?.(request)!==true) {
+          throw new BoardError('FORBIDDEN', '请从主人设备操作看板');
+        }
         if (!post && body.relay !== undefined) {
           // 新建一条接力（路线里每一棒谁接、做什么、交棒标准、要不要主人看一眼）。
           const title = typeof body.title === 'string' ? body.title.trim() : '';
@@ -208,10 +242,14 @@ export function createHandler(deps) {
           const names = Object.fromEntries((deps.roster?.list?.() ?? []).map(b => [b.id, b.name ?? b.id]));
           if (action === 'ask') ticket = await deps.board.arrangeAsk(OWNER, id, 'button');
           else if (action === 'ok' || action === 'skip') {
-            ticket = await deps.board.arrangeDecide(OWNER, id, { action }, { names });
+            const result = await decide(request, id, {action}, names);
+            send(response, result.awaitingConfirmation ? 202 : 200, result);
+            return true;
           } else if (action === 'swap') {
             const who = await resolveDoer(deps, body.who);
-            ticket = await deps.board.arrangeDecide(OWNER, id, { action, who }, { names });
+            const result = await decide(request, id, {action, who}, names);
+            send(response, result.awaitingConfirmation ? 202 : 200, result);
+            return true;
           } else throw new BoardError('INVALID', 'Invalid request');
           send(response, 200, { ticket });
           return true;

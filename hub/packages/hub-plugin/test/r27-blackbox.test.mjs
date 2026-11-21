@@ -54,7 +54,11 @@ function setup(h, bot = 'writer', extra = []) {
   const exec = (name, args = {}) => ({agent, name, arguments: args, token: Symbol(), callId: Symbol(),
     signal: new AbortController().signal});
   const pre = event => events['tools/pre-execute'](event, async () => ({kind: 'allow'}));
-  const run = (name, args) => tools[name].execute(args, exec(name, args));
+  const run = (name, args) => {
+    const handed = (name === 'send_to_bot' || name === 'delegate_to_bot') && args.owner_ok === undefined
+      ? {...args, owner_ok: true} : args;
+    return tools[name].execute(handed, exec(name, handed));
+  };
   // 收口：send_to_bot 有每轮上限（M-1），空转用例每句换一轮；enter(n) 进第 n 轮。
   const enter = (turn = 1) => events['agent/pre-step']({agent, turn}, async () => ({kind: 'enter'}));
   return {tools, events, agent, exec, pre, run, enter};

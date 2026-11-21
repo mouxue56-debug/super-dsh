@@ -169,6 +169,10 @@ small.r32-home-line { color: var(--bot-strong, var(--ink)); font-weight: 700; }
 }
 
 /* 外部身份的小标；换人下拉 */
+.r32-aside { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px; font-size: 10px; font-style: normal; font-weight: 700;
+  line-height: 1.5; color: var(--ink); background: color-mix(in srgb, var(--r32-glow) 55%, transparent); vertical-align: middle; }
+.r32-clones { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px; font-size: 10px; font-style: normal; font-weight: 700;
+  line-height: 1.5; color: var(--ink); background: color-mix(in srgb, var(--r32-done) 28%, transparent); vertical-align: middle; }
 .r32-ext { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px; font-size: 10px; font-style: normal; font-weight: 700;
   line-height: 1.5; color: var(--ink-2); background: color-mix(in srgb, var(--ink-2) 14%, transparent); vertical-align: middle; }
 .r32-pick .r30-who { position: relative; }

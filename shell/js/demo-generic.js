@@ -6086,3 +6086,71 @@ var DEMO_TEXT={
 
 // 中性示例仅用原创图形，任何媒体绑定均为空。
 BOT_SRC.forEach(function(b,i){b.avatarSrc="";b.faces={};b.avatar={kind:"shape",shapeId:ASSISTANT_SHAPES[i%ASSISTANT_SHAPES.length].id,color:b.color};b.avatarExplicit=true;var _pk={chief:"dsh",research:"grok",art:"gpt",pm:"claude",content:"qwen",writer:"gemini"}[b.id];if(_pk){b.avatar={kind:"pack",id:_pk};b.avatarExplicit=false;}});
+
+// 演示包含五个聊天话题；系统安排含派工，以及另开会话、分身记录、文件回写来源。两个话题隔天接着聊。
+var R43_DEMO_SEGMENTS = [{
+  bot: 'chief', session: 'demo-chief-earlier', title: '上次聊的安排',
+  startedAt: '2026-11-10T08:00:00Z',
+  items: [
+    {id: 'r43-demo-user', role: 'user', text: '先把这周要做的事情列出来。'},
+    {id: 'r43-demo-answer', role: 'bot', text: '先核对资料，再整理草稿，最后请你看一眼。'}
+  ]
+}, {
+  bot: 'chief', session: 'demo-chief-trip', title: '周末出游',
+  startedAt: '2026-11-10T09:00:00Z',
+  items: [
+    {id: 'r43-trip-user', role: 'user', text: '周末出游安排到公园走走。'},
+    {id: 'r43-trip-answer', role: 'bot', text: '早上出门，下午留给休息，行程排松一点。'}
+  ]
+}, {
+  bot: 'chief', session: 'demo-chief-budget', title: '本月预算',
+  startedAt: '2026-11-11T08:00:00Z',
+  items: [
+    {id: 'r43-budget-user', role: 'user', text: '本月预算先整理固定支出。'},
+    {id: 'r43-budget-answer', role: 'bot', text: '先列房租、水电和订阅，再看余下的预算。'}
+  ]
+}, {
+  bot: 'chief', session: 'demo-chief-meal', title: '晚餐清单',
+  startedAt: '2026-11-11T09:00:00Z',
+  items: [
+    {id: 'r43-meal-user', role: 'user', text: '晚餐清单里加一个简单的汤。'},
+    {id: 'r43-meal-answer', role: 'bot', text: '加番茄蛋汤，购物清单里记上番茄和鸡蛋。'}
+  ]
+}, {
+  bot: 'chief', session: 'demo-chief-earlier', title: '上次聊的安排', resumed: true,
+  startedAt: '2026-11-12T08:00:00Z',
+  items: [
+    {id: 'r43-resume-user', role: 'user', text: '继续上次聊的安排，资料我看过了。'},
+    {id: 'r43-resume-answer', role: 'bot', text: '那接下来整理草稿，保留你已经确认的内容。'}
+  ]
+}, {
+  bot: 'chief', session: 'demo-chief-board', purpose: 'board', title: '派工：整理资料',
+  startedAt: '2026-11-12T09:00:00Z', state: 'done', unread: 1,
+  items: [{id: 'r43-demo-event-answer', role: 'bot', text: '资料已经整理好，下一步等你看一眼。'}]
+}, {
+  bot: 'chief', session: 'demo-chief-trip', title: '周末出游', resumed: true,
+  startedAt: '2026-11-13T07:00:00Z',
+  items: [
+    {id: 'r43-trip-resume-user', role: 'user', text: '周末出游还是去之前说的公园吧。'},
+    {id: 'r43-trip-resume-answer', role: 'bot', text: '好，接着之前的计划，出发时间安排在早上。'}
+  ]
+}, {
+  bot: 'chief', session: 'demo-chief-aside', purpose: 'board', aside: true,
+  title: '接力：整理资料 · 第 2 棒 · 独立会话',
+  startedAt: '2026-11-13T08:10:00Z', state: 'done',
+  items: [{id: 'r43-demo-aside', role: 'bot', text: '这段另开，不和原来的聊天混在一起。'}]
+}, {
+  bot: 'chief', gap: true
+}, {
+  bot: 'chief', session: 'demo-chief-clones', purpose: 'board', clones: 3,
+  title: '分身记录：整理资料',
+  startedAt: '2026-11-13T08:30:00Z', state: 'done',
+  items: [{id: 'r43-demo-clones', role: 'bot', text: '三个分身已回来，结果记在这张卡上。'}]
+}, {
+  bot: 'chief', gap: true
+}, {
+  bot: 'chief', session: 'demo-chief-file', purpose: 'board', via: 'file',
+  title: '派工：回写进度',
+  startedAt: '2026-11-13T08:40:00Z', state: 'done',
+  items: [{id: 'r43-demo-file', role: 'bot', text: '进度是从任务板文件写回来的。'}]
+}];

@@ -1,5 +1,8 @@
 # Assistant Hub (working title)
 
+Fresh installations default to Full Access. The owner confirms spending, external sends or publishing,
+deletion, and live service changes. Routine file work, commands, tests, and builds proceed directly.
+
 > Unofficial: an independent community project, not affiliated with or endorsed by DeepSeek. The name is provisional.
 > 中文：[README.md](README.md)
 

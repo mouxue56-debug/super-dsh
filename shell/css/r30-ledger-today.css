@@ -741,6 +741,8 @@
   }
   #app .r30l-ledger .r30l-stats,
   #app .r30l-ledger .r30l-detail,
+  #app .r30l-ledger .r30l-native,
+  #app .r30l-ledger .r30l-costnote,
   #app .r30l-ledger .r30l-foot,
   #app .r30l-ledger .r30l-empty {
     grid-column: 1 / -1;
@@ -773,3 +775,27 @@
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 #app .r30l-costnote { margin: 0 4px 10px !important; }
+#app .r30l-tokenparts { margin-top: 8px !important; }
+#app .r30l-native { overflow-wrap: anywhere; }
+#app .r30l-native details { margin-top: 10px; }
+#app .r30l-native summary { cursor: pointer; }
+#app .r30l-native-rows > li { padding: 8px 0; border-bottom: 1px solid var(--sep); }
+
+/* 额度卡与数字来源说明（cost-meter / quota-watch） */
+@container (min-width: 760px) {
+  #app .r30l-ledger .r30l-quota { grid-column: 1 / -1; }
+}
+#app .r30l-quota { overflow-wrap: anywhere; }
+#app .r30l-qgroup { padding: 8px 0; border-bottom: 1px solid var(--sep); }
+#app .r30l-qgroup:last-child { border-bottom: 0; }
+#app .r30l-qrow {
+  display: grid;
+  grid-template-columns: minmax(52px, auto) minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: center;
+  margin-top: 6px;
+}
+#app .r30l-qk { color: var(--ink-2); font-size: 12px; }
+#app .r30l-qv { font-size: 13px; }
+#app .r30l-qrow .r30l-track { grid-column: 1 / -1; display: block; height: 6px; }
+#app .r30l-source { opacity: .82; }
